@@ -18,6 +18,7 @@ import NotificationCreate from '../pages/BOD/NotificationManagement/Notification
 import NotificationDetail from '../pages/BOD/NotificationManagement/NotificationDetail';
 import ReportList from '../pages/BOD/ReportManagement/ReportList';
 import ReportDetail from '../pages/BOD/ReportManagement/ReportDetail';
+import LoginManagement from '../pages/BOD/LoginManagement/LoginManagement.tsx'; // <-- Import trang mới
 
 // --- Import các trang Kế toán ---
 import AccountantFeeList from '../pages/Accountant/FeeManagement/AccountantFeeList.tsx';
@@ -41,6 +42,10 @@ import ResidentNotificationList from '../pages/Resident/Notification/ResidentNot
 import ResidentReportSend from '../pages/Resident/Report/ResidentReportSend.tsx';
 import ResidentReportList from '../pages/Resident/Report/ResidentReportList.tsx';
 
+// --- Import trang Account Chung (Mới) ---
+import AccountInfo from '../pages/Account/AccountInfo.tsx';
+import LoginHistory from '../pages/Account/LoginHistory.tsx';
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -51,7 +56,11 @@ export default function AppRoutes() {
       <Route element={<ProtectedRoutes />}>
         {/* Tất cả các route bên trong này đều phải đăng nhập mới vào được */}
         <Route path="/" element={<MainLayout />}>
-          
+
+          {/* --- ROUTES CHUNG CHO CÁC TÀI KHOẢN (Logged in) --- */}
+          <Route path="account/info" element={<AccountInfo />} />
+          <Route path="account/history" element={<LoginHistory />} />
+
           {/* BOD Routes (Ví dụ: chỉ cho phép 'bod') */}
           <Route 
             element={
@@ -65,6 +74,8 @@ export default function AppRoutes() {
             <Route path="bod/resident/list" element={<ResidentList />} />
             <Route path="bod/resident/profile/create" element={<ResidentCreate />} />
             <Route path="bod/resident/profile/:id" element={<ResidentProfile />} />
+
+            <Route path="bod/login-management" element={<LoginManagement />} />
 
             <Route path="bod/fee/list" element={<FeeList />} />
 

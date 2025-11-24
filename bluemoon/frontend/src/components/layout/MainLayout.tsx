@@ -16,6 +16,15 @@ import {
   Menu, // --- THÊM MỚI ---
   MenuItem, // --- THÊM MỚI ---
   InputBase, // --- THÊM MỚI ---
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  Stack,
+  InputAdornment,
 } from '@mui/material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useMemo } from 'react'; // --- THÊM MỚI ---
@@ -36,6 +45,13 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'; // For Profile/Account
 import VpnKeyIcon from '@mui/icons-material/VpnKey'; // For Account Info
+import LogoutIcon from '@mui/icons-material/Logout';
+import PersonIcon from '@mui/icons-material/Person';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'; // <-- Import icon mới
+//import HistoryIcon from '@mui/icons-material/History';
+//import SettingsIcon from '@mui/icons-material/Settings';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
 
 import sidebarBackground from '../../assets/bluemoon-background.jpg';
@@ -48,6 +64,7 @@ const collapsedWidth = 72; // Chiều rộng khi thu gọn
 const bodMenuItems = [
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident/list' }, // [cite: 28]
+  { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' }, 
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/bod/fee/list' }, // [cite: 45]
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/bod/notification/list' }, // [cite: 47]
   { text: 'Sự cố', icon: <ReportProblemIcon />, path: '/bod/report/list' }, // [cite: 48]
@@ -80,6 +97,12 @@ export default function MainLayout() {
   // --- THÊM MỚI --- (State cho Yêu cầu 3: Menu Avatar)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
+  const [openChangePassModal, setOpenChangePassModal] = useState(false);
+
+  // --- State quản lý hiển thị mật khẩu ---
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   // --- CẬP NHẬT: Quyết định menu nào sẽ hiển thị ---
   const menuItems = useMemo(() => {
@@ -108,10 +131,39 @@ export default function MainLayout() {
     setAnchorEl(null);
   };
 
+  const handleNavigateToAccountInfo = () => {
+    handleMenuClose();
+    navigate('/account/info'); // Chuyển sang trang Thông tin tài khoản mới
+  };
+
+  const handleOpenChangePass = () => {
+    handleMenuClose();
+    // Reset trạng thái khi mở modal
+    setShowOldPass(false);
+    setShowNewPass(false);
+    setShowConfirmPass(false);
+    setOpenChangePassModal(true);
+  };
+
+  const handleChangePassSubmit = () => {
+    // Logic đổi mật khẩu giả lập
+    alert("Đã gửi yêu cầu đổi mật khẩu thành công!");
+    setOpenChangePassModal(false);
+  };
+
   const handleLogout = () => {
     handleMenuClose();
     logout();
     navigate('/signin');
+  };
+
+  // --- Hàm xử lý ẩn/hiện mật khẩu ---
+  const handleClickShowPassword = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter((show) => !show);
+  };
+
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault(); // Ngăn focus khỏi input khi nhấn icon
   };
 
   return (
@@ -199,29 +251,74 @@ export default function MainLayout() {
 
           {/* --- THÊM MỚI --- (Yêu cầu 3: Avatar Dropdown) */}
           <Box>
-            <IconButton onClick={handleMenuOpen} sx={{ p: 0 }}>
-              <Avatar alt={user?.username || 'User'} src="/static/images/avatar/2.jpg" />
+            <IconButton onClick={handleMenuOpen} sx={{ p: 0, ml: 2 }}>
+              <Avatar alt={user?.username} src="/static/images/avatar/2.jpg" sx={{ border: '2px solid white' }} />
             </IconButton>
+            
+            {/* Dropdown Menu tùy chỉnh */}
             <Menu
               anchorEl={anchorEl}
               open={isMenuOpen}
               onClose={handleMenuClose}
-              MenuListProps={{
-                'aria-labelledby': 'basic-button',
+              onClick={handleMenuClose}
+              PaperProps={{
+                elevation: 0,
+                sx: {
+                  overflow: 'visible',
+                  filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                  mt: 1.5,
+                  minWidth: 220,
+                  '&:before': {
+                    content: '""',
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    right: 14,
+                    width: 10,
+                    height: 10,
+                    bgcolor: 'background.paper',
+                    transform: 'translateY(-50%) rotate(45deg)',
+                    zIndex: 0,
+                  },
+                },
               }}
-              // Căn chỉnh menu
-              anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
-              }}
-              transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
-              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              <MenuItem disabled>{user?.username}</MenuItem>
-              <MenuItem onClick={handleMenuClose}>Xem hồ sơ tài khoản</MenuItem>
-              <MenuItem onClick={handleLogout}>Đăng xuất</MenuItem>
+              {/* Header của Menu */}
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                  Chào mừng, {user?.username || 'Admin'}!
+                </Typography>
+                <Typography variant="body2" color="text.secondary" noWrap>
+                  Vai trò: {user?.role?.toUpperCase()}
+                </Typography>
+              </Box>
+              <Divider />
+              
+              {/* Các Item */}
+              <MenuItem onClick={handleNavigateToAccountInfo} sx={{ py: 1.5 }}>
+                <ListItemIcon>
+                  <PersonIcon fontSize="small" />
+                </ListItemIcon>
+                Thông tin tài khoản
+              </MenuItem>
+              
+              <MenuItem onClick={handleOpenChangePass} sx={{ py: 1.5 }}>
+                <ListItemIcon>
+                  <VpnKeyIcon fontSize="small" />
+                </ListItemIcon>
+                Đổi mật khẩu
+              </MenuItem>
+              
+              <Divider />
+              
+              <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                Đăng xuất
+              </MenuItem>
             </Menu>
           </Box>
 
@@ -356,6 +453,87 @@ export default function MainLayout() {
         {/* Đây là nơi AdminList.tsx sẽ được render */}
         <Outlet />
       </Box>
+
+      {/* 4. Modal Đổi Mật Khẩu (CẬP NHẬT: Thêm icon ẩn/hiện) */}
+      <Dialog open={openChangePassModal} onClose={() => setOpenChangePassModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', textAlign: 'center' }}>Đổi Mật Khẩu</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {/* Mật khẩu cũ */}
+            <TextField 
+              label="Mật khẩu cũ" 
+              type={showOldPass ? 'text' : 'password'} 
+              fullWidth 
+              variant="outlined" 
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => handleClickShowPassword(setShowOldPass)}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showOldPass ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            {/* Mật khẩu mới */}
+            <TextField 
+              label="Mật khẩu mới" 
+              type={showNewPass ? 'text' : 'password'} 
+              fullWidth 
+              variant="outlined"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => handleClickShowPassword(setShowNewPass)}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showNewPass ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+            {/* Nhập lại mật khẩu mới */}
+            <TextField 
+              label="Nhập lại mật khẩu mới" 
+              type={showConfirmPass ? 'text' : 'password'} 
+              fullWidth 
+              variant="outlined"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={() => handleClickShowPassword(setShowConfirmPass)}
+                      onMouseDown={handleMouseDownPassword}
+                      edge="end"
+                    >
+                      {showConfirmPass ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'center' }}>
+          <Button onClick={() => setOpenChangePassModal(false)} color="inherit" variant="outlined" sx={{ width: '40%' }}>
+            Hủy
+          </Button>
+          <Button onClick={handleChangePassSubmit} variant="contained" sx={{ width: '40%' }}>
+            Lưu
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   </LayoutContext.Provider>  
     

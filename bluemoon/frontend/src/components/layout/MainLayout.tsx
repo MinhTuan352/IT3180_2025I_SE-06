@@ -50,6 +50,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'; // <-- Import icon mới
+import ApartmentIcon from '@mui/icons-material/Apartment';
 //import HistoryIcon from '@mui/icons-material/History';
 //import SettingsIcon from '@mui/icons-material/Settings';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
@@ -62,6 +63,7 @@ const collapsedWidth = 72; // Chiều rộng khi thu gọn
 
 // Danh sách menu [cite: 8]
 const bodMenuItems = [
+  { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident/list' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' }, 
@@ -71,6 +73,7 @@ const bodMenuItems = [
 ];
 
 const accountantMenuItems = [
+  { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/accountance/fee/list' },
   { text: 'Thiết lập', icon: <SettingsIcon />, path: '/accountance/fee/setup' },
 ];
@@ -78,6 +81,7 @@ const accountantMenuItems = [
 // --- THÊM MỚI: Resident Menu ---
 const residentMenuItems = [
     // Redirect /resident/profile to /resident/profile/edit for simplicity
+    { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
     { text: 'Thông tin Cá nhân', icon: <AccountCircleIcon />, path: '/resident/profile/edit' },
     { text: 'Tài khoản', icon: <VpnKeyIcon />, path: '/resident/account_info' },
     { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/resident/fee/list' },

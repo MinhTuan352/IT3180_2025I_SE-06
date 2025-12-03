@@ -46,6 +46,8 @@ import ResidentReportList from '../pages/Resident/Report/ResidentReportList.tsx'
 import AccountInfo from '../pages/Account/AccountInfo.tsx';
 import LoginHistory from '../pages/Account/LoginHistory.tsx';
 
+import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -60,6 +62,7 @@ export default function AppRoutes() {
           {/* --- ROUTES CHUNG CHO CÁC TÀI KHOẢN (Logged in) --- */}
           <Route path="account/info" element={<AccountInfo />} />
           <Route path="account/history" element={<LoginHistory />} />
+          <Route path="building-info" element={<BuildingInfo />} />
 
           {/* BOD Routes (Ví dụ: chỉ cho phép 'bod') */}
           <Route 
@@ -129,11 +132,12 @@ export default function AppRoutes() {
 
              {/* Auto-redirect for /resident/profile */}
              <Route path="resident/profile" element={<ResidentProfileEdit />} />
+
           </Route>
 
           {/* ... các route cho Kế toán và Cư dân ... */}
 
-          <Route index element={<AdminList />} />
+          <Route index element={<BuildingInfo />} />
         </Route>
       </Route>
 

@@ -47,6 +47,7 @@ import AccountInfo from '../pages/Account/AccountInfo.tsx';
 import LoginHistory from '../pages/Account/LoginHistory.tsx';
 
 import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
+import AccessControl from '../pages/BOD/AccessControl/AccessControl';
 
 export default function AppRoutes() {
   return (
@@ -79,6 +80,7 @@ export default function AppRoutes() {
             <Route path="bod/resident/profile/:id" element={<ResidentProfile />} />
 
             <Route path="bod/login-management" element={<LoginManagement />} />
+            <Route path="bod/access-control" element={<AccessControl />} />
 
             <Route path="bod/fee/list" element={<FeeList />} />
 

@@ -51,6 +51,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'; // <-- Import icon mới
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import SecurityIcon from '@mui/icons-material/Security';
 //import HistoryIcon from '@mui/icons-material/History';
 //import SettingsIcon from '@mui/icons-material/Settings';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
@@ -67,6 +68,7 @@ const bodMenuItems = [
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident/list' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' }, 
+  { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/bod/fee/list' }, // [cite: 45]
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/bod/notification/list' }, // [cite: 47]
   { text: 'Sự cố', icon: <ReportProblemIcon />, path: '/bod/report/list' }, // [cite: 48]

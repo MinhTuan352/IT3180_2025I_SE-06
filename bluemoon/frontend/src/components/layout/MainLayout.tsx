@@ -54,6 +54,8 @@ import ApartmentIcon from '@mui/icons-material/Apartment';
 import SecurityIcon from '@mui/icons-material/Security';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import ChatButton from '../Chatbot/ChatButton';
+import ChatWindow from '../Chatbot/ChatWindow';
 //import HistoryIcon from '@mui/icons-material/History';
 //import SettingsIcon from '@mui/icons-material/Settings';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
@@ -101,6 +103,7 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation(); // Dùng để xác định trang active
   const { user, logout } = useAuth(); // --- THÊM MỚI --- (Cho Yêu cầu 3)
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // --- THÊM MỚI --- (State cho Yêu cầu 2: Toggle Sidebar)
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -546,6 +549,13 @@ export default function MainLayout() {
         </DialogActions>
       </Dialog>
 
+      {/* CHATBOT WIDGET (Chỉ hiện cho Resident hoặc tất cả tùy bạn) */}
+      {user?.role === 'resident' && (
+        <>
+          <ChatWindow isOpen={isChatOpen} />
+          <ChatButton isOpen={isChatOpen} onClick={() => setIsChatOpen(!isChatOpen)} />
+        </>
+      )}
     </Box>
   </LayoutContext.Provider>  
     

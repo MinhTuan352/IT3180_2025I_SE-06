@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PaymentIcon from '@mui/icons-material/Payment';
-import { useQuery } from '@tanstack/react-query';
-import axiosClient from '../../../api/axiosClient';
+//import { useQuery } from '@tanstack/react-query';
+//import axiosClient from '../../../api/axiosClient';
 import { format, parseISO } from 'date-fns'; // Thêm parseISO
+import { useState, useEffect } from 'react'; // Dùng useState/useEffect thay cho React Query
 
 // Định nghĩa kiểu dữ liệu trả về từ API (khớp với backend Invoice.findForUser)
 interface ResidentInvoice {
@@ -20,12 +21,45 @@ interface ResidentInvoice {
   // Thêm các trường khác nếu API trả về
 }
 
-// Hàm gọi API lấy danh sách hóa đơn của tôi
-const fetchMyInvoices = async (): Promise<ResidentInvoice[]> => {
-  const { data } = await axiosClient.get('/api/invoices');
-  // API backend trả về mảng trực tiếp từ model
-  return data;
-};
+// --- MOCK DATA (Dữ liệu giả lập) ---
+const mockInvoices: ResidentInvoice[] = [
+  {
+    invoice_id: 101,
+    fee_name: 'Phí Quản lý',
+    description: 'PQL Tháng 12/2025 - Căn hộ A-101',
+    due_date: '2025-12-10T00:00:00Z',
+    total_amount: 1500000,
+    amount_remaining: 1500000,
+    status: 'Chưa thanh toán',
+  },
+  {
+    invoice_id: 102,
+    fee_name: 'Tiền Nước',
+    description: 'Tiền nước sinh hoạt T11/2025 (Khối lượng: 25m3)',
+    due_date: '2025-12-15T00:00:00Z',
+    total_amount: 350000,
+    amount_remaining: 0,
+    status: 'Đã thanh toán',
+  },
+  {
+    invoice_id: 103,
+    fee_name: 'Phí Gửi Xe',
+    description: 'Phí gửi xe ô tô T12/2025 (BKS: 30A-123.45)',
+    due_date: '2025-12-05T00:00:00Z',
+    total_amount: 1200000,
+    amount_remaining: 1200000,
+    status: 'Quá hạn',
+  },
+  {
+    invoice_id: 104,
+    fee_name: 'Phí Dịch vụ Khác',
+    description: 'Phí thay bóng đèn hành lang',
+    due_date: '2025-12-20T00:00:00Z',
+    total_amount: 50000,
+    amount_remaining: 50000,
+    status: 'Chưa thanh toán',
+  }
+];
 
 // Định nghĩa lại kiểu Status cho cư dân (có thể bỏ 'Đã hủy')
 type FeeStatusResident = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn';
@@ -33,10 +67,21 @@ type FeeStatusResident = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn'
 export default function ResidentFeeList() {
  const navigate = useNavigate();
 
- const { data: invoices, isLoading, error } = useQuery<ResidentInvoice[], Error>({
-   queryKey: ['myInvoices'],
-   queryFn: fetchMyInvoices,
- });
+ // --- STATE QUẢN LÝ DỮ LIỆU ---
+ const [invoices, setInvoices] = useState<ResidentInvoice[]>([]);
+ const [isLoading, setIsLoading] = useState(true);
+ const [error] = useState<Error | null>(null);
+
+ // --- USE EFFECT (Giả lập gọi API) ---
+ useEffect(() => {
+    // Giả lập độ trễ mạng 0.5 giây
+    const timer = setTimeout(() => {
+        setInvoices(mockInvoices);
+        setIsLoading(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+ }, []);
 
  const columns: GridColDef<ResidentInvoice>[] = [
     { field: 'invoice_id', headerName: 'Mã HĐ', width: 100 },
@@ -140,7 +185,7 @@ export default function ResidentFeeList() {
         {/* Sửa thông báo lỗi */}
         {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
-                Không thể tải danh sách công nợ: {error.message || 'Lỗi không xác định'}
+                Không thể tải danh sách công nợ: {error?.message || 'Lỗi không xác định'}
             </Alert>
         )}
         {!isLoading && !error && invoices && (

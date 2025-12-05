@@ -31,7 +31,8 @@ import AccountantFeeSetupCreate from '../pages/Accountant/Setup/FeeSetupCreate.t
 import AccountantFeeSetupEdit from '../pages/Accountant/Setup/FeeSetupEdit.tsx';
 import AccountantPaymentSetupList from '../pages/Accountant/Setup/PaymentSetupList.tsx';
 import AccountantPaymentSetupCreate from '../pages/Accountant/Setup/PaymentSetupCreate.tsx';
-import AccountantPaymentSetupEdit from '../pages/Accountant/Setup/PaymentSetupEdit.tsx'
+import AccountantPaymentSetupEdit from '../pages/Accountant/Setup/PaymentSetupEdit.tsx';
+import AccountantFeeBatchCreate from '../pages/Accountant/FeeManagement/AccountantFeeBatchCreate.tsx';
 
 import ResidentAccountInfo from '../pages/Resident/Account/ResidentAccountInfo.tsx';
 import ResidentProfileEdit from '../pages/Resident/Profile/ResidentProfileEdit.tsx';
@@ -105,6 +106,7 @@ export default function AppRoutes() {
             <Route path="accountance/fee/list/invoice/:id" element={<AccountantFeeInvoice />} />
             <Route path="accountance/fee/list/invoice/create" element={<AccountantFeeInvoiceCreate />} />
             <Route path="accountance/fee/list/invoice/edit/:id" element={<AccountantFeeInvoiceEdit />} />
+            <Route path="accountance/fee/batch-create" element={<AccountantFeeBatchCreate />} />
             
             {/* Thiết lập */}
             <Route path="accountance/fee/setup" element={<AccountantSetup />} />

@@ -33,6 +33,7 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PaymentIcon from '@mui/icons-material/Payment';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 //import EditIcon from '@mui/icons-material/Edit'; // <-- THÊM EditIcon
 //import EditIcon from '@mui/icons-material/Edit';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
@@ -362,11 +363,21 @@ export default function AccountantFeeList() {
             >
                 Export
             </Button>
+
+            {/* --- NÚT MỚI: CHỐT CÔNG NỢ --- */}
             <Button
                 variant="contained"
-                onClick={handleOpenAddModal}
+                color="success" // Màu khác biệt để nổi bật
+                startIcon={<PlaylistAddIcon />}
+                onClick={() => navigate('/accountance/fee/batch-create')}
+                sx={{ ml: 1 }}
             >
-                Thêm mới
+                Chốt công nợ tháng
+            </Button>
+            
+            {/* Nút thêm lẻ cũ */}
+            <Button variant="contained" onClick={handleOpenAddModal} sx={{ ml: 1 }}>
+                Thêm lẻ
             </Button>
             </Box>
         </Grid>

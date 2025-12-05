@@ -33,6 +33,7 @@ import AccountantPaymentSetupList from '../pages/Accountant/Setup/PaymentSetupLi
 import AccountantPaymentSetupCreate from '../pages/Accountant/Setup/PaymentSetupCreate.tsx';
 import AccountantPaymentSetupEdit from '../pages/Accountant/Setup/PaymentSetupEdit.tsx';
 import AccountantFeeBatchCreate from '../pages/Accountant/FeeManagement/AccountantFeeBatchCreate.tsx';
+import AccountantMeasureImport from '../pages/Accountant/Setup/AccountantMeasureImport.tsx'; // Import từ folder Setup
 
 import ResidentAccountInfo from '../pages/Resident/Account/ResidentAccountInfo.tsx';
 import ResidentProfileEdit from '../pages/Resident/Profile/ResidentProfileEdit.tsx';
@@ -116,6 +117,7 @@ export default function AppRoutes() {
             <Route path="accountance/fee/setup/paymentSetup" element={<AccountantPaymentSetupList />} />
             <Route path="accountance/fee/setup/paymentSetup/create" element={<AccountantPaymentSetupCreate />} />
             <Route path="accountance/fee/setup/paymentSetup/edit/:id" element={<AccountantPaymentSetupEdit />} />
+            <Route path="accountance/fee/setup/import-measure" element={<AccountantMeasureImport />} />
           </Route>
 
           {/* === RESIDENT Routes (THÊM MỚI) === */}

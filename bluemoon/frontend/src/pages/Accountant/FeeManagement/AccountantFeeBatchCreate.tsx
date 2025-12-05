@@ -19,8 +19,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import PublishIcon from '@mui/icons-material/Publish';
+//import PublishIcon from '@mui/icons-material/Publish';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SendIcon from '@mui/icons-material/Send';
+import EmailIcon from '@mui/icons-material/Email';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import toast, { Toaster } from 'react-hot-toast';
+import { List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 
 // --- MOCK DATA (Giả lập Database Backend) ---
 // 1. Danh sách căn hộ (Cần có diện tích và số xe)
@@ -48,6 +53,8 @@ export default function AccountantFeeBatchCreate() {
   const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedInvoices, setGeneratedInvoices] = useState<any[]>([]);
+  // State mới để hiển thị tiến trình gửi thông báo
+  const [publishingStatus, setPublishingStatus] = useState<string[]>([]);
 
   // --- LOGIC XỬ LÝ (Mô phỏng Backend Process) ---
   const handleGenerateDraft = () => {
@@ -82,14 +89,35 @@ export default function AccountantFeeBatchCreate() {
     }, 1500);
   };
 
-  const handlePublish = () => {
+  // --- HÀM PHÁT HÀNH ĐƯỢC NÂNG CẤP ---
+  const handlePublish = async () => {
     setIsProcessing(true);
-    // Gọi API thực tế để lưu vào DB với status="Chưa thanh toán"
-    setTimeout(() => {
+    setPublishingStatus([]); // Reset log
+
+    // Helper để giả lập độ trễ và log
+    const addLog = (msg: string) => setPublishingStatus(prev => [...prev, msg]);
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    try {
+      addLog('Đang lưu hóa đơn vào hệ thống...');
+      await delay(800);
+      addLog('✅ Đã lưu 500 hóa đơn thành công.');
+
+      addLog('Đang gửi thông báo Push Notification đến App Cư dân...');
+      await delay(1000);
+      addLog('✅ Đã bắn tin thành công tới 480 thiết bị.');
+
+      addLog('Đang tạo và gửi Email đính kèm PDF...');
+      await delay(1200);
+      addLog('✅ Đã gửi 500 email thông báo cước phí.');
+
+      setActiveStep(2); // Hoàn tất
+      toast.success('Phát hành và Gửi thông báo thành công!');
+    } catch (error) {
+      toast.error('Có lỗi xảy ra!');
+    } finally {
       setIsProcessing(false);
-      setActiveStep(2); // Chuyển sang bước Hoàn tất
-      toast.success('Đã phát hành công nợ thành công!');
-    }, 1000);
+    }
   };
 
   // --- Cột cho bảng Review ---
@@ -206,31 +234,44 @@ export default function AccountantFeeBatchCreate() {
             </Grid>
           </Grid>
 
-          <Typography variant="h6" sx={{ mb: 2 }}>Danh sách chi tiết (Xem trước)</Typography>
-          <Box sx={{ height: 400, width: '100%', mb: 3 }}>
-            <DataGrid
-              rows={generatedInvoices}
-              columns={columns}
-              initialState={{ pagination: { paginationModel: { pageSize: 5 } } }}
-              pageSizeOptions={[5, 10, 50]}
-              checkboxSelection
-              disableRowSelectionOnClick
-            />
-          </Box>
+
+          {/* Phần Log Tiến trình (Hiển thị khi đang xử lý) */}
+          {isProcessing && (
+            <Card variant="outlined" sx={{ mb: 3, bgcolor: '#f9f9f9' }}>
+              <CardContent>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <CircularProgress size={20} sx={{ mr: 1 }} /> Đang xử lý phát hành...
+                </Typography>
+                <List dense>
+                  {publishingStatus.map((msg, index) => (
+                    <ListItem key={index}>
+                      <ListItemIcon><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
+                      <ListItemText primary={msg} />
+                    </ListItem>
+                  ))}
+                </List>
+              </CardContent>
+            </Card>
+          )}
+
+          {!isProcessing && (
+            <>
+              <Typography variant="h6" sx={{ mb: 2 }}>Chi tiết (Xem trước)</Typography>
+              <Box sx={{ height: 350, width: '100%', mb: 3 }}>
+                <DataGrid rows={generatedInvoices} columns={columns} disableRowSelectionOnClick />
+              </Box>
+            </>
+          )}
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button variant="outlined" onClick={() => setActiveStep(0)}>
-              Quay lại / Chỉnh sửa
-            </Button>
+            <Button variant="outlined" onClick={() => setActiveStep(0)} disabled={isProcessing}>Quay lại</Button>
             <Button 
-              variant="contained" 
-              color="success"
-              size="large"
-              startIcon={<PublishIcon />}
+              variant="contained" color="success" size="large" 
+              startIcon={<SendIcon />} 
               onClick={handlePublish}
               disabled={isProcessing}
             >
-              {isProcessing ? 'Đang phát hành...' : 'Xác nhận & Phát hành'}
+              {isProcessing ? 'Đang thực hiện...' : 'Phát hành & Gửi Thông báo'}
             </Button>
           </Box>
         </Box>
@@ -239,16 +280,29 @@ export default function AccountantFeeBatchCreate() {
       {/* BƯỚC 3: HOÀN TẤT */}
       {activeStep === 2 && (
         <Box sx={{ textAlign: 'center', mt: 5 }}>
-          <PlayCircleOutlineIcon color="success" sx={{ fontSize: 80, mb: 2 }} />
-          <Typography variant="h4" fontWeight="bold" gutterBottom>
-            Thành Công!
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 4 }}>
-            Hệ thống đã tạo và gửi thông báo công nợ tháng {billingMonth} đến {generatedInvoices.length} căn hộ.
-          </Typography>
+          <NotificationsActiveIcon color="success" sx={{ fontSize: 80, mb: 2 }} />
+          <Typography variant="h4" fontWeight="bold" gutterBottom>Hoàn Tất Quy Trình!</Typography>
+          
+          <Grid container spacing={2} justifyContent="center" sx={{ mb: 4, maxWidth: 600, mx: 'auto', textAlign: 'left' }}>
+             <Grid sx={{xs: 12}}>
+                <Alert severity="success" icon={<CheckCircleIcon fontSize="inherit" />}>
+                    Đã lưu <b>{generatedInvoices.length}</b> hóa đơn vào hệ thống.
+                </Alert>
+             </Grid>
+             <Grid sx={{xs: 12}}>
+                <Alert severity="success" icon={<NotificationsActiveIcon fontSize="inherit" />}>
+                    Đã gửi thông báo App: <i>"Thông báo phí tháng {billingMonth}..."</i>
+                </Alert>
+             </Grid>
+             <Grid sx={{xs: 12}}>
+                <Alert severity="success" icon={<EmailIcon fontSize="inherit" />}>
+                    Đã gửi Email đính kèm PDF hóa đơn.
+                </Alert>
+             </Grid>
+          </Grid>
           
           <Button variant="contained" onClick={() => navigate('/accountance/fee/list')}>
-            Quay về Danh sách Hóa đơn
+            Về Danh sách Hóa đơn
           </Button>
         </Box>
       )}

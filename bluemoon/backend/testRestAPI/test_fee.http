@@ -1,0 +1,54 @@
+@baseUrl = http://localhost:3000/api
+@token = DÁN_TOKEN_KẾ_TOÁN_VÀO_ĐÂY
+
+### 1. Lấy danh sách loại phí (Xem ID loại phí là gì, vd: 1=PQL)
+GET {{baseUrl}}/fees/types
+Authorization: Bearer {{token}}
+
+### 2. Tạo Hóa đơn (Gồm tiền quản lý và gửi xe)
+# Lưu ý: resident_id và apartment_id phải tồn tại trong DB
+POST {{baseUrl}}/fees
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "apartment_id": 1,
+    "resident_id": "R0001", 
+    "fee_type_id": 1, 
+    "description": "Phí dịch vụ tổng hợp T12/2025",
+    "billing_period": "T12/2025",
+    "due_date": "2025-12-15",
+    "items": [
+        {
+            "item_name": "Phí Quản lý căn hộ",
+            "unit": "Tháng",
+            "quantity": 1,
+            "unit_price": 1200000
+        },
+        {
+            "item_name": "Phí Gửi xe ô tô (29A-99999)",
+            "unit": "Tháng",
+            "quantity": 1,
+            "unit_price": 1000000
+        }
+    ]
+}
+
+### ========================================
+### COPY "id" của hóa đơn vừa tạo (VD: HD251205-xxxx)
+### Dán vào request bên dưới
+### ========================================
+
+### 3. Xem chi tiết hóa đơn vừa tạo
+GET {{baseUrl}}/fees/HD251205-xxxx
+Authorization: Bearer {{token}}
+
+### 4. Kế toán xác nhận thanh toán (Trả trước 1 phần: 1 triệu)
+POST {{baseUrl}}/fees/HD251205-xxxx/pay
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "amount_paid": 1000000,
+    "payment_method": "Chuyển khoản Ngân hàng"
+}

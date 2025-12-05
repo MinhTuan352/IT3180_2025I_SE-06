@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:3000/api
+@token = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+
+### 1. Lấy tất cả (Không lọc)
+GET {{baseUrl}}/residents
+Authorization: Bearer {{token}}
+
+### 2. Tìm cư dân tên có chữ "Hộ" (Sẽ ra ông Trần Văn Hộ)
+GET {{baseUrl}}/residents?name=Hộ
+Authorization: Bearer {{token}}
+
+### 3. Tìm cư dân ở phòng A-101
+GET {{baseUrl}}/residents?apartment_code=A-101
+Authorization: Bearer {{token}}
+
+### 4. Tìm kết hợp: Tên "Hộ" VÀ ở phòng "A-101"
+GET {{baseUrl}}/residents?name=Hộ&apartment_code=A-101
+Authorization: Bearer {{token}}
+
+### 5. Tìm cư dân "Đã chuyển đi" (Nếu có data)
+GET {{baseUrl}}/residents?status=Đã chuyển đi
+Authorization: Bearer {{token}}

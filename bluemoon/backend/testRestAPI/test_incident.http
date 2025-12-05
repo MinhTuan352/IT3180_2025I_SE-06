@@ -1,0 +1,46 @@
+@baseUrl = http://localhost:3000/api
+# Đăng nhập bằng tài khoản Cư dân (chuho_a101 / password123) để lấy token
+@tokenResident = DÁN_TOKEN_CƯ_DÂN_VÀO_ĐÂY
+
+### 1. Cư dân gửi báo cáo sự cố (Multipart)
+POST {{baseUrl}}/incidents
+Authorization: Bearer {{tokenResident}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryIncident
+
+------WebKitFormBoundaryIncident
+Content-Disposition: form-data; name="title"
+
+Bóng đèn hành lang bị cháy
+------WebKitFormBoundaryIncident
+Content-Disposition: form-data; name="description"
+
+Bóng đèn ở trước cửa phòng A-101 bị cháy, tối om.
+------WebKitFormBoundaryIncident
+Content-Disposition: form-data; name="location"
+
+Hành lang tầng 1, Tòa A
+------WebKitFormBoundaryIncident
+Content-Disposition: form-data; name="priority"
+
+Trung bình
+------WebKitFormBoundaryIncident
+# Nếu có ảnh thì bỏ comment phần dưới để test
+# Content-Disposition: form-data; name="images"; filename="bongden.jpg"
+# Content-Type: image/jpeg
+#
+# < ./bongden.jpg
+------WebKitFormBoundaryIncident--
+
+### 2. Admin cập nhật trạng thái
+# Cần login Admin để lấy token khác
+@tokenAdmin = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+
+# Thay SCxxxxx bằng ID vừa tạo ở bước 1
+PUT {{baseUrl}}/incidents/SCxxxxx
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "status": "Đang xử lý",
+    "assigned_to": "ID0001" 
+}

@@ -1,0 +1,44 @@
+@baseUrl = http://localhost:3000/api/auth
+
+### 1. Đăng nhập (Để ghi log lịch sử & lấy Token)
+# Username: admin.a
+# Password: password123 (Hoặc mật khẩu mới nếu bạn đã đổi)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+### ============================================
+### COPY ACCESS TOKEN TỪ BƯỚC 1 DÁN VÀO DƯỚI ĐÂY
+### ============================================
+@token = DÁN_TOKEN_VÀO_ĐÂY
+
+
+### 2. Xem lịch sử đăng nhập
+GET {{baseUrl}}/history
+Authorization: Bearer {{token}}
+
+
+### 3. Đổi mật khẩu (Thành công)
+POST {{baseUrl}}/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "oldPassword": "password123",
+    "newPassword": "newpassword456"
+}
+
+
+### 4. Đổi mật khẩu (Thất bại - Sai mật khẩu cũ)
+POST {{baseUrl}}/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "oldPassword": "sai_mat_khau_cu",
+    "newPassword": "newpassword789"
+}

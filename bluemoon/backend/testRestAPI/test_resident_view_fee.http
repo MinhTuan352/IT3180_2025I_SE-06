@@ -1,0 +1,19 @@
+@baseUrl = http://localhost:3000/api
+# Token của cư dân (chuho_a101)
+@tokenResident = DÁN_TOKEN_CƯ_DÂN_VÀO_ĐÂY
+
+### 1. Cư dân xem danh sách hóa đơn của mình
+# Trước khi fix: Trả về [] (Rỗng)
+# Sau khi fix: Trả về danh sách hóa đơn có resident_id = R0001
+GET {{baseUrl}}/fees
+Authorization: Bearer {{tokenResident}}
+
+### 2. Cư dân xem chi tiết 1 hóa đơn (Của mình)
+# Lấy ID từ bước 1 điền vào đây
+GET {{baseUrl}}/fees/HD0001
+Authorization: Bearer {{tokenResident}}
+
+### 3. Cư dân tò mò xem hóa đơn của người khác (ID không phải của mình)
+# Mong đợi: Lỗi 403 Forbidden
+GET {{baseUrl}}/fees/HD0003
+Authorization: Bearer {{tokenResident}}

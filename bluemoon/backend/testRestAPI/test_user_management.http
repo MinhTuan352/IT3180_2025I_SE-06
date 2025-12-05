@@ -1,0 +1,37 @@
+@baseUrl = http://localhost:3000/api
+@tokenAdmin = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+
+### 1. Xem danh sách tất cả tài khoản
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenAdmin}}
+
+
+### 2. Khóa tài khoản của một cư dân (Ví dụ ID: R0001_USER)
+# Khi bị khóa, user này sẽ không đăng nhập được nữa
+PUT {{baseUrl}}/users/R0001_USER/status
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "is_active": false
+}
+
+
+### 3. Mở khóa lại tài khoản đó
+PUT {{baseUrl}}/users/R0001_USER/status
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "is_active": true
+}
+
+
+### 4. Reset mật khẩu cho user (Ví dụ user quên mật khẩu)
+POST {{baseUrl}}/users/R0001_USER/reset-password
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "newPassword": "matkhauMacDinh@123"
+}

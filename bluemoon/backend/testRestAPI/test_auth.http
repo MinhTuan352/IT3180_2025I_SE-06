@@ -1,0 +1,67 @@
+@baseUrl = http://localhost:3000/api/auth
+
+### 1. Đăng nhập thành công (Admin)
+# Username: admin.a
+# Password: password123
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+### 2. Đăng nhập thất bại (Sai mật khẩu)
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+    "username": "admin.a",
+    "password": "sai_mat_khau"
+}
+
+### 3. Đăng nhập thành công (Cư dân)
+# Username: chuho_a101
+# Password: password123
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+### 4. Đăng nhập thành công (Kế toán)
+# Username: ketoan.b
+# Password: password123
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+    "username": "ketoan.b",
+    "password": "password123"
+}
+
+### =============================================
+### LƯU Ý: Sau khi chạy request số 1 hoặc 3 thành công, 
+### bạn hãy copy "refreshToken" từ kết quả trả về 
+### và dán vào phần body của request số 4 bên dưới.
+### =============================================
+
+### 5. Lấy Access Token mới (Refresh Token)
+POST {{baseUrl}}/refresh-token
+Content-Type: application/json
+
+{
+    "refreshToken": "DÁN_REFRESH_TOKEN_CỦA_BẠN_VÀO_ĐÂY"
+}
+
+### 5. Đăng xuất
+# Lưu ý: Hiện tại chưa có Middleware tự lấy ID, 
+# nên ta phải gửi userId thủ công để xóa token trong DB.
+POST {{baseUrl}}/logout
+Content-Type: application/json
+
+{
+    "userId": "ID0001"
+}

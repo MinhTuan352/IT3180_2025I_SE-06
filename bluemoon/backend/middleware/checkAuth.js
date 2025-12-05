@@ -1,33 +1,38 @@
-// File: backend/middleware/checkAuth.js
+// backend/middleware/checkAuth.js
 
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 module.exports = (req, res, next) => {
     try {
-        // Kiểm tra xem header 'authorization' có tồn tại không
-        if (!req.headers.authorization) {
-            throw new Error('Không tìm thấy header Authorization');
+        // 1. Lấy token từ header
+        // Chuẩn gửi lên: "Authorization: Bearer <token_o_day>"
+        const authHeader = req.headers.authorization;
+
+        if (!authHeader) {
+            return res.status(401).json({ message: 'Bạn chưa đăng nhập (Thiếu Token).' });
         }
 
-        // Lấy token từ header, dạng "Bearer <token>"
-        // Tách chuỗi và lấy phần tử thứ hai 
-        const token = req.headers.authorization.split(' ')[1]; 
-        
-        // Giải mã token bằng secret key từ file.env
-        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-        
-        // Gắn thông tin user đã giải mã vào đối tượng request để các hàm sau có thể sử dụng
-        req.user = { 
-            id: decodedToken.id, 
-            username: decodedToken.username, 
-            role: decodedToken.role 
-        };
-        
-        // Nếu mọi thứ hợp lệ, cho phép yêu cầu đi tiếp đến controller
-        next(); 
+        // Tách chữ "Bearer" ra để lấy token
+        const token = authHeader.split(' ')[1]; 
+        if (!token) {
+            return res.status(401).json({ message: 'Token không đúng định dạng.' });
+        }
+
+        // 2. Giải mã token (Verify)
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // 3. Lưu thông tin user vào req để dùng ở các bước sau
+        // Các controller phía sau có thể lấy ID bằng cách gọi: req.user.id
+        req.user = decoded; 
+
+        // 4. Cho phép đi tiếp
+        next();
+
     } catch (error) {
-        // Nếu có bất kỳ lỗi nào trong quá trình trên (token thiếu, sai, hết hạn...), trả về lỗi 401
-        console.error('Lỗi xác thực trong checkAuth:', error.message); // Thêm log để dễ gỡ lỗi
-        res.status(401).json({ message: 'Xác thực thất bại.' });
+        return res.status(401).json({ 
+            message: 'Phiên đăng nhập hết hạn hoặc không hợp lệ.',
+            error: error.message 
+        });
     }
 };

@@ -1,0 +1,40 @@
+@baseUrl = http://localhost:3000/api
+@token = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+
+### 1. Tạo thông báo có đính kèm ảnh (Form-Data)
+# Lưu ý: Sửa đường dẫn file tại dòng < ./duong/dan/anh.jpg
+# Nếu không có file ảnh mẫu, hãy xóa phần Attachments đi để test text trước.
+POST {{baseUrl}}/notifications
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="title"
+
+Thông báo Phun thuốc muỗi đợt 2
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+Kính gửi cư dân, BQL sẽ phun thuốc vào 8h sáng thứ 7.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="type_id"
+
+2
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="target"
+
+Theo tòa nhà
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="target_value"
+
+A
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="test_image.jpg"
+Content-Type: image/jpeg
+
+< ./test_image.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 2. Xem danh sách thông báo
+GET {{baseUrl}}/notifications
+Authorization: Bearer {{token}}

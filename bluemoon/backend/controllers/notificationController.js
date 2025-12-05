@@ -1,82 +1,124 @@
-// File: backend/controllers/notificationController.js
+// backend/controllers/notificationController.js
+
 const Notification = require('../models/notificationModel');
-const User = require('../models/userModel');
 
-// US_015: Soạn và gửi thông báo
-exports.createNotification = async (req, res) => {
-  try {
-    // target: { type: 'all_residents' } hoặc { type: 'specific_users', ids: [1, 2, 3] }
-    const { title, content, target } = req.body; 
-    const created_by_user_id = req.user.id; 
+const notificationController = {
 
-    if (!title || !content || !target || !target.type) {
-      return res.status(400).json({ message: 'Vui lòng cung cấp đủ Tiêu đề, Nội dung và Đối tượng gửi.' });
-    }
-
-    let targetUserIds = [];
-
-    // 1. Xác định ID của các user sẽ nhận thông báo
-    if (target.type === 'all_residents') {
-      // Lấy tất cả user có vai trò 'Cư dân'
-      targetUserIds = await User.findAllByRole('resident');
-    } else if (target.type === 'specific_users') {
-      if (!target.ids || !Array.isArray(target.ids) || target.ids.length === 0) {
-        return res.status(400).json({ message: 'Vui lòng cung cấp danh sách user ID cụ thể.' });
-      }
-      targetUserIds = target.ids; // Đây là mảng các user_id
-    } else {
-      return res.status(400).json({ message: 'Loại đối tượng không hợp lệ.' });
-    }
-
-    if (targetUserIds.length === 0) {
-      return res.status(400).json({ message: 'Không tìm thấy tài khoản "Cư dân" nào để gửi thông báo.' });
-    }
-
-    // 2. Gói dữ liệu và gọi Model để thực hiện
-    const notificationData = { title, content, created_by_user_id };
-    const notification = await Notification.createAndSend(notificationData, targetUserIds);
-
-    res.status(201).json({ message: 'Gửi thông báo thành công.', notification });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Lỗi máy chủ khi gửi thông báo', error: error.message });
-  }
-};
-
-// Lấy danh sách tất cả thông báo đã gửi (cho Admin)
-exports.getAllNotifications = async (req, res) => {
-    try {
-        const notifications = await Notification.findAll();
-        res.status(200).json(notifications);
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi máy chủ khi lấy danh sách thông báo', error: error.message });
-    }
-};
-
-// US_016: Cư dân lấy lịch sử thông báo của mình
-exports.getMyNotifications = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const notifications = await Notification.findForUser(userId);
-        res.status(200).json(notifications);
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi máy chủ khi lấy lịch sử thông báo của bạn', error: error.message });
-    }
-};
-
-// US_016: Cư dân đánh dấu thông báo đã đọc
-exports.markNotificationAsRead = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const { id } = req.params;
-        
-        const affectedRows = await Notification.markAsRead(id, userId);
-        if (affectedRows === 0) {
-            return res.status(404).json({ message: 'Không tìm thấy thông báo hoặc thông báo đã được đánh dấu là đã đọc.' });
+    // [GET] /api/notifications
+    getAllNotifications: async (req, res) => {
+        try {
+            const filters = {
+                userId: req.user.id,
+                role: req.user.role // 'bod' hoặc 'resident'
+            };
+            const notifications = await Notification.getAll(filters);
+            
+            res.json({
+                success: true,
+                count: notifications.length,
+                data: notifications
+            });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
 
-        res.status(200).json({ message: 'Đã đánh dấu thông báo là đã đọc.' });
-    } catch (error) {
-        res.status(500).json({ message: 'Lỗi máy chủ khi đánh dấu thông báo là đã đọc', error: error.message });
+    // [GET] /api/notifications/:id
+    getNotificationDetail: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const notification = await Notification.getById(id, req.user.id);
+
+            if (!notification) {
+                return res.status(404).json({ message: 'Thông báo không tồn tại.' });
+            }
+
+            res.json({ success: true, data: notification });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // [POST] /api/notifications - Tạo thông báo mới (Kèm file)
+    createNotification: async (req, res) => {
+        try {
+            // 1. Lấy dữ liệu Text
+            const { title, content, type_id, target, specific_recipient_id, target_value } = req.body;
+            // target: 'Tất cả Cư dân', 'Theo tòa nhà', 'Cá nhân'
+            // target_value: 'A' (nếu chọn tòa nhà)
+            // specific_recipient_id: 'R001' (nếu chọn cá nhân)
+
+            if (!title || !content || !type_id || !target) {
+                return res.status(400).json({ message: 'Vui lòng điền đầy đủ tiêu đề, nội dung và đối tượng nhận.' });
+            }
+
+            // 2. Lấy danh sách Người nhận (Recipients)
+            let recipients = [];
+            
+            if (target === 'Cá nhân') {
+                if (!specific_recipient_id) return res.status(400).json({ message: 'Vui lòng chọn người nhận.' });
+                recipients = [specific_recipient_id];
+            } else {
+                // Nếu là 'Tất cả Cư dân' hoặc 'Theo tòa nhà'
+                recipients = await Notification.getRecipientIdsByTarget(target, target_value);
+            }
+
+            if (recipients.length === 0) {
+                return res.status(400).json({ message: 'Không tìm thấy cư dân nào phù hợp với nhóm đối tượng đã chọn.' });
+            }
+
+            // 3. Xử lý File (nếu có)
+            // req.files được Multer tạo ra
+            const filesData = [];
+            if (req.files && req.files.length > 0) {
+                req.files.forEach(file => {
+                    filesData.push({
+                        filename: file.originalname,
+                        // Lưu đường dẫn tương đối để Frontend dễ hiển thị
+                        // Ví dụ: /uploads/notifications/17000000-image.jpg
+                        path: `/uploads/notifications/${file.filename}`,
+                        size: file.size
+                    });
+                });
+            }
+
+            // 4. Tạo ID cho thông báo (TB + timestamp)
+            const notiId = `TB${Date.now().toString().slice(-6)}`;
+
+            const notiData = {
+                id: notiId,
+                title, 
+                content, 
+                type_id, 
+                target, 
+                created_by: req.user.id
+            };
+
+            // 5. Gọi Model transaction
+            const result = await Notification.createWithTransaction(notiData, recipients, filesData);
+
+            res.status(201).json({
+                success: true,
+                message: 'Gửi thông báo thành công!',
+                data: result
+            });
+
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Lỗi server khi tạo thông báo.', error: error.message });
+        }
+    },
+
+    // [PUT] /api/notifications/:id/read - Đánh dấu đã đọc
+    markAsRead: async (req, res) => {
+        try {
+            const { id } = req.params;
+            await Notification.markAsRead(id, req.user.id);
+            res.json({ success: true, message: 'Đã đánh dấu đã đọc.' });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
     }
 };
+
+module.exports = notificationController;

@@ -1,0 +1,6 @@
+@baseUrl = http://localhost:3000/api
+@token = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+
+### Kích hoạt quét công nợ thủ công
+POST {{baseUrl}}/fees/trigger-scan
+Authorization: Bearer {{token}}

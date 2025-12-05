@@ -1,0 +1,41 @@
+@baseUrl = http://localhost:3000/api
+@token = DÁN_TOKEN_KẾ_TOÁN_VÀO_ĐÂY
+
+### 1. Tạo loại phí thử nghiệm
+POST {{baseUrl}}/fees/types
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "fee_name": "Phí Dọn Rác Test",
+    "fee_code": "RAC_TEST",
+    "default_price": 50000,
+    "unit": "Tháng"
+}
+
+### ===========================================
+### Lấy ID của loại phí vừa tạo (Ví dụ: 6) 
+### để thay vào số 6 ở dưới
+### ===========================================
+
+### 2. Sửa giá loại phí (Tăng lên 60k)
+PUT {{baseUrl}}/fees/types/6
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "fee_name": "Phí Dọn Rác Test (Đã tăng)",
+    "fee_code": "RAC_TEST",
+    "default_price": 60000,
+    "unit": "Tháng"
+}
+
+### 3. Xóa loại phí thử nghiệm (Thành công)
+DELETE {{baseUrl}}/fees/types/6
+Authorization: Bearer {{token}}
+
+
+### 4. Thử xóa Phí Quản Lý (ID=1) - Đang được sử dụng
+# Mong đợi: Trả về lỗi 400 và thông báo "Không thể xóa..."
+DELETE {{baseUrl}}/fees/types/1
+Authorization: Bearer {{token}}

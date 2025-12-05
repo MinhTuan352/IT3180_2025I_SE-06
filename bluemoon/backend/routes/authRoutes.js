@@ -1,34 +1,31 @@
-// File: backend/routes/authRoutes.js
+// backend/routes/authRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const checkAuth = require('../middleware/checkAuth'); // [MỚI] Import middleware bảo vệ
 
-// Import các middleware nếu cần thiết
-const checkAuth = require('../middleware/checkAuth');
-const checkRole = require('../middleware/checkRole');
+// ==========================
+// PUBLIC ROUTES (Ai cũng gọi được)
+// ==========================
 
-// Routes công khai (Không cần login)
-// API cho user đăng nhập (US_021)
+// POST /api/auth/login
 router.post('/login', authController.login);
 
-// Routes bảo vệ (Cần xác thực)
-// API đổi mật khẩu (US_021)
+// POST /api/auth/refresh-token
+router.post('/refresh-token', authController.refreshToken);
+
+// POST /api/auth/logout
+router.post('/logout', authController.logout);
+
+// ==========================
+// PRIVATE ROUTES (Phải đăng nhập)
+// ==========================
+
+// POST /api/auth/change-password - Đổi mật khẩu
 router.post('/change-password', checkAuth, authController.changePassword);
 
-// API cho user xem lịch sử đăng nhập của mình (US_021)
-router.get('/login-history/me', checkAuth, authController.getLoginHistory);
-
-// API cho user đăng xuất (US_021)
-router.post('/logout', checkAuth, authController.logout);
-
-// Routes cho admin
-// API tạo user mới (Chỉ Admin được phép)
-router.post('/users', checkAuth, checkRole(['bod']), authController.createUser);
-
-// API cho admin xem lịch sử đăng nhập của tất cả user
-router.get('/login-history/all', checkAuth, checkRole(['bod']), authController.getAllLoginHistory);
-
-// API cho admin xem lịch sử đăng nhập của 1 user cụ thể
-router.get('/login-history/:userid', checkAuth, checkRole(['bod']), authController.getLoginHistoryForUser);
+// GET /api/auth/history - Xem lịch sử đăng nhập
+router.get('/history', checkAuth, authController.getLoginHistory);
 
 module.exports = router;

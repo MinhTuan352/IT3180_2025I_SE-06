@@ -1,83 +1,194 @@
-// File: backend/models/notificationModel.js
+// backend/models/notificationModel.js
+
 const db = require('../config/db');
 
 const Notification = {
+    
+    // ===========================
+    // 1. LẤY DANH SÁCH
+    // ===========================
+
     /**
-     * US_015: Tạo thông báo và gửi cho danh sách user ID
-     * @param {object} notificationData - { title, content, created_by_user_id }
-     * @param {Array<number>} targetUserIds - Mảng các ID của user nhận
+     * Lấy danh sách thông báo
+     * @param {Object} filters - userId (để lọc xem ai đang request), role (admin hay resident)
      */
-    createAndSend: async (notificationData, targetUserIds) => {
+    getAll: async (filters = {}) => {
+        try {
+            let query = '';
+            let params = [];
+
+            if (filters.role === 'resident') {
+                // CƯ DÂN: Chỉ xem các thông báo được gửi cho mình (trong bảng recipients)
+                // JOIN notification_recipients để kiểm tra
+                query = `
+                    SELECT 
+                        n.*, 
+                        nt.type_name,
+                        nr.is_read, 
+                        nr.read_at
+                    FROM notifications n
+                    JOIN notification_types nt ON n.type_id = nt.id
+                    JOIN notification_recipients nr ON n.id = nr.notification_id
+                    WHERE nr.recipient_id = ? AND n.is_sent = TRUE
+                    ORDER BY n.created_at DESC
+                `;
+                params.push(filters.userId);
+            } else {
+                // ADMIN: Xem toàn bộ thông báo đã tạo
+                query = `
+                    SELECT 
+                        n.*, 
+                        nt.type_name,
+                        u.username as created_by_name
+                    FROM notifications n
+                    JOIN notification_types nt ON n.type_id = nt.id
+                    JOIN users u ON n.created_by = u.id
+                    ORDER BY n.created_at DESC
+                `;
+            }
+
+            const [rows] = await db.execute(query, params);
+            return rows;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Lấy chi tiết 1 thông báo (Kèm file đính kèm)
+     */
+    getById: async (id, userId = null) => {
+        try {
+            // 1. Lấy thông tin chung
+            let query = `
+                SELECT n.*, nt.type_name 
+                FROM notifications n
+                JOIN notification_types nt ON n.type_id = nt.id
+                WHERE n.id = ?
+            `;
+            const [rows] = await db.execute(query, [id]);
+            if (rows.length === 0) return null;
+            
+            const notification = rows[0];
+
+            // 2. Lấy danh sách file đính kèm
+            const [attachments] = await db.execute(
+                `SELECT * FROM notification_attachments WHERE notification_id = ?`, 
+                [id]
+            );
+
+            // 3. Nếu là Cư dân xem -> Đánh dấu trạng thái 'is_read' của riêng họ
+            let readStatus = null;
+            if (userId) {
+                const [recipient] = await db.execute(
+                    `SELECT is_read, read_at FROM notification_recipients WHERE notification_id = ? AND recipient_id = ?`,
+                    [id, userId]
+                );
+                if (recipient.length > 0) readStatus = recipient[0];
+            }
+
+            return { 
+                ...notification, 
+                attachments, 
+                read_status: readStatus 
+            };
+
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    // ===========================
+    // 2. TẠO MỚI (TRANSACTION)
+    // ===========================
+
+    createWithTransaction: async (notiData, recipients, files) => {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
-            // 1. Tạo thông báo chính
-            const { title, content, created_by_user_id } = notificationData;
-            const [notificationResult] = await connection.query(
-                'INSERT INTO notifications (title, content, created_by_user_id) VALUES (?, ?, ?)',
-                [title, content, created_by_user_id]
-            );
-            const notificationId = notificationResult.insertId;
+            const { id, title, content, type_id, target, created_by } = notiData;
 
-            // 2. Chuẩn bị dữ liệu người nhận (user_id)
-            if (targetUserIds && targetUserIds.length > 0) {
-                const recipientValues = targetUserIds.map(userId => [notificationId, userId]);
-                
-                // 3. Chèn tất cả người nhận
-                await connection.query(
-                    'INSERT INTO notification_recipients (notification_id, user_id) VALUES ?',
-                    [recipientValues]
-                );
+            // B1: Insert bảng NOTIFICATIONS
+            const queryNoti = `
+                INSERT INTO notifications (id, title, content, type_id, target, created_by, is_sent)
+                VALUES (?, ?, ?, ?, ?, ?, TRUE) 
+            `; 
+            // Lưu ý: Tạm thời set is_sent = TRUE (gửi ngay). Nếu làm chức năng hẹn giờ thì set FALSE.
+            await connection.execute(queryNoti, [id, title, content, type_id, target, created_by]);
+
+            // B2: Insert bảng NOTIFICATION_ATTACHMENTS (Nếu có file)
+            if (files && files.length > 0) {
+                const queryFile = `INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES (?, ?, ?, ?)`;
+                for (const file of files) {
+                    await connection.execute(queryFile, [id, file.filename, file.path, file.size]);
+                }
             }
 
-            // 4. Commit transaction
+            // B3: Insert bảng NOTIFICATION_RECIPIENTS (Bulk Insert)
+            // Nếu danh sách người nhận > 0
+            if (recipients && recipients.length > 0) {
+                // Tạo câu lệnh INSERT nhiều dòng: VALUES (id, u1), (id, u2), (id, u3)...
+                // Cách tối ưu cho MySQL
+                const recipientValues = recipients.map(rId => [id, rId]); // Mảng 2 chiều [[id, 'R01'], [id, 'R02']]
+                
+                const queryRecipient = `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES ?`;
+                
+                // mysql2 hỗ trợ bulk insert thông qua phương thức query (không phải execute)
+                await connection.query(queryRecipient, [recipientValues]);
+            }
+
             await connection.commit();
-            return { id: notificationId, ...notificationData, recipientsCount: targetUserIds.length };
+            return { id, ...notiData, attachment_count: files.length, recipient_count: recipients.length };
 
         } catch (error) {
             await connection.rollback();
-            console.error('Lỗi khi tạo thông báo (transaction rolled back):', error);
-            throw new Error('Không thể tạo và gửi thông báo.');
+            throw error;
         } finally {
             connection.release();
         }
     },
 
-    // Lấy tất cả thông báo đã gửi (cho Admin xem)
-    findAll: async () => {
-        const [rows] = await db.query(
-            `SELECT n.id, n.title, n.created_at, u.full_name as created_by
-            FROM notifications n
-            JOIN users u ON n.created_by_user_id = u.id
-            ORDER BY n.created_at DESC`
-        );
-        return rows;
+    // ===========================
+    // 3. TÁC VỤ KHÁC
+    // ===========================
+
+    markAsRead: async (notificationId, residentId) => {
+        try {
+            const query = `
+                UPDATE notification_recipients 
+                SET is_read = TRUE, read_at = NOW() 
+                WHERE notification_id = ? AND recipient_id = ?
+            `;
+            await db.execute(query, [notificationId, residentId]);
+        } catch (error) {
+            throw error;
+        }
     },
 
-    // US_016: Lấy lịch sử thông báo của một user (cư dân)
-    findForUser: async (userId) => {
-        const [rows] = await db.execute(
-            `SELECT n.id, n.title, n.content, n.created_at, nr.status, nr.read_at, u_sender.full_name as sent_by
-            FROM notifications n
-            JOIN notification_recipients nr ON n.id = nr.notification_id
-            JOIN users u_sender ON n.created_by_user_id = u_sender.id
-            WHERE nr.user_id = ?
-            ORDER BY n.created_at DESC`,
-            [userId]
-        );
-        return rows;
-    },
+    // Helper: Lấy danh sách ID cư dân dựa trên tiêu chí (Để dùng khi target = 'Tất cả' hoặc 'Tòa nhà')
+    getRecipientIdsByTarget: async (targetType, targetValue) => {
+        try {
+            let query = `SELECT id FROM residents WHERE status = 'Đang sinh sống'`;
+            let params = [];
 
-    // US_016: Đánh dấu thông báo đã đọc cho một user
-    markAsRead: async (notificationId, userId) => {
-        const [result] = await db.execute(
-            `UPDATE notification_recipients
-            SET status = 'Đã đọc', read_at = CURRENT_TIMESTAMP
-            WHERE notification_id = ? AND user_id = ? AND status = 'sent'`,
-            [notificationId, userId]
-        );
-        return result.affectedRows; // Trả về 1 nếu có bản ghi được cập nhật, 0 nếu không tìm thấy hoặc đã đọc rồi
+            if (targetType === 'Theo tòa nhà' && targetValue) {
+                // targetValue ví dụ: 'A' (Tòa A)
+                // Cần JOIN bảng apartments để lọc building
+                query = `
+                    SELECT r.id FROM residents r
+                    JOIN apartments a ON r.apartment_id = a.id
+                    WHERE r.status = 'Đang sinh sống' AND a.building = ?
+                `;
+                params.push(targetValue);
+            }
+            // Nếu targetType === 'Tất cả Cư dân' thì không cần thêm điều kiện
+
+            const [rows] = await db.execute(query, params);
+            return rows.map(row => row.id); // Trả về mảng ['R001', 'R002']
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

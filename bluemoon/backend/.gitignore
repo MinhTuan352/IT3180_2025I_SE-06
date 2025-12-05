@@ -1,17 +1,12 @@
-# Dependencies - Thư mục chứa các thư viện đã cài đặt
-# Thư mục này sẽ được tự động tạo lại khi chạy `npm install`
+# backend/.gitignore
+
 node_modules/
+.env
 
-# Environment Variables (Sau này đi làm hẵng cho vào .gitignore)
-# .env
+# Bỏ qua tất cả file trong uploads
+uploads/*
 
-# Log files
-*.log
-npm-debug.log*
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Editor directories and files
-.vscode/
+# Nhưng giữ lại cấu trúc thư mục (để khi clone về máy khác vẫn có folder này)
+!uploads/.gitkeep
+!uploads/notifications/.gitkeep
+!uploads/incidents/.gitkeep

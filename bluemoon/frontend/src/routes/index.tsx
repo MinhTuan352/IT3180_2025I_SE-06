@@ -18,7 +18,10 @@ import NotificationCreate from '../pages/BOD/NotificationManagement/Notification
 import NotificationDetail from '../pages/BOD/NotificationManagement/NotificationDetail';
 import ReportList from '../pages/BOD/ReportManagement/ReportList';
 import ReportDetail from '../pages/BOD/ReportManagement/ReportDetail';
-import LoginManagement from '../pages/BOD/LoginManagement/LoginManagement.tsx'; // <-- Import trang mới
+import LoginManagement from '../pages/BOD/LoginManagement/LoginManagement.tsx';
+import AssetList from '../pages/BOD/AssetManagement/AssetList';
+import AssetDetail from '../pages/BOD/AssetManagement/AssetDetail';
+import ServiceList from '../pages/BOD/ServiceManagement/ServiceList';
 
 // --- Import các trang Kế toán ---
 import AccountantFeeList from '../pages/Accountant/FeeManagement/AccountantFeeList.tsx';
@@ -43,6 +46,9 @@ import ResidentFeePayment from '../pages/Resident/Fee/ResidentFeePayment.tsx';
 import ResidentNotificationList from '../pages/Resident/Notification/ResidentNotificationList.tsx';
 import ResidentReportSend from '../pages/Resident/Report/ResidentReportSend.tsx';
 import ResidentReportList from '../pages/Resident/Report/ResidentReportList.tsx';
+import ResidentAssetList from '../pages/Resident/Asset/ResidentAssetList';
+import ResidentServiceList from '../pages/Resident/Service/ResidentServiceList';
+import ResidentServiceDetail from '../pages/Resident/Service/ResidentServiceDetail';
 
 // --- Import trang Account Chung (Mới) ---
 import AccountInfo from '../pages/Account/AccountInfo.tsx';
@@ -85,6 +91,11 @@ export default function AppRoutes() {
             <Route path="bod/access-control" element={<AccessControl />} />
 
             <Route path="bod/fee/list" element={<FeeList />} />
+
+            <Route path="bod/asset/list" element={<AssetList />} />
+            <Route path="bod/asset/detail/:id" element={<AssetDetail />} />
+
+            <Route path="bod/service/list" element={<ServiceList />} />
 
             <Route path="bod/notification/list" element={<NotificationList />} />
             <Route path="bod/notification/create" element={<NotificationCreate />} />
@@ -130,6 +141,12 @@ export default function AppRoutes() {
              <Route path="resident/fee/list" element={<ResidentFeeList />} />
              <Route path="resident/fee/invoice_info/:id" element={<ResidentFeeInvoiceInfo />} />
              <Route path="resident/fee/payment/:id" element={<ResidentFeePayment />} /> {/* Assuming payment is for a specific invoice */}
+             
+             <Route path="resident/asset/list" element={<ResidentAssetList />} />
+
+             <Route path="resident/service/list" element={<ResidentServiceList />} />
+             <Route path="resident/service/detail/:id" element={<ResidentServiceDetail />} />
+             
              {/* Notification */}
              <Route path="resident/notification/list" element={<ResidentNotificationList />} />
              {/* Report */}

@@ -52,6 +52,8 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'; // <-- Import icon mới
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import SecurityIcon from '@mui/icons-material/Security';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 //import HistoryIcon from '@mui/icons-material/History';
 //import SettingsIcon from '@mui/icons-material/Settings';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
@@ -70,6 +72,8 @@ const bodMenuItems = [
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' }, 
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/bod/fee/list' }, // [cite: 45]
+  { text: 'Tài sản', icon: <InventoryIcon />, path: '/bod/asset/list' },
+  { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/bod/service/list' },
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/bod/notification/list' }, // [cite: 47]
   { text: 'Sự cố', icon: <ReportProblemIcon />, path: '/bod/report/list' }, // [cite: 48]
 ];
@@ -87,6 +91,8 @@ const residentMenuItems = [
     { text: 'Thông tin Cá nhân', icon: <AccountCircleIcon />, path: '/resident/profile/edit' },
     { text: 'Tài khoản', icon: <VpnKeyIcon />, path: '/resident/account_info' },
     { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/resident/fee/list' },
+    { text: 'Tài sản', icon: <InventoryIcon />, path: '/resident/asset/list' },
+    { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/resident/service/list' },
     { text: 'Thông báo', icon: <NotificationsIcon />, path: '/resident/notification/list' },
     { text: 'Báo cáo Sự cố', icon: <ReportProblemIcon />, path: '/resident/report/list' }, // Link to list first
 ];

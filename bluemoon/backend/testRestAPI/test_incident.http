@@ -1,8 +1,45 @@
 @baseUrl = http://localhost:3000/api
-# Đăng nhập bằng tài khoản Cư dân (chuho_a101 / password123) để lấy token
-@tokenResident = DÁN_TOKEN_CƯ_DÂN_VÀO_ĐÂY
+@contentType = application/json
 
-### 1. Cư dân gửi báo cáo sự cố (Multipart)
+# ==================================================================
+# PHẦN 1: ĐĂNG NHẬP ĐỂ LẤY TOKEN
+# ==================================================================
+
+# 1. Đăng nhập Admin (BOD)
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+@tokenAdmin = {{loginAdmin.response.body.data.accessToken}}
+
+
+# 2. Đăng nhập Cư dân (Resident)
+# @name loginResident
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+@tokenResident = {{loginResident.response.body.data.accessToken}}
+
+
+# ==================================================================
+# PHẦN 2: CƯ DÂN BÁO CÁO SỰ CỐ
+# ==================================================================
+
+### 3. Cư dân gửi báo cáo sự cố (Multipart)
+# Lưu ý: Nếu không có file ảnh thật, bạn có thể xóa phần hình ảnh đi, 
+# Backend vẫn chấp nhận nếu không bắt buộc file.
 POST {{baseUrl}}/incidents
 Authorization: Bearer {{tokenResident}}
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryIncident
@@ -10,37 +47,87 @@ Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryIncident
 ------WebKitFormBoundaryIncident
 Content-Disposition: form-data; name="title"
 
-Bóng đèn hành lang bị cháy
+Vòi nước bồn rửa bát bị rò rỉ
 ------WebKitFormBoundaryIncident
 Content-Disposition: form-data; name="description"
 
-Bóng đèn ở trước cửa phòng A-101 bị cháy, tối om.
+Nước chảy nhỏ giọt suốt đêm, van khóa bị lỏng.
 ------WebKitFormBoundaryIncident
 Content-Disposition: form-data; name="location"
 
-Hành lang tầng 1, Tòa A
+Căn hộ A-101, Bếp
 ------WebKitFormBoundaryIncident
 Content-Disposition: form-data; name="priority"
 
 Trung bình
-------WebKitFormBoundaryIncident
-# Nếu có ảnh thì bỏ comment phần dưới để test
-# Content-Disposition: form-data; name="images"; filename="bongden.jpg"
-# Content-Type: image/jpeg
-#
-# < ./bongden.jpg
 ------WebKitFormBoundaryIncident--
 
-### 2. Admin cập nhật trạng thái
-# Cần login Admin để lấy token khác
-@tokenAdmin = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+###
+# [QUAN TRỌNG]: Hãy copy ID của sự cố vừa tạo từ response trên và dán vào biến dưới đây
+@incidentId = SCxxxxx
 
-# Thay SCxxxxx bằng ID vừa tạo ở bước 1
-PUT {{baseUrl}}/incidents/SCxxxxx
+
+# ==================================================================
+# PHẦN 3: ADMIN XỬ LÝ (QUY TRÌNH SPRINT 2)
+# ==================================================================
+
+### 4. Admin xem danh sách sự cố (Lọc những cái Mới)
+GET {{baseUrl}}/incidents?status=Mới
 Authorization: Bearer {{tokenAdmin}}
-Content-Type: application/json
+
+### 5. Admin tiếp nhận và chuyển trạng thái "Đang xử lý"
+# - Gán cho nhân viên (assigned_to)
+# - Cập nhật phản hồi (admin_response)
+PUT {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: {{contentType}}
 
 {
     "status": "Đang xử lý",
-    "assigned_to": "ID0001" 
+    "assigned_to": "ID0001",
+    "priority": "Cao",
+    "admin_response": "Đã tiếp nhận. Kỹ thuật viên sẽ lên kiểm tra trong 30 phút nữa."
+}
+
+### 6. Admin hoàn thành xử lý
+# Khi status = 'Hoàn thành', hệ thống sẽ tự động set completed_at = NOW()
+PUT {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Hoàn thành",
+    "admin_response": "Đã thay van khóa mới. Kiểm tra không còn rò rỉ."
+}
+
+
+# ==================================================================
+# PHẦN 4: CƯ DÂN ĐÁNH GIÁ (FEEDBACK)
+# ==================================================================
+
+### 7. Cư dân xem chi tiết sự cố (Để thấy phản hồi của Admin)
+GET {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{tokenResident}}
+
+
+### 8. Cư dân đánh giá chất lượng (Rating & Feedback)
+# Điều kiện: Status phải là 'Hoàn thành' mới được gọi API này
+PUT {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{tokenResident}}
+Content-Type: {{contentType}}
+
+{
+    "rating": 5,
+    "feedback": "Cảm ơn BQL, bác kỹ thuật làm việc rất nhanh và sạch sẽ."
+}
+
+
+### 9. Test lỗi: Cư dân cố tình sửa trạng thái (Sẽ bị chặn hoặc lờ đi)
+# Logic Backend: Nếu là Resident, chỉ update rating/feedback, các field status sẽ bị bỏ qua
+PUT {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{tokenResident}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Mới" 
 }

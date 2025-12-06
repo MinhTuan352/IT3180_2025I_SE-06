@@ -329,7 +329,6 @@ CREATE TABLE visitors (
 ) ENGINE=InnoDB;
 
 -- 23. AUDIT_LOGS (Lịch sử hệ thống - QUAN TRỌNG)
--- Lưu lại mọi thay đổi nhạy cảm (Sửa phí, xóa cư dân...)
 CREATE TABLE audit_logs (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(20) COMMENT 'Ai làm?',
@@ -344,6 +343,7 @@ CREATE TABLE audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_entity (entity_name, entity_id)
 ) ENGINE=InnoDB;
+
 
 -- ===================================
 -- 3. INSERT DATA (DỮ LIỆU MẪU)
@@ -377,7 +377,6 @@ INSERT INTO apartments (apartment_code, building, floor, area, status) VALUES
 ('D-404', 'D', 4, 78.0, 'Đang sinh sống');
 
 -- Users & Admins (Password: password123 -> Hash mẫu)
--- Hash: $2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa
 INSERT INTO users (id, username, password, email, phone, role_id) VALUES
 ('ID0001', 'admin.a', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'admin.a@bluemoon.com', '0900000001', 1),
 ('ID0002', 'ketoan.b', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'ketoan.b@bluemoon.com', '0900000002', 2),
@@ -439,8 +438,8 @@ INSERT INTO notification_attachments (notification_id, file_name, file_path, fil
 INSERT INTO notification_recipients (notification_id, recipient_id, is_read)
 SELECT 'TB001', id, FALSE FROM residents;
 
--- Reports (Sự cố)
-INSERT INTO reports (id, title, description, location, reported_by, status, priority, admin_response, completed_at, rating, feedback) VALUES
+-- Reports (Sự cố) - [ĐÃ SỬA LỖI: Thêm cột created_at]
+INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at, admin_response, completed_at, rating, feedback) VALUES
 ('SC001', 'Vỡ ống nước khu vực hầm B2', 'Tôi phát hiện nước chảy thành dòng lớn ở hầm B2, khu vực cột 15. Đang ngập ra khu vực đỗ xe. Yêu cầu BQL xử lý khẩn cấp.', 'Hầm B2, cột 15', 'R0001', 'Mới', 'Khẩn cấp', '2025-10-28 09:00:00', 'Đã kiểm tra áp lực nước, bình thường.', '2025-10-28 18:00:00', 1, 'Vẫn còn yếu, BQL trả lời cho có lệ.'),
 ('SC002', 'Thang máy sảnh B liên tục báo lỗi', 'Thang máy sảnh B (thang chở hàng) đi từ tầng 1 lên tầng 10 thì bị dừng đột ngột và báo lỗi "DOOR_ERR". Phải đợi 5 phút mới mở cửa được. Yêu cầu BQL kiểm tra gấp.', 'Thang máy B, Tòa B', 'R0003', 'Đang xử lý', 'Cao', '2025-10-27 14:30:00', 'Đã sửa xong, thang máy có thể hoạt động bình thường.', '2025-10-27 14:40:00', 5, 'Xử lý rất nhanh, thang máy đã chạy bình thường'),
 ('SC003', 'Bóng đèn hành lang tầng 15 Tòa A bị cháy', 'Bóng đèn hành lang tầng 15 Tòa A đã cháy từ 2 ngày nay, ban đêm rất tối.', 'Hành lang Tầng 15, Tòa A', 'R0004', 'Hoàn thành', 'Trung bình', '2025-10-27 11:00:00', 'Đã thay bóng đèn mới.', '2025-10-28 16:00:00', 1, 'Phản hồi rất muộn.'),

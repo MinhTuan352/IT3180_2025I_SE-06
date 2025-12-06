@@ -1,4 +1,4 @@
-// backend/routes/notificationRoutes.js
+// File: backend/routes/notificationRoutes.js
 
 const express = require('express');
 const router = express.Router();

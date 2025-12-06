@@ -1,4 +1,4 @@
-// backend/routes/authRoutes.js
+// File: backend/routes/authRoutes.js
 
 const express = require('express');
 const router = express.Router();

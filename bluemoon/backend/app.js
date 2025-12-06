@@ -1,4 +1,4 @@
-// backend/app.js
+// File: backend/app.js
 
 const express = require('express');
 const cors = require('cors');
@@ -32,8 +32,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // =======================
 // 2. ROUTES (Định tuyến)
 // =======================
-// Chúng ta sẽ tạo các file này ở các bước sau. 
-// Hiện tại mình comment lại để app.js không bị lỗi khi chưa có file.
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/residents', require('./routes/residentRoutes'));
@@ -41,6 +39,7 @@ app.use('/api/fees', require('./routes/feeRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/incidents', require('./routes/incidentRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/assets', require('./routes/assetRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

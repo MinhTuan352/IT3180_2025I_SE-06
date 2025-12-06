@@ -1,4 +1,4 @@
-// backend/models/residentModel.js
+// File: backend/models/residentModel.js
 
 const db = require('../config/db');
 

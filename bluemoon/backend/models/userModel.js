@@ -1,4 +1,4 @@
-// backend/models/userModel.js
+// File: backend/models/userModel.js
 
 const db = require('../config/db');
 

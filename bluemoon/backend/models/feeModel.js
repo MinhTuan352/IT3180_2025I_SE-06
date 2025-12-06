@@ -1,4 +1,4 @@
-// backend/models/feeModel.js
+// File: backend/models/feeModel.js
 
 const db = require('../config/db');
 

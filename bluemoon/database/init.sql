@@ -224,6 +224,10 @@ CREATE TABLE reports (
     assigned_to VARCHAR(20) COMMENT 'admin_id (user_id của bod) được giao xử lý',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    admin_response TEXT COMMENT 'Phản hồi chi tiết từ BQL',
+    rating INT COMMENT 'Đánh giá sao (1-5)',
+    feedback TEXT COMMENT 'Ý kiến cư dân sau khi sự cố được xử lý',
+    completed_at TIMESTAMP NULL COMMENT 'Thời gian hoàn thành xử lý',
     FOREIGN KEY (reported_by) REFERENCES residents(id) ON DELETE CASCADE,
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -255,6 +259,91 @@ CREATE TABLE vehicles (
     FOREIGN KEY (apartment_id) REFERENCES apartments(id)
 ) ENGINE=InnoDB;
 
+-- 18. ASSETS (Danh sách tài sản chung cư)
+CREATE TABLE assets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    asset_code VARCHAR(20) NOT NULL UNIQUE COMMENT 'TS001, TS002',
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    location VARCHAR(255) COMMENT 'Vị trí: Tầng hầm B1, Sảnh A',
+    purchase_date DATE,
+    price DECIMAL(15,2),
+    status ENUM('Đang hoạt động', 'Đang bảo trì', 'Hỏng', 'Thanh lý') DEFAULT 'Đang hoạt động',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- 19. MAINTENANCE_SCHEDULES (Lịch bảo trì & Lịch sử bảo trì)
+CREATE TABLE maintenance_schedules (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    asset_id INT NOT NULL,
+    title VARCHAR(255) NOT NULL COMMENT 'Bảo dưỡng định kỳ thang máy T10',
+    description TEXT,
+    scheduled_date DATE NOT NULL COMMENT 'Ngày dự kiến',
+    completed_date DATE COMMENT 'Ngày thực tế hoàn thành',
+    technician_name VARCHAR(255) COMMENT 'Đơn vị hoặc người thực hiện',
+    cost DECIMAL(15,2) DEFAULT 0,
+    status ENUM('Lên lịch', 'Đang thực hiện', 'Hoàn thành', 'Đã hủy') DEFAULT 'Lên lịch',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 20. SERVICE_TYPES (Loại dịch vụ: BBQ, Gym, Vệ sinh)
+CREATE TABLE service_types (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    base_price DECIMAL(15,2) DEFAULT 0 COMMENT 'Giá cơ bản',
+    unit VARCHAR(50) COMMENT 'Giờ, Lần, Người',
+    is_active BOOLEAN DEFAULT TRUE
+) ENGINE=InnoDB;
+
+-- 21. SERVICE_BOOKINGS (Đơn đặt dịch vụ của cư dân)
+CREATE TABLE service_bookings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    resident_id VARCHAR(20) NOT NULL,
+    service_type_id INT NOT NULL,
+    booking_date DATETIME NOT NULL COMMENT 'Thời gian muốn sử dụng',
+    quantity INT DEFAULT 1 COMMENT 'Số giờ hoặc số người',
+    total_amount DECIMAL(15,2),
+    status ENUM('Chờ duyệt', 'Đã duyệt', 'Đã hủy', 'Hoàn thành') DEFAULT 'Chờ duyệt',
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_type_id) REFERENCES service_types(id)
+) ENGINE=InnoDB;
+
+-- 22. VISITORS (Khách ra vào)
+CREATE TABLE visitors (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    apartment_id INT NOT NULL COMMENT 'Đến căn hộ nào',
+    visitor_name VARCHAR(100) NOT NULL,
+    identity_card VARCHAR(20) COMMENT 'CMND/CCCD',
+    check_in_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    check_out_time DATETIME,
+    vehicle_plate VARCHAR(20),
+    security_guard_id VARCHAR(20) COMMENT 'Bảo vệ ghi nhận (User ID)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (apartment_id) REFERENCES apartments(id),
+    FOREIGN KEY (security_guard_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- 23. AUDIT_LOGS (Lịch sử hệ thống - QUAN TRỌNG)
+-- Lưu lại mọi thay đổi nhạy cảm (Sửa phí, xóa cư dân...)
+CREATE TABLE audit_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id VARCHAR(20) COMMENT 'Ai làm?',
+    action_type VARCHAR(50) NOT NULL COMMENT 'CREATE, UPDATE, DELETE, LOGIN',
+    entity_name VARCHAR(50) NOT NULL COMMENT 'Bảng bị tác động: residents, fees...',
+    entity_id VARCHAR(50) NOT NULL COMMENT 'ID của dòng bị tác động',
+    old_values JSON COMMENT 'Dữ liệu trước khi sửa',
+    new_values JSON COMMENT 'Dữ liệu sau khi sửa',
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_entity (entity_name, entity_id)
+) ENGINE=InnoDB;
 
 -- ===================================
 -- 3. INSERT DATA (DỮ LIỆU MẪU)
@@ -346,13 +435,38 @@ INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is
 INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES
 ('TB001', 'SoDoTramBienAp.jpg', '/uploads/notifications/TB001/SoDoTramBienAp.jpg', 245632);
 
--- Dòng mới (Đúng với thiết kế is_read):
+-- Notification Recipients
 INSERT INTO notification_recipients (notification_id, recipient_id, is_read)
 SELECT 'TB001', id, FALSE FROM residents;
 
 -- Reports (Sự cố)
-INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at) VALUES
-('SC001', 'Vỡ ống nước khu vực hầm B2', 'Tôi phát hiện nước chảy thành dòng lớn ở hầm B2, khu vực cột 15. Đang ngập ra khu vực đỗ xe. Yêu cầu BQL xử lý khẩn cấp.', 'Hầm B2, cột 15', 'R0001', 'Mới', 'Khẩn cấp', '2025-10-28 09:00:00'),
-('SC002', 'Thang máy sảnh B liên tục báo lỗi', 'Thang máy sảnh B (thang chở hàng) đi từ tầng 1 lên tầng 10 thì bị dừng đột ngột và báo lỗi "DOOR_ERR". Phải đợi 5 phút mới mở cửa được. Yêu cầu BQL kiểm tra gấp.', 'Thang máy B, Tòa B', 'R0003', 'Đang xử lý', 'Cao', '2025-10-27 14:30:00'),
-('SC003', 'Bóng đèn hành lang tầng 15 Tòa A bị cháy', 'Bóng đèn hành lang tầng 15 Tòa A đã cháy từ 2 ngày nay, ban đêm rất tối.', 'Hành lang Tầng 15, Tòa A', 'R0004', 'Hoàn thành', 'Trung bình', '2025-10-27 11:00:00'),
-('SC004', 'Tiếng ồn lạ từ máy phát điện', 'Tối qua khoảng 22h, tôi nghe thấy tiếng ồn lạ phát ra từ phòng kỹ thuật, có vẻ là từ máy phát điện.', 'Phòng kỹ thuật, Tầng G', 'R0005', 'Mới', 'Cao', '2025-10-26 22:00:00');
+INSERT INTO reports (id, title, description, location, reported_by, status, priority, admin_response, completed_at, rating, feedback) VALUES
+('SC001', 'Vỡ ống nước khu vực hầm B2', 'Tôi phát hiện nước chảy thành dòng lớn ở hầm B2, khu vực cột 15. Đang ngập ra khu vực đỗ xe. Yêu cầu BQL xử lý khẩn cấp.', 'Hầm B2, cột 15', 'R0001', 'Mới', 'Khẩn cấp', '2025-10-28 09:00:00', 'Đã kiểm tra áp lực nước, bình thường.', '2025-10-28 18:00:00', 1, 'Vẫn còn yếu, BQL trả lời cho có lệ.'),
+('SC002', 'Thang máy sảnh B liên tục báo lỗi', 'Thang máy sảnh B (thang chở hàng) đi từ tầng 1 lên tầng 10 thì bị dừng đột ngột và báo lỗi "DOOR_ERR". Phải đợi 5 phút mới mở cửa được. Yêu cầu BQL kiểm tra gấp.', 'Thang máy B, Tòa B', 'R0003', 'Đang xử lý', 'Cao', '2025-10-27 14:30:00', 'Đã sửa xong, thang máy có thể hoạt động bình thường.', '2025-10-27 14:40:00', 5, 'Xử lý rất nhanh, thang máy đã chạy bình thường'),
+('SC003', 'Bóng đèn hành lang tầng 15 Tòa A bị cháy', 'Bóng đèn hành lang tầng 15 Tòa A đã cháy từ 2 ngày nay, ban đêm rất tối.', 'Hành lang Tầng 15, Tòa A', 'R0004', 'Hoàn thành', 'Trung bình', '2025-10-27 11:00:00', 'Đã thay bóng đèn mới.', '2025-10-28 16:00:00', 1, 'Phản hồi rất muộn.'),
+('SC004', 'Tiếng ồn lạ từ máy phát điện', 'Tối qua khoảng 22h, tôi nghe thấy tiếng ồn lạ phát ra từ phòng kỹ thuật, có vẻ là từ máy phát điện.', 'Phòng kỹ thuật, Tầng G', 'R0005', 'Mới', 'Cao', '2025-10-26 22:00:00', 'Đã đến kiểm tra và không có tiếng ồn.', '2025-10-26 22:15:00', 4, 'Không phải tiếng ồn thật.');
+
+-- Mẫu Dịch vụ
+INSERT INTO service_types (name, base_price, unit) VALUES 
+('Thuê khu vực BBQ', 200000, 'Giờ'),
+('Dọn vệ sinh căn hộ', 150000, 'Giờ'),
+('Đặt sân Tennis', 100000, 'Giờ');
+
+-- Mẫu Tài sản
+INSERT INTO assets (asset_code, name, location, status) VALUES 
+('TS001', 'Thang máy A1', 'Tòa A - Sảnh chính', 'Đang hoạt động'),
+('TS002', 'Máy bơm PCCC số 1', 'Hầm B2', 'Đang hoạt động');
+
+-- Thêm lịch bảo trì
+INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, status, technician_name, cost) VALUES 
+(1, 'Bảo trì thang máy A1 Quý 4', 'Tra dầu, kiểm tra cáp, vệ sinh buồng máy', '2025-11-01', 'Lên lịch', 'Cty Thang máy Otis', 5000000),
+(2, 'Sửa chữa máy bơm PCCC', 'Thay phớt máy bơm bị rò rỉ', '2025-10-20', 'Hoàn thành', 'Kỹ thuật tòa nhà', 200000);
+
+-- Cư dân R0001 đặt BBQ
+INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status, note) VALUES 
+('R0001', 1, '2025-11-05 18:00:00', 3, 600000, 'Chờ duyệt', 'Gia đình 10 người, cần mượn thêm ghế');
+
+-- Giả lập log admin sửa phí
+INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, old_values, new_values, ip_address, user_agent) VALUES 
+('ID0001', 'UPDATE', 'fees', 'HD0003', '{"total_amount": 1000000}', '{"total_amount": 1500000}', '192.168.1.10', 'Chrome/119.0.0.0'),
+('ID0002', 'CREATE', 'assets', 'TS001', NULL, '{"asset_code": "TS001", "name": "Thang máy A1"}', '192.168.1.15', 'Firefox/100.0');

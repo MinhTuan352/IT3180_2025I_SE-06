@@ -1,4 +1,4 @@
-// backend/middleware/checkAuth.js
+// File: backend/middleware/checkAuth.js
 
 const jwt = require('jsonwebtoken');
 require('dotenv').config();

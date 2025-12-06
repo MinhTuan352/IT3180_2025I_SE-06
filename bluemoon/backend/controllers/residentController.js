@@ -1,4 +1,4 @@
-// backend/controllers/residentController.js
+// File: backend/controllers/residentController.js
 
 const Resident = require('../models/residentModel');
 

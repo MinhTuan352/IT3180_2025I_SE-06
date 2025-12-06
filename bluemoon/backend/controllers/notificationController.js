@@ -1,4 +1,4 @@
-// backend/controllers/notificationController.js
+// File: backend/controllers/notificationController.js
 
 const Notification = require('../models/notificationModel');
 

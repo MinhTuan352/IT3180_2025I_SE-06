@@ -1,4 +1,4 @@
-// backend/models/notificationModel.js
+// File: backend/models/notificationModel.js
 
 const db = require('../config/db');
 

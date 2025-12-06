@@ -1,4 +1,4 @@
-// backend/models/incidentModel.js
+// File: backend/models/incidentModel.js
 
 const db = require('../config/db');
 
@@ -11,7 +11,7 @@ const Incident = {
     getAll: async (filters = {}) => {
         try {
             // JOIN residents: Để biết ai báo
-            // JOIN apartments: Để biết sự cố ở phòng nào (nếu cần hiển thị)
+            // JOIN apartments: Để biết sự cố ở phòng nào
             // JOIN users (assigned): Để biết nhân viên nào đang xử lý
             let query = `
                 SELECT 
@@ -35,16 +35,22 @@ const Incident = {
                 params.push(filters.resident_id);
             }
 
-            // 2. Lọc theo trạng thái (Admin lọc: xem các sự cố 'Mới')
+            // 2. Lọc theo trạng thái
             if (filters.status) {
                 query += ` AND rp.status = ?`;
                 params.push(filters.status);
             }
 
-            // 3. Lọc theo nhân viên xử lý (Nhân viên xem việc mình được giao)
+            // 3. Lọc theo nhân viên xử lý
             if (filters.assigned_to) {
                 query += ` AND rp.assigned_to = ?`;
                 params.push(filters.assigned_to);
+            }
+
+            // 4. Tìm kiếm theo tiêu đề (nếu cần)
+            if (filters.keyword) {
+                query += ` AND rp.title LIKE ?`;
+                params.push(`%${filters.keyword}%`);
             }
 
             query += ` ORDER BY rp.created_at DESC`;
@@ -66,6 +72,7 @@ const Incident = {
                 SELECT 
                     rp.*, 
                     r.full_name as reporter_name,
+                    r.user_id as reporter_user_id,
                     a.apartment_code,
                     u.username as assigned_to_name
                 FROM reports rp
@@ -90,7 +97,7 @@ const Incident = {
     },
 
     /**
-     * Tạo báo cáo sự cố (Có Transaction để lưu ảnh)
+     * Tạo báo cáo sự cố (Có Transaction để lưu ảnh an toàn)
      */
     create: async (reportData, files) => {
         const connection = await db.getConnection();
@@ -102,9 +109,15 @@ const Incident = {
             // B1: Insert vào bảng REPORTS
             const queryReport = `
                 INSERT INTO reports (id, title, description, location, reported_by, priority, status)
-                VALUES (?, ?, ?, ?, ?, ?, 'Mới')
+                VALUES (?, (?, ?, ?, ?, ?, 'Mới')
             `;
-            await connection.execute(queryReport, [
+            // Lưu ý: Có 2 dấu ? cho title, desc... sửa lại cú pháp cho đúng:
+            const insertQuery = `
+                 INSERT INTO reports (id, title, description, location, reported_by, priority, status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Mới')
+            `;
+
+            await connection.execute(insertQuery, [
                 id, title, description, location, reported_by, priority || 'Trung bình'
             ]);
 
@@ -128,16 +141,17 @@ const Incident = {
     },
 
     /**
-     * Cập nhật trạng thái sự cố (Dành cho Admin/Nhân viên kỹ thuật)
-     * Có thể cập nhật: Status, Priority, Assigned_to
+     * Cập nhật sự cố (Dùng chung cho cả Admin và Cư dân)
+     * - Admin update: status, priority, assigned_to, admin_response, completed_at
+     * - Cư dân update: rating, feedback
      */
     update: async (id, updateData) => {
         try {
-            // Chỉ cập nhật những trường được gửi lên (Dynamic Update)
-            // status, priority, assigned_to
+            // Xây dựng câu query động chỉ update các trường được gửi lên
             const fields = [];
             const values = [];
 
+            // --- Nhóm Admin/BOD ---
             if (updateData.status) {
                 fields.push('status = ?');
                 values.push(updateData.status);
@@ -150,12 +164,31 @@ const Incident = {
                 fields.push('assigned_to = ?');
                 values.push(updateData.assigned_to);
             }
+            if (updateData.admin_response) {
+                fields.push('admin_response = ?');
+                values.push(updateData.admin_response);
+            }
+            // Tự động set thời gian hoàn thành nếu trạng thái là 'Hoàn thành'
+            if (updateData.status === 'Hoàn thành') {
+                fields.push('completed_at = NOW()');
+            }
+
+            // --- Nhóm Cư dân (Đánh giá) ---
+            if (updateData.rating) {
+                fields.push('rating = ?');
+                values.push(updateData.rating);
+            }
+            if (updateData.feedback) {
+                fields.push('feedback = ?');
+                values.push(updateData.feedback);
+            }
 
             if (fields.length === 0) return null; // Không có gì để update
 
-            values.push(id); // Tham số cho WHERE id = ?
+            values.push(id); // Tham số cuối cùng cho WHERE id = ?
 
             const query = `UPDATE reports SET ${fields.join(', ')} WHERE id = ?`;
+            
             await db.execute(query, values);
             
             return { id, ...updateData };

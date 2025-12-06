@@ -1,4 +1,4 @@
-// backend/controllers/feeController.js
+// File: backend/controllers/feeController.js
 
 const Fee = require('../models/feeModel');
 const invoiceNotifier = require('../jobs/invoiceNotifier');

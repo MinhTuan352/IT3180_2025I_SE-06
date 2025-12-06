@@ -1,4 +1,4 @@
-// backend/middleware/checkRole.js
+// File: backend/middleware/checkRole.js
 
 /**
  * Hàm nhận vào một danh sách các vai trò được phép.

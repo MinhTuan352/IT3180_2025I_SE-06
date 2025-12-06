@@ -1,4 +1,4 @@
-// backend/jobs/invoiceNotifier.js
+// File: backend/jobs/invoiceNotifier.js
 
 const cron = require('node-cron');
 const db = require('../config/db');

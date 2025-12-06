@@ -70,7 +70,7 @@ const collapsedWidth = 72; // Chiều rộng khi thu gọn
 const bodMenuItems = [
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
-  { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident/list' }, // [cite: 28]
+  { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' }, 
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/bod/fee/list' }, // [cite: 45]

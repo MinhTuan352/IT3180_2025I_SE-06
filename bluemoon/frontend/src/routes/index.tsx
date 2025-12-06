@@ -12,6 +12,9 @@ import AdminProfile from '../pages/BOD/AdminManagement/AdminProfile';
 import ResidentList from '../pages/BOD/ResidentManagement/ResidentList';
 import ResidentCreate from '../pages/BOD/ResidentManagement/ResidentCreate';
 import ResidentProfile from '../pages/BOD/ResidentManagement/ResidentProfile';
+import ResidentManagementLanding from '../pages/BOD/ResidentManagement/ResidentManagementLanding'; // Trang mới
+import ResidentApartmentLookup from '../pages/BOD/ResidentManagement/ResidentApartmentLookup'; // Trang mới
+import ResidentApartmentDetail from '../pages/BOD/ResidentManagement/ResidentApartmentDetail'; // <--- Import mới
 import FeeList from '../pages/BOD/FeeManagement/FeeList';
 import NotificationList from '../pages/BOD/NotificationManagement/NotificationList';
 import NotificationCreate from '../pages/BOD/NotificationManagement/NotificationCreate';
@@ -83,7 +86,20 @@ export default function AppRoutes() {
             <Route path="bod/admin/profile/create" element={<AdminCreate />} />
             <Route path="bod/admin/profile/:id" element={<AdminProfile />} />
 
+            {/* === RESTUCTURE RESIDENT MANAGEMENT === */}
+            {/* 1. Trang chủ chọn phương thức tra cứu */}
+            <Route path="bod/resident" element={<ResidentManagementLanding />} />
+            
+            {/* 2. Tra cứu danh sách tổng hợp (Trang cũ) */}
             <Route path="bod/resident/list" element={<ResidentList />} />
+            
+            {/* 3. Tra cứu theo căn hộ (Trang mới) */}
+            <Route path="bod/resident/lookup" element={<ResidentApartmentLookup />} />
+
+            {/* Route MỚI: Chi tiết căn hộ */}
+            <Route path="bod/resident/apartment/:id" element={<ResidentApartmentDetail />} />
+            
+            {/* Các trang chi tiết/tạo mới giữ nguyên */}
             <Route path="bod/resident/profile/create" element={<ResidentCreate />} />
             <Route path="bod/resident/profile/:id" element={<ResidentProfile />} />
 

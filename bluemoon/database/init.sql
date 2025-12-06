@@ -380,7 +380,7 @@ INSERT INTO apartments (apartment_code, building, floor, area, status) VALUES
 INSERT INTO users (id, username, password, email, phone, role_id) VALUES
 ('ID0001', 'admin.a', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'admin.a@bluemoon.com', '0900000001', 1),
 ('ID0002', 'ketoan.b', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'ketoan.b@bluemoon.com', '0900000002', 2),
-('R0001_USER', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3);
+('R0001', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3);
 
 INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VALUES
 ('ID0001', 'ID0001', 'Nguyễn Văn A', '1990-01-01', 'Nam', '012345678901', '0900000001', 'admin.a@bluemoon.com'),
@@ -388,7 +388,7 @@ INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VAL
 
 -- Residents
 INSERT INTO residents (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation) VALUES
-('R0001', 'R0001_USER', 1, 'Trần Văn Hộ', 'owner', '1980-01-01', 'Nam', '012345678001', '0900000011', 'chuho.a@bluemoon.com', 'Đang sinh sống', 'Hà Nội', 'Kỹ sư'),
+('R0001', 'R0001', 1, 'Trần Văn Hộ', 'owner', '1980-01-01', 'Nam', '012345678001', '0900000011', 'chuho.a@bluemoon.com', 'Đang sinh sống', 'Hà Nội', 'Kỹ sư'),
 ('R0002', NULL, 1, 'Nguyễn Thị Thành Viên', 'member', '1985-02-02', 'Nữ', '012345678002', '0900000012', 'thanhvien.a@bluemoon.com', 'Đang sinh sống', 'Hải Phòng', 'Giáo viên'),
 ('R0003', NULL, 2, 'Lê Gia Đình', 'owner', '1988-03-15', 'Nam', '012345678003', '0900000013', 'legiadinh@bluemoon.com', 'Đang sinh sống', 'Hà Nội', 'Kinh doanh'),
 ('R0004', NULL, 3, 'Phạm Văn B', 'owner', '1975-12-20', 'Nam', '012345678004', '0900000014', 'phamvanb@bluemoon.com', 'Đang sinh sống', 'TP.HCM', 'Bác sĩ'),

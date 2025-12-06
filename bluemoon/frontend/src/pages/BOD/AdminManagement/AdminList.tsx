@@ -18,9 +18,13 @@ import {
   ListItemButton,
   ListItemText,
   ListItemIcon,
+  //CircularProgress, // Thêm icon loading
+  //Alert, // Thêm thông báo lỗi
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useState, useRef, type ChangeEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { adminApi } from '../../../api/adminApi';
 // Icons
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
@@ -29,28 +33,57 @@ import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import * as XLSX from 'xlsx';
 
 // Dữ liệu giả (Mock Data) để test (--- CẬP NHẬT --- Yêu cầu 4)
-const mockAdmins = [
-  { id: 'ID0001', name: 'Nguyễn Văn A', role: 'bod' },
-  { id: 'ID0002', name: 'Nguyễn Văn B', role: 'accountance' },
-  { id: 'ID0003', name: 'Nguyễn Văn C', role: 'bod' },
-  { id: 'ID0004', name: 'Nguyễn Văn D', role: 'accountance' },
-  { id: 'ID0005', name: 'Trần Thị E', role: 'bod' },
-  { id: 'ID0006', name: 'Lê Văn F', role: 'accountance' },
-  { id: 'ID0007', name: 'Phạm Hữu G', role: 'bod' },
-  { id: 'ID0008', name: 'Hoàng Minh H', role: 'bod' },
-  { id: 'ID0009', name: 'Vũ Thị I', role: 'accountance' },
-  { id: 'ID0010', name: 'Đặng Văn K', role: 'bod' },
-];
+//const mockAdmins = [
+  //{ id: 'ID0001', name: 'Nguyễn Văn A', role: 'bod' },
+  //{ id: 'ID0002', name: 'Nguyễn Văn B', role: 'accountance' },
+  //{ id: 'ID0003', name: 'Nguyễn Văn C', role: 'bod' },
+  //{ id: 'ID0004', name: 'Nguyễn Văn D', role: 'accountance' },
+  //{ id: 'ID0005', name: 'Trần Thị E', role: 'bod' },
+  //{ id: 'ID0006', name: 'Lê Văn F', role: 'accountance' },
+  //{ id: 'ID0007', name: 'Phạm Hữu G', role: 'bod' },
+  //{ id: 'ID0008', name: 'Hoàng Minh H', role: 'bod' },
+  //{ id: 'ID0009', name: 'Vũ Thị I', role: 'accountance' },
+  //{ id: 'ID0010', name: 'Đặng Văn K', role: 'bod' },
+//];
 
 // Định nghĩa màu cho các vai trò (giữ nguyên)
-const roleMap = {
-  bod: { label: 'Ban quản trị', color: 'primary' },
-  accountance: { label: 'Kế toán', color: 'secondary' },
-  resident: { label: 'Cư dân', color: 'default' }
+// --- CẬP NHẬT MAP: Dùng role_id làm key ---
+const roleMap: Record<number, { label: string, color: string, code: string }> = {
+  1: { label: 'Ban quản trị', color: 'primary', code: 'bod' },
+  2: { label: 'Kế toán', color: 'secondary', code: 'accountance' },
+  3: { label: 'Cư dân', color: 'default', code: 'resident' }
 };
+
+// Cấu hình phân trang
+const ROWS_PER_PAGE = 10;
 
 export default function AdminList() {
   const navigate = useNavigate();
+
+  // --- STATE PHÂN TRANG ---
+  const [page, setPage] = useState(1);
+
+  // --- KẾT NỐI API ---
+  const { data: adminList = [], isLoading, error } = useQuery({
+    queryKey: ['admins'], // Key định danh cho query này
+    queryFn: adminApi.getAdminsOnly, // Gọi hàm lấy và lọc admin
+  });
+
+  // --- LOGIC TÍNH TOÁN PHÂN TRANG (Client-side) ---
+  const totalRows = adminList.length;
+  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  
+  // Cắt mảng adminList theo trang hiện tại
+  const paginatedAdmins = adminList.slice(
+    (page - 1) * ROWS_PER_PAGE,
+    page * ROWS_PER_PAGE
+  );
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+    // Cuộn lên đầu trang khi chuyển trang (UX tốt hơn)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // --- THÊM MỚI: State cho các Modal ---
   const [openPrimary, setOpenPrimary] = useState(false);
@@ -100,11 +133,12 @@ export default function AdminList() {
 
   // --- THÊM MỚI: Logic EXPORT ---
   const handleExport = () => {
-    // 1. (Tùy chọn) Chuyển đổi dữ liệu cho dễ đọc hơn
-    const dataToExport = mockAdmins.map(admin => ({
+    // Export data thật từ API
+    const dataToExport = adminList.map(admin => ({
       'ID': admin.id,
-      'Họ và Tên': admin.name,
-      'Vai trò': roleMap[admin.role as keyof typeof roleMap]?.label || 'Không xác định'
+      'Username': admin.username,
+      'Email': admin.email,
+      'Vai trò': roleMap[admin.role_id || 3]?.label || 'Không xác định'
     }));
 
     // 2. Tạo worksheet
@@ -220,52 +254,70 @@ export default function AdminList() {
         </Box>
       </Box>
 
-      {/* HÀNG 2: Danh sách quản trị viên (dạng thẻ) (giữ nguyên) */}
-      <Grid container spacing={2}>
-        {mockAdmins.map((admin) => {
-          const roleInfo = roleMap[admin.role as keyof typeof roleMap] || roleMap.resident;
-          
-          return (
-            <Grid 
-            size={{
-              xs: 12
-            }}
-            key={admin.id}> {/* Mỗi thẻ chiếm 1 hàng */}
-              <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-                
-                {/* Avatar */}
-                <Avatar sx={{ width: 56, height: 56, mr: 2 }} />
-                
-                {/* Thông tin */}
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6">{admin.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    {admin.id}
-                  </Typography>
-                  <Chip 
-                    label={roleInfo.label} 
-                    color={roleInfo.color as 'primary' | 'secondary' | 'default'} 
-                    size="small" 
-                  />
-                </Box>
-                
-                {/* Nút Xem thêm */}
-                <Button 
-                  variant="contained" 
-                  onClick={() => handleViewProfile(admin.id)}
-                >
-                  Xem thêm
-                </Button>
-              </Card>
-            </Grid>
-          );
-        })}
-      </Grid>
+      {/* --- DANH SÁCH USER TỪ API --- */}
+      {!isLoading && !error && (
+        <Grid container spacing={2}>
+          {paginatedAdmins.length === 0 ? (
+            <Typography sx={{ p: 2, fontStyle: 'italic', color: 'text.secondary' }}>Chưa có quản trị viên nào.</Typography>
+          ) : (
+            // --- CẬP NHẬT: Dùng mảng đã phân trang (paginatedAdmins) ---
+            paginatedAdmins.map((admin) => {
+              const roleInfo = roleMap[admin.role_id || 3] || roleMap[3];
+              
+              // --- LOGIC HIỂN THỊ TÊN ---
+              // Ưu tiên full_name nếu có và không rỗng, ngược lại dùng username
+              const displayName = (admin.full_name && admin.full_name.trim() !== "") 
+                                  ? admin.full_name 
+                                  : admin.username;
+              
+              return (
+                <Grid size={{ xs: 12 }} key={admin.id}>
+                  <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+                    <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
+                      {displayName.charAt(0).toUpperCase()}
+                    </Avatar>
+                    
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="h6">
+                        {displayName} {/* Hiển thị tên thật nếu có, ko thì username */}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        ID: {admin.id} | Email: {admin.email}
+                      </Typography>
+                      <Chip 
+                        label={roleInfo.label} 
+                        color={roleInfo.color as any} 
+                        size="small" 
+                      />
+                      {!admin.is_active && (
+                        <Chip label="Đã khóa" color="error" size="small" sx={{ ml: 1 }} />
+                      )}
+                    </Box>
+                    
+                    <Button variant="contained" onClick={() => handleViewProfile(admin.id)}>
+                      Xem thêm
+                    </Button>
+                  </Card>
+                </Grid>
+              );
+            })
+          )}
+        </Grid>
+      )}
 
-      {/* HÀNG 3: Phân trang (giữ nguyên) */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-        <Pagination count={10} color="primary" />
-      </Box>
+      {/* --- CẬP NHẬT: Pagination Component --- */}
+      {!isLoading && !error && totalRows > 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination 
+            count={totalPages}      // Tổng số trang tính toán được
+            page={page}             // Trang hiện tại
+            onChange={handlePageChange} // Hàm xử lý khi đổi trang
+            color="primary" 
+            showFirstButton 
+            showLastButton
+          />
+        </Box>
+      )}
 
       {/* --- THÊM MỚI: MODAL 1 (Yêu cầu 1) --- */}
       <Dialog

@@ -24,4 +24,9 @@ export const authApi = {
       token: backendData.data.accessToken,
     };
   },
+
+  getLoginHistory: async () => {
+    // GET /api/auth/history
+    return axiosClient.get('/auth/history');
+  },
 };

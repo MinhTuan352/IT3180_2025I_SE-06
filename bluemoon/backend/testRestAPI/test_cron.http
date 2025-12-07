@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:3000/api
+@baseUrl = https://it3180-2025i-se-06.onrender.com/api
 @token = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
 
 ### Kích hoạt quét công nợ thủ công

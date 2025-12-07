@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:3000/api
+@baseUrl = https://it3180-2025i-se-06.onrender.com/api
 # Token của cư dân (chuho_a101)
 @tokenResident = DÁN_TOKEN_CƯ_DÂN_VÀO_ĐÂY
 

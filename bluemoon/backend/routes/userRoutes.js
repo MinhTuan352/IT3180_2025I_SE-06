@@ -6,19 +6,39 @@ const userController = require('../controllers/userController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
 
-// Kích hoạt bảo vệ: Phải đăng nhập
+// ==========================================
+// MIDDLEWARE BẢO VỆ
+// ==========================================
+
+// 1. Bắt buộc phải đăng nhập
 router.use(checkAuth);
 
-// Kích hoạt bảo vệ cấp cao: Chỉ Ban quản trị mới được dùng các API dưới đây
+// 2. Chỉ Ban quản trị (BOD) mới được quyền quản lý User
 router.use(checkRole(['bod'])); 
 
-// 1. Xem danh sách tất cả tài khoản
+// ==========================================
+// CÁC ROUTE QUẢN LÝ (CŨ)
+// ==========================================
+
+// [GET] /api/users - Xem danh sách tất cả tài khoản
 router.get('/', userController.getAllUsers);
 
-// 2. Khóa / Mở khóa tài khoản
+// [PUT] /api/users/:id/status - Khóa / Mở khóa tài khoản
 router.put('/:id/status', userController.toggleStatus);
 
-// 3. Reset mật khẩu cho người dùng
+// [POST] /api/users/:id/reset-password - Reset mật khẩu
 router.post('/:id/reset-password', userController.resetPassword);
+
+// ==========================================
+// CÁC ROUTE TẠO MỚI (SPRINT 2)
+// ==========================================
+
+// [POST] /api/users/create-admin
+// Tạo tài khoản quản trị (Admin hoặc Kế toán)
+router.post('/create-admin', userController.createManagementAccount);
+
+// [POST] /api/users/create-resident
+// Tạo tài khoản cư dân (Kèm thông tin căn hộ)
+router.post('/create-resident', userController.createResidentAccount);
 
 module.exports = router;

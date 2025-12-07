@@ -1,14 +1,18 @@
-@baseUrl = http://localhost:3000/api
-@tokenAdmin = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+@baseUrl = https://it3180-2025i-se-06.onrender.com/api
+@tokenAdmin = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjUwODA2MDUsImV4cCI6MTc2NTA4NDIwNX0.Qcjkl1DQEZYQzfGnj29PFRsllMbd8K7AexUH1IuGkag
+
+# ==================================================================
+# PHẦN 1: QUẢN LÝ TRẠNG THÁI USER (CŨ)
+# ==================================================================
 
 ### 1. Xem danh sách tất cả tài khoản
 GET {{baseUrl}}/users
 Authorization: Bearer {{tokenAdmin}}
 
 
-### 2. Khóa tài khoản của một cư dân (Ví dụ ID: R0001_USER)
+### 2. Khóa tài khoản của một cư dân (Ví dụ ID: R0001)
 # Khi bị khóa, user này sẽ không đăng nhập được nữa
-PUT {{baseUrl}}/users/R0001_USER/status
+PUT {{baseUrl}}/users/R0001/status
 Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
@@ -18,7 +22,7 @@ Content-Type: application/json
 
 
 ### 3. Mở khóa lại tài khoản đó
-PUT {{baseUrl}}/users/R0001_USER/status
+PUT {{baseUrl}}/users/R0001/status
 Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
@@ -34,4 +38,90 @@ Content-Type: application/json
 
 {
     "newPassword": "matkhauMacDinh@123"
+}
+
+
+# ==================================================================
+# PHẦN 2: TẠO TÀI KHOẢN MỚI (SPRINT 2 - TRANSACTION)
+# ==================================================================
+
+### 5. Tạo tài khoản QUẢN TRỊ VIÊN (Admin - role_id: 1)
+# API này sẽ tự sinh ID dạng "IDxxxx" và insert vào 2 bảng: users, admins
+POST {{baseUrl}}/users/create-admin
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "username": "admin.b",
+    "password": "12345678",
+    "email": "admin.b@bluemoon.com",
+    "phone": "0901234567",
+    "role_id": 1,
+    "full_name": "Nguyen Van Quan Ly",
+    "gender": "Nam",
+    "dob": "1985-01-01",
+    "cccd": "001085000099"
+}
+
+
+### 6. Tạo tài khoản KẾ TOÁN (Accountance - role_id: 2)
+# Tương tự trên nhưng role_id là 2
+POST {{baseUrl}}/users/create-admin
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "username": "ketoan.c",
+    "password": "12345678",
+    "email": "ketoan.c@bluemoon.com",
+    "phone": "0909876543",
+    "role_id": 2,
+    "full_name": "Tran Thi Ke Toan",
+    "gender": "Nữ",
+    "dob": "1990-05-15",
+    "cccd": "001090000088"
+}
+
+
+### 7. Tạo tài khoản CƯ DÂN (Resident)
+# API này tự sinh ID dạng "Rxxxx" và insert vào 2 bảng: users, residents
+# Yêu cầu: apartment_id phải tồn tại trong DB (VD: 1, 2, 3, 4)
+POST {{baseUrl}}/users/create-resident
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "username": "chuho_a102",
+    "password": "12345678",
+    "email": "chuho_a102@gmail.com",
+    "phone": "0988777666",
+    "full_name": "Le Van Cu Dan",
+    "gender": "Nam",
+    "dob": "1995-10-20",
+    "cccd": "001095000077",
+    "hometown": "Da Nang",
+    "occupation": "IT Developer",
+    
+    "apartment_id": 2, 
+    "role": "owner"
+}
+
+
+### 8. Test lỗi trùng lặp (Chạy lại request số 7)
+# Mong đợi: Trả về lỗi 409 Conflict vì username/email hoặc CCCD đã tồn tại
+POST {{baseUrl}}/users/create-resident
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+    "username": "cudan.moi", 
+    "password": "Password123",
+    "email": "email.khac@gmail.com",
+    "phone": "0988777666",
+    "full_name": "Le Van Cu Dan",
+    "gender": "Nam",
+    "dob": "1995-10-20",
+    "cccd": "001095000077", 
+    "apartment_id": 2,
+    "role": "owner"
 }

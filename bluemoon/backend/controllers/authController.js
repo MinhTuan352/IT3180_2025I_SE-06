@@ -52,16 +52,29 @@ const authController = {
             await User.updateRefreshToken(user.id, refreshToken);
 
             // ========================================================
-            // [CẬP NHẬT] GHI LỊCH SỬ ĐĂNG NHẬP
+            // [CẬP NHẬT SỬA LỖI] GHI LỊCH SỬ ĐĂNG NHẬP
             // ========================================================
-            // Lấy IP của người dùng (Xử lý trường hợp chạy sau Proxy/Load Balancer)
-            const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+            
+            // 1. Lấy chuỗi IP thô
+            let ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '0.0.0.0';
+
+            // 2. Xử lý nếu là chuỗi nhiều IP (VD: "IP_Client, IP_Proxy1, IP_Proxy2")
+            if (typeof ipAddress === 'string' && ipAddress.includes(',')) {
+                // Cắt lấy cái đầu tiên và xóa khoảng trắng thừa
+                ipAddress = ipAddress.split(',')[0].trim();
+            }
+
+            // 3. Đảm bảo không quá 45 ký tự (Cắt bớt nếu vẫn dài - phòng hờ)
+            if (ipAddress.length > 45) {
+                ipAddress = ipAddress.substring(0, 45);
+            }
+
             // Lấy thông tin trình duyệt/thiết bị
             const userAgent = req.headers['user-agent'] || 'Unknown Device';
             
-            // Gọi Model để lưu (Chạy ngầm, không cần await để chặn phản hồi)
+            // Gọi Model để lưu
             User.createLoginHistory(user.id, ipAddress, userAgent);
-            // ========================================================
+            // =======================================================
 
             res.json({
                 success: true,

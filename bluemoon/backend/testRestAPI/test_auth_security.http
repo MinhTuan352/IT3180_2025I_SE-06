@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:3000/api/auth
+@baseUrl = https://it3180-2025i-se-06.onrender.com/api/auth
 
 ### 1. Đăng nhập (Để ghi log lịch sử & lấy Token)
 # Username: admin.a

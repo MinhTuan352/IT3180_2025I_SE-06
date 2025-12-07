@@ -203,6 +203,68 @@ const authController = {
             console.error(error);
             res.status(500).json({ message: 'Lỗi server khi lấy lịch sử hệ thống.' });
         }
+    },
+
+    // ========================================================
+    // [BOD] XEM LỊCH SỬ ĐĂNG NHẬP CỦA QUẢN TRỊ VIÊN
+    // ========================================================
+    getAdminLoginHistory: async (req, res) => {
+        try {
+            const allHistory = await User.getAllLoginHistory();
+            // Lọc chỉ lấy admin (BOD, ACCOUNTANT)
+            const adminHistory = allHistory.filter(item =>
+                item.role_code === 'BOD' || item.role_code === 'ACCOUNTANT'
+            ).map(item => ({
+                id: item.id,
+                username: item.username,
+                fullName: item.full_name,
+                role: item.role_name,
+                time: item.login_time,
+                ip: item.ip_address,
+                device: item.user_agent,
+                status: 'Thành công'
+            }));
+
+            res.json({
+                success: true,
+                count: adminHistory.length,
+                data: adminHistory
+            });
+        } catch (error) {
+            console.error('Error fetching admin login history:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // ========================================================
+    // [BOD] XEM LỊCH SỬ ĐĂNG NHẬP CỦA CƯ DÂN
+    // ========================================================
+    getResidentLoginHistory: async (req, res) => {
+        try {
+            const allHistory = await User.getAllLoginHistory();
+            // Lọc chỉ lấy cư dân (RESIDENT)
+            const residentHistory = allHistory.filter(item =>
+                item.role_code === 'RESIDENT'
+            ).map(item => ({
+                id: item.id,
+                username: item.username,
+                fullName: item.full_name,
+                apartment: item.apartment_id || 'N/A',
+                time: item.login_time,
+                ip: item.ip_address,
+                device: item.user_agent,
+                status: 'Thành công'
+            }));
+
+            res.json({
+                success: true,
+                count: residentHistory.length,
+                data: residentHistory
+            });
+        } catch (error) {
+            console.error('Error fetching resident login history:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
     }
 };
 

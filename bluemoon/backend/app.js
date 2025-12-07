@@ -6,11 +6,19 @@ const path = require('path');
 require('dotenv').config();
 
 // Import Database (chỉ để kiểm tra kết nối lúc khởi động)
-require('./config/db'); 
+require('./config/db');
 
 // Khởi tạo App
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
+// --- [DEBUG START] THÊM ĐOẠN NÀY ĐỂ DEBUG ---
+app.use((req, res, next) => {
+    console.log(`\n🔥 [INCOMING REQUEST]: ${req.method} ${req.originalUrl}`);
+    next();
+});
+// --- [DEBUG END] ----------------------------
 
 // =======================
 // 1. MIDDLEWARE
@@ -40,6 +48,8 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/incidents', require('./routes/incidentRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/assets', require('./routes/assetRoutes'));
+console.log('--- DBG: Loading Service Routes... ---');
+app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/apartments', require('./routes/apartmentRoutes'));
 
 // Route kiểm tra server sống hay chết

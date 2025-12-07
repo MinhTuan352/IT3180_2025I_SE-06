@@ -5,14 +5,12 @@ import react from '@vitejs/plugin-react' // (Hoặc plugin-react)
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Thêm phần này
+    port: 5173, // Cố định cổng Frontend là 5173 (để tránh tranh chấp với Backend 3000)
     proxy: {
-      // Bất kỳ request nào bắt đầu bằng /api sẽ được chuyển đến backend
       '/api': {
-        target: 'http://localhost:3000', // Sửa port này cho đúng với backend của bạn
+        target: 'http://localhost:3000', // <-- Chuyển hướng mọi request /api sang Backend 3000
         changeOrigin: true,
-        // (Tùy chọn) Xóa /api khỏi request nếu backend không cần
-        // rewrite: (path) => path.replace(/^\/api/, ''), 
+        secure: false,
       }
     }
   }

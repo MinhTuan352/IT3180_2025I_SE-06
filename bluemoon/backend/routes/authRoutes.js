@@ -25,11 +25,17 @@ router.post('/logout', authController.logout);
 // POST /api/auth/change-password - Đổi mật khẩu
 router.post('/change-password', checkAuth, authController.changePassword);
 
-// GET /api/auth/history - Xem lịch sử đăng nhập cá nhân
+// GET /api/auth/history - Xem lịch sử đăng nhập (của chính user đang login)
 router.get('/history', checkAuth, authController.getLoginHistory);
 
-// GET /api/auth/all-history - Xem toàn bộ lịch sử (Chỉ BOD)
-const checkRole = require('../middleware/checkRole');
-router.get('/all-history', checkAuth, checkRole(['bod']), authController.getSystemLoginHistory);
+// ==========================
+// BOD ROUTES (Quản lý lịch sử đăng nhập)
+// ==========================
+
+// GET /api/auth/history/admin - Lịch sử đăng nhập của QTV
+router.get('/history/admin', checkAuth, authController.getAdminLoginHistory);
+
+// GET /api/auth/history/resident - Lịch sử đăng nhập của Cư dân
+router.get('/history/resident', checkAuth, authController.getResidentLoginHistory);
 
 module.exports = router;

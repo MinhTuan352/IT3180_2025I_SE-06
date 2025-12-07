@@ -2,8 +2,8 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  // URL này trỏ đến proxy bạn đã cài trong vite.config.ts
-  baseURL: '/api',
+  // 👇 SỬA DÒNG NÀY: Thay '/api' thành đường dẫn đầy đủ
+  baseURL: 'http://localhost:3000/api',
   headers: {
     'Content-Type': 'application/json',
   },

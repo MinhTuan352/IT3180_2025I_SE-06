@@ -2,48 +2,108 @@
 import {
   Box, Typography, Button, Paper, IconButton, Tooltip, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Grid, MenuItem
+  Grid, MenuItem, Alert
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EditIcon from '@mui/icons-material/Edit';
 import StorefrontIcon from '@mui/icons-material/Storefront';
-import { mockServices } from '../../../data/mockServices';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import axiosClient from '../../../api/axiosClient';
+
+interface ServiceType {
+  id: number;
+  name: string;
+  description: string;
+  base_price: number;
+  unit: string;
+  is_active: number; // 1 or 0
+}
 
 export default function ServiceList() {
-  const [services, setServices] = useState(mockServices);
-  const [openEdit, setOpenEdit] = useState(false);
-  const [editingService, setEditingService] = useState<any>(null);
+  const [services, setServices] = useState<ServiceType[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleEditClick = (service: any) => {
+  // Modal State
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editingService, setEditingService] = useState<any>(null); // Dùng any cho form state cho tiện
+  const [isNew, setIsNew] = useState(false); // Check xem là Add mới hay Edit
+
+  // Fetch Data
+  const fetchServices = async () => {
+    setLoading(true);
+    try {
+      const response = await axiosClient.get('/services');
+      if (response.data && response.data.success) {
+        setServices(response.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Không thể tải danh sách dịch vụ.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  // --- Handlers ---
+
+  const handleCreateClick = () => {
+    setEditingService({
+      name: '', description: '', base_price: 0, unit: 'Lượt', is_active: 1
+    });
+    setIsNew(true);
+    setOpenEdit(true);
+  }
+
+  const handleEditClick = (service: ServiceType) => {
     setEditingService({ ...service });
+    setIsNew(false);
     setOpenEdit(true);
   };
 
-  const handleSave = () => {
-    // Logic cập nhật state hoặc gọi API PUT
-    setServices(prev => prev.map(s => s.id === editingService.id ? editingService : s));
-    setOpenEdit(false);
-    alert("Cập nhật thông tin dịch vụ thành công!");
+  const handleSave = async () => {
+    try {
+      if (isNew) {
+        await axiosClient.post('/services', editingService);
+        alert("Thêm dịch vụ thành công!");
+      } else {
+        await axiosClient.put(`/services/${editingService.id}`, editingService);
+        alert("Cập nhật dịch vụ thành công!");
+      }
+      setOpenEdit(false);
+      fetchServices(); // Reload data
+    } catch (err: any) {
+      console.error(err);
+      alert("Lỗi khi lưu: " + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleChange = (e: any) => {
     setEditingService({ ...editingService, [e.target.name]: e.target.value });
   };
 
+  // --- Columns ---
   const columns: GridColDef[] = [
-    { field: 'id', headerName: 'Mã DV', width: 90 },
+    { field: 'id', headerName: 'ID', width: 70 },
     { field: 'name', headerName: 'Tên Dịch vụ', flex: 1, minWidth: 200 },
-    { field: 'category', headerName: 'Danh mục', width: 150 },
-    { field: 'location', headerName: 'Vị trí', width: 180 },
-    { field: 'phone', headerName: 'Hotline', width: 120 },
-    { 
-      field: 'status', headerName: 'Trạng thái', width: 140,
+    {
+      field: 'base_price', headerName: 'Đơn giá (VNĐ)', width: 150,
+      valueFormatter: (value) => new Intl.NumberFormat('vi-VN').format(value as number)
+    },
+    { field: 'unit', headerName: 'Đơn vị tính', width: 120 },
+    { field: 'description', headerName: 'Mô tả', flex: 1, minWidth: 200 },
+    {
+      field: 'is_active', headerName: 'Trạng thái', width: 150,
       renderCell: (params) => (
-        <Chip 
-          label={params.value} 
-          color={params.value === 'Đang hoạt động' ? 'success' : 'default'} 
-          size="small" 
+        <Chip
+          label={params.value ? 'Đang hoạt động' : 'Tạm dừng'}
+          color={params.value ? 'success' : 'default'}
+          size="small"
         />
       )
     },
@@ -61,13 +121,21 @@ export default function ServiceList() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <StorefrontIcon sx={{ mr: 1, fontSize: 30, color: 'primary.main' }} />
-        <Typography variant="h5" fontWeight="bold">QUẢN LÝ DỊCH VỤ - TIỆN ÍCH</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <StorefrontIcon sx={{ mr: 1, fontSize: 30, color: 'primary.main' }} />
+          <Typography variant="h5" fontWeight="bold">QUẢN LÝ DỊCH VỤ - TIỆN ÍCH</Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={handleCreateClick}>
+          Thêm mới
+        </Button>
       </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Paper sx={{ height: 600, width: '100%', borderRadius: 2 }}>
         <DataGrid
+          loading={loading}
           rows={services}
           columns={columns}
           initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
@@ -77,46 +145,39 @@ export default function ServiceList() {
         />
       </Paper>
 
-      {/* Modal Chỉnh Sửa */}
+      {/* Modal Chỉnh Sửa / Thêm Mới */}
       <Dialog open={openEdit} onClose={() => setOpenEdit(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Cập nhật thông tin Dịch vụ</DialogTitle>
+        <DialogTitle>{isNew ? 'Thêm Dịch vụ mới' : 'Cập nhật Dịch vụ'}</DialogTitle>
         <DialogContent dividers>
           {editingService && (
             <Grid container spacing={2}>
-              <Grid sx={{xs: 12, sm: 6}}>
+              <Grid sx={{ xs: 12 }}>
                 <TextField label="Tên dịch vụ" name="name" fullWidth value={editingService.name} onChange={handleChange} />
               </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Danh mục" name="category" fullWidth value={editingService.category} onChange={handleChange} />
+
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField type="number" label="Đơn giá cơ bản" name="base_price" fullWidth value={editingService.base_price} onChange={handleChange} />
               </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Vị trí" name="location" fullWidth value={editingService.location} onChange={handleChange} />
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField label="Đơn vị tính (VD: Giờ, Lần)" name="unit" fullWidth value={editingService.unit} onChange={handleChange} />
               </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Hotline" name="phone" fullWidth value={editingService.phone} onChange={handleChange} />
+
+              <Grid sx={{ xs: 12 }}>
+                <TextField label="Mô tả chi tiết" name="description" fullWidth multiline rows={3} value={editingService.description} onChange={handleChange} />
               </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Giờ mở cửa" name="openTime" fullWidth value={editingService.openTime} onChange={handleChange} />
-              </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField select label="Trạng thái" name="status" fullWidth value={editingService.status} onChange={handleChange}>
-                  <MenuItem value="Đang hoạt động">Đang hoạt động</MenuItem>
-                  <MenuItem value="Tạm dừng">Tạm dừng</MenuItem>
-                  <MenuItem value="Bảo trì">Bảo trì</MenuItem>
+
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField select label="Trạng thái" name="is_active" fullWidth value={editingService.is_active} onChange={handleChange}>
+                  <MenuItem value={1}>Đang hoạt động</MenuItem>
+                  <MenuItem value={0}>Tạm dừng</MenuItem>
                 </TextField>
-              </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Mô tả chi tiết" name="description" fullWidth multiline rows={4} value={editingService.description} onChange={handleChange} />
-              </Grid>
-              <Grid sx={{xs: 12, sm: 6}}>
-                <TextField label="Link Ảnh (URL)" name="image" fullWidth value={editingService.image} onChange={handleChange} />
               </Grid>
             </Grid>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEdit(false)}>Hủy</Button>
-          <Button onClick={handleSave} variant="contained">Lưu Cập Nhật</Button>
+          <Button onClick={handleSave} variant="contained">{isNew ? 'Thêm mới' : 'Lưu Cập Nhật'}</Button>
         </DialogActions>
       </Dialog>
     </Box>

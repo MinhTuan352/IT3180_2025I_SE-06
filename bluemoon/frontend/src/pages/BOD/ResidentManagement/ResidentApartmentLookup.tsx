@@ -1,10 +1,14 @@
 // src/pages/BOD/ResidentManagement/ResidentApartmentLookup.tsx
 import {
   Box, Typography, Button, Paper, Grid, Card, CardActionArea,
-  Breadcrumbs, Link, Chip, Avatar, Stack, IconButton, Tooltip
+  Breadcrumbs, Link, Chip, Avatar, Stack, IconButton, Tooltip, CircularProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query'; // Import React Query
+import { apartmentApi, type Apartment } from '../../../api/apartmentApi.ts'; // Import Apartment API
+import { residentApi } from '../../../api/residentApi';
+
 //import * as XLSX from 'xlsx';
 
 // Icons
@@ -22,25 +26,6 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const FLOORS = 31;
 const APARTMENTS_PER_FLOOR = 8;
 
-// Hàm sinh dữ liệu giả cho 1 tầng
-const generateApartments = (building: string, floor: number) => {
-  return Array.from({ length: APARTMENTS_PER_FLOOR }, (_, i) => {
-    const aptNumber = `${building}-${floor}${String(i + 1).padStart(2, '0')}`; // VD: A-101
-    const isOccupied = Math.random() > 0.3; // 70% có người
-    
-    return {
-      id: aptNumber,
-      name: `Căn hộ ${aptNumber}`,
-      status: isOccupied ? 'occupied' : 'empty',
-      residents: isOccupied ? [
-        { id: 'R001', name: 'Nguyễn Văn A', role: 'Chủ hộ' },
-        { id: 'R002', name: 'Trần Thị B', role: 'Vợ/Chồng' },
-        ...(Math.random() > 0.5 ? [{ id: 'R003', name: 'Nguyễn Văn Con', role: 'Con' }] : [])
-      ] : []
-    };
-  });
-};
-
 export default function ResidentApartmentLookup() {
   const navigate = useNavigate();
   
@@ -48,6 +33,26 @@ export default function ResidentApartmentLookup() {
   const [selectedBuilding, setSelectedBuilding] = useState<'A' | 'B' | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
 
+  // --- 1. GỌI API (Lấy toàn bộ dữ liệu về) ---
+  const { data: dbApartments = [], isLoading: loadingApt } = useQuery<Apartment[]>({
+    queryKey: ['apartments'],
+    queryFn: apartmentApi.getAll,
+  });
+
+  const { data: dbResidents = [], isLoading: loadingRes } = useQuery({
+    queryKey: ['residents'],
+    queryFn: () => residentApi.getAll(),
+  });
+
+  // --- 2. XỬ LÝ DỮ LIỆU (Ghép Cư dân vào Căn hộ có sẵn trong DB) ---
+  const apartmentsWithResidents = useMemo(() => {
+    return dbApartments.map(apt => ({
+      ...apt,
+      // Tìm cư dân thuộc căn hộ này
+      residents: dbResidents.filter(r => String(r.apartment_id) === String(apt.id))
+    }));
+  }, [dbApartments, dbResidents]);
+  
   // --- HEADER ACTIONS (GIỮ NGUYÊN TỪ RESIDENT LIST) ---
   const handleExport = () => { alert("Export excel từ view Căn hộ"); };
   const handleImportClick = () => { alert("Import excel vào view Căn hộ"); };
@@ -60,8 +65,12 @@ export default function ResidentApartmentLookup() {
   const backToFloorSelection = () => { setSelectedFloor(null); };
 
   // --- HÀM ĐIỀU HƯỚNG MỚI ---
-  const handleViewApartmentDetail = (aptId: string) => {
-    navigate(`/bod/resident/apartment/${aptId}`);
+  const handleViewApartmentDetail = (aptId?: number) => {
+    if (aptId) {
+      navigate(`/bod/resident/apartment/${aptId}`);
+    } else {
+      alert("Căn hộ này chưa được thiết lập dữ liệu trên hệ thống.");
+    }
   };
 
   const handleViewResidentProfile = (e: React.MouseEvent, residentId: string) => {
@@ -71,6 +80,8 @@ export default function ResidentApartmentLookup() {
 
   // --- RENDER CONTENT ---
   const renderContent = () => {
+    if (loadingApt || loadingRes) return <Box sx={{display:'flex', justifyContent:'center', p:5}}><CircularProgress /></Box>;
+
     // 1. CẤP ĐỘ 1: CHỌN TÒA NHÀ
     if (!selectedBuilding) {
       return (
@@ -124,8 +135,23 @@ export default function ResidentApartmentLookup() {
 
     // 3. CẤP ĐỘ 3: DANH SÁCH CĂN HỘ (CHI TIẾT)
     if (selectedBuilding && selectedFloor !== null) {
-      const apartments = generateApartments(selectedBuilding, selectedFloor);
-      
+      // Tạo ra 8 slot trống theo đúng cấu trúc bạn yêu cầu
+      const apartmentSlots = Array.from({ length: APARTMENTS_PER_FLOOR }, (_, i) => {
+        // Tạo mã căn hộ kỳ vọng theo quy tắc (Ví dụ: A-101, A-1001)
+        const roomSuffix = String(i + 1).padStart(2, '0'); // 01, 02... 08
+        const expectedCode = `${selectedBuilding}-${selectedFloor}${roomSuffix}`; // VD: A-101
+
+        // Tìm trong dữ liệu API xem có căn nào khớp mã này không
+        const matchedData = apartmentsWithResidents.find(
+          apt => apt.apartment_code === expectedCode
+        );
+
+        return {
+          virtualCode: expectedCode, // Mã hiển thị (luôn có)
+          data: matchedData || null, // Dữ liệu thật (có thể null)
+        };
+      });
+
       return (
         <Box>
           <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
@@ -133,66 +159,81 @@ export default function ResidentApartmentLookup() {
           </Typography>
           
           <Grid container spacing={2}>
-            {apartments.map((apt) => (
-              <Grid sx={{xs: 12}} key={apt.id}>
-                <Paper 
-                  elevation={0}
-                  sx={{ 
-                    p: 2, borderRadius: 2, border: '1px solid #eee',
-                    borderLeft: `6px solid ${apt.status === 'occupied' ? '#4caf50' : '#bdbdbd'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2,
-                    cursor: 'pointer', // Thêm con trỏ chuột
-                    '&:hover': { bgcolor: '#f9f9f9', boxShadow: 2 } // Thêm hiệu ứng hover
-                  }}
-                  onClick={() => handleViewApartmentDetail(apt.id)} // <--- THÊM SỰ KIỆN CLICK VÀO THẺ
-                >
-                  {/* Thông tin Căn hộ */}
-                  <Box sx={{ minWidth: 100 }}>
-                    <Typography variant="h6" fontWeight="bold">{apt.name}</Typography>
-                    <Chip 
-                      label={apt.status === 'occupied' ? 'Đã có người' : 'Trống'} 
-                      size="small" 
-                      color={apt.status === 'occupied' ? 'success' : 'default'}
-                      variant={apt.status === 'occupied' ? 'filled' : 'outlined'}
-                      sx={{ mt: 0.5 }}
-                    />
-                  </Box>
-
-                  {/* Danh sách thành viên (nếu có) */}
-                  <Box sx={{ flexGrow: 1 }}>
-                    {apt.status === 'occupied' ? (
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {apt.residents.map((res) => (
-                          <Chip
-                            key={res.id}
-                            avatar={<Avatar><PersonIcon /></Avatar>}
-                            label={
-                              <Box>
-                                <Typography variant="caption" display="block" lineHeight={1} fontWeight="bold">{res.name}</Typography>
-                                <Typography variant="caption" display="block" fontSize="0.65rem">{res.role}</Typography>
-                              </Box>
-                            }
-                            onClick={(e) => handleViewResidentProfile(e, res.id)} 
-                            sx={{ height: 'auto', py: 0.5, cursor: 'pointer', '&:hover': { bgcolor: '#e3f2fd' } }}
-                          />
-                        ))}
-                      </Stack>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                        Chưa có thông tin cư trú
+            {apartmentSlots.map((slot, index) => {
+              const hasData = !!slot.data;
+              const isOccupied = slot.data?.status === 'Đang sinh sống';
+              
+              return (
+                <Grid sx={{xs: 12}} key={index}>
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: 2, borderRadius: 2, border: '1px solid #eee',
+                      // Nếu có người -> viền xanh, Chưa có -> viền xám
+                      borderLeft: `6px solid ${hasData && isOccupied ? '#4caf50' : '#bdbdbd'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2,
+                      // Nếu không có dữ liệu thật, làm mờ đi một chút
+                      opacity: hasData ? 1 : 0.6,
+                      bgcolor: hasData ? 'white' : '#fafafa',
+                      cursor: hasData ? 'pointer' : 'default',
+                      '&:hover': { bgcolor: hasData ? '#f9f9f9' : '#fafafa', boxShadow: hasData ? 2 : 0 }
+                    }}
+                    onClick={() => handleViewApartmentDetail(slot.data?.id)}
+                  >
+                    {/* Thông tin Căn hộ (Luôn hiển thị Mã căn) */}
+                    <Box sx={{ minWidth: 100 }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        {slot.virtualCode}
                       </Typography>
-                    )}
-                  </Box>
+                      <Chip 
+                        // Nếu có data thì hiện status thật, ko thì hiện "Chưa thông tin"
+                        label={hasData ? slot.data?.status : 'Chưa có thông tin'} 
+                        size="small" 
+                        color={isOccupied ? 'success' : 'default'}
+                        variant={isOccupied ? 'filled' : 'outlined'}
+                        sx={{ mt: 0.5 }}
+                      />
+                    </Box>
 
-                  {/* Actions nhỏ nếu cần */}
-                  <Box>
-                    <Tooltip title="Xem chi tiết căn hộ">
-                        <IconButton size="small"><ArrowForwardIcon /></IconButton>
-                    </Tooltip>
-                  </Box>
-                </Paper>
-              </Grid>
-            ))}
+                    {/* Danh sách cư dân (Chỉ hiện nếu khớp được dữ liệu) */}
+                    <Box sx={{ flexGrow: 1 }}>
+                      {hasData && slot.data?.residents && slot.data.residents.length > 0 ? (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {slot.data.residents.map((res: any) => (
+                            <Chip
+                              key={res.id}
+                              avatar={<Avatar sx={{ bgcolor: res.role === 'owner' ? 'primary.main' : 'grey.400' }}><PersonIcon /></Avatar>}
+                              label={
+                                <Box>
+                                  <Typography variant="caption" display="block" lineHeight={1} fontWeight="bold">{res.full_name}</Typography>
+                                  <Typography variant="caption" display="block" fontSize="0.65rem">{res.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}</Typography>
+                                </Box>
+                              }
+                              onClick={(e) => handleViewResidentProfile(e, res.id)} 
+                              sx={{ height: 'auto', py: 0.5, cursor: 'pointer', '&:hover': { bgcolor: '#e3f2fd' } }}
+                            />
+                          ))}
+                        </Stack>
+                      ) : (
+                        // Nếu không có dữ liệu hoặc danh sách cư dân rỗng
+                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                          ---
+                        </Typography>
+                      )}
+                    </Box>
+
+                  {/* Nút mũi tên chỉ hiện khi có dữ liệu để bấm vào */}
+                    <Box sx={{ minWidth: 40, textAlign: 'right' }}>
+                      {hasData && (
+                        <Tooltip title="Xem chi tiết căn hộ">
+                            <IconButton size="small"><ArrowForwardIcon /></IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+              );
+            })}
           </Grid>
         </Box>
       );

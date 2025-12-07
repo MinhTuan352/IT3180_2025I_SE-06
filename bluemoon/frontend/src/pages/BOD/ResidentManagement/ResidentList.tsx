@@ -8,33 +8,50 @@ import {
   Chip,
   Pagination,
   Grid,
+  CircularProgress, // Thêm icon loading
+  Alert, // Thêm Alert lỗi
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useRef, type ChangeEvent } from 'react'; 
+import { useRef, type ChangeEvent, useState } from 'react'; 
 import * as XLSX from 'xlsx'; 
+import { useQuery } from '@tanstack/react-query'; // Import React Query
+import { residentApi, type Resident } from '../../../api/residentApi';
 
 // Icons
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
-// Dữ liệu giả (Mock Data) cho Cư dân
-const mockResidents = [
-  { id: 'R0001', name: 'Trần Văn Hộ', apartment: 'A-101', role: 'owner' },
-  { id: 'R0002', name: 'Nguyễn Thị Thành Viên', apartment: 'A-101', role: 'member' },
-  { id: 'R0003', name: 'Lê Gia Đình', apartment: 'B-205', role: 'owner' },
-  { id: 'R0004', name: 'Phạm Văn B', apartment: 'C-1503', role: 'owner' },
-  { id: 'R0005', name: 'Hoàng Thị C', apartment: 'D-404', role: 'member' },
-];
-
-// Định nghĩa màu cho vai trò (Yêu cầu 2)
+// Định nghĩa màu cho vai trò (Giữ nguyên)
 const roleMap = {
   owner: { label: 'Chủ hộ', color: 'primary' },
   member: { label: 'Thành viên', color: 'secondary' },
 };
 
+const ROWS_PER_PAGE = 10; // Số dòng mỗi trang
+
 export default function ResidentList() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [page, setPage] = useState(1); // State phân trang
+
+  // --- 1. GỌI API LẤY DANH SÁCH ---
+  const { data: residentList = [], isLoading, error } = useQuery({
+    queryKey: ['residents'],
+    queryFn: () => residentApi.getAll(),
+  });
+
+  // --- 2. XỬ LÝ PHÂN TRANG (Client-side) ---
+  const totalRows = residentList.length;
+  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  const paginatedResidents = residentList.slice(
+    (page - 1) * ROWS_PER_PAGE,
+    page * ROWS_PER_PAGE
+  );
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // --- Handlers cho Navigation (Yêu cầu 3) ---
   const handleCreateResident = () => {
@@ -47,11 +64,12 @@ export default function ResidentList() {
 
   // --- Logic Import/Export (Giữ cấu trúc) ---
   const handleExport = () => {
-    const dataToExport = mockResidents.map(res => ({
+    // Export dữ liệu thật từ API
+    const dataToExport = residentList.map((res: Resident) => ({
       'ID': res.id,
-      'Họ và Tên': res.name,
-      'Căn hộ': res.apartment,
-      'Quyền hạn': roleMap[res.role as keyof typeof roleMap]?.label || 'Không xác định'
+      'Họ và Tên': res.full_name, // Mapping field từ API
+      'Căn hộ': res.apartment_code || res.apartment_id, // Ưu tiên mã căn hộ
+      'Quyền hạn': roleMap[res.role as keyof typeof roleMap]?.label || res.role
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -135,48 +153,83 @@ export default function ResidentList() {
         </Box>
       </Box>
 
-      {/* HÀNG 2: Danh sách quản trị viên (dạng thẻ) */}
-      <Grid container spacing={2}>
-        {mockResidents.map((res) => {
-          const roleInfo = roleMap[res.role as keyof typeof roleMap];
+      {/* --- 3. HIỂN THỊ TRẠNG THÁI LOADING / ERROR --- */}
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Không thể tải danh sách cư dân. Vui lòng thử lại sau.
+        </Alert>
+      )}
+
+      {/* HÀNG 2: Danh sách cư dân (dạng thẻ) */}
+      {!isLoading && !error && (
+        <Grid container spacing={2}>
+          {paginatedResidents.map((res: Resident) => {
+            const roleInfo = roleMap[res.role as keyof typeof roleMap] || { label: res.role, color: 'default' };
+            
+            return (
+              <Grid 
+                size={{ xs: 12 }}
+                key={res.id}> 
+                <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+                  
+                  <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
+                    {res.full_name.charAt(0).toUpperCase()}
+                  </Avatar>
+                  
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6">{res.full_name}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      ID: {res.id} | Căn hộ: <b>{res.apartment_code || `ID:${res.apartment_id}`}</b>
+                    </Typography>
+                    <Chip 
+                      label={roleInfo.label} 
+                      color={roleInfo.color as 'primary' | 'secondary' | 'default'} 
+                      size="small" 
+                      sx={{ mr: 1 }}
+                    />
+                    {res.status && res.status !== 'Đang sinh sống' && (
+                        <Chip label={res.status} size="small" variant="outlined" />
+                    )}
+                  </Box>
+                  
+                  <Button 
+                    variant="contained" 
+                    onClick={() => handleViewProfile(res.id)}
+                  >
+                    Xem thêm
+                  </Button>
+                </Card>
+              </Grid>
+            );
+          })}
           
-          return (
-            <Grid 
-              size={{ xs: 12 }}
-              key={res.id}> 
-              <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-                
-                <Avatar sx={{ width: 56, height: 56, mr: 2 }} />
-                
-                {/* --- CẬP NHẬT THÔNG TIN THẺ (Yêu cầu 2) --- */}
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6">{res.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    ID: {res.id} | Căn hộ: {res.apartment}
-                  </Typography>
-                  <Chip 
-                    label={roleInfo.label} 
-                    color={roleInfo.color as 'primary' | 'secondary'} 
-                    size="small" 
-                  />
-                </Box>
-                
-                <Button 
-                  variant="contained" 
-                  onClick={() => handleViewProfile(res.id)}
-                >
-                  Xem thêm
-                </Button>
-              </Card>
-            </Grid>
-          );
-        })}
-      </Grid>
+          {paginatedResidents.length === 0 && (
+            <Typography sx={{ width: '100%', textAlign: 'center', mt: 4, color: 'text.secondary' }}>
+                Chưa có dữ liệu cư dân.
+            </Typography>
+          )}
+        </Grid>
+      )}
 
       {/* HÀNG 3: Phân trang */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-        <Pagination count={10} color="primary" />
-      </Box>
+      {!isLoading && !error && totalRows > 0 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Pagination 
+            count={totalPages} 
+            page={page}
+            onChange={handlePageChange}
+            color="primary" 
+            showFirstButton 
+            showLastButton
+          />
+        </Box>
+      )}
     </Box>
   );
 }

@@ -40,6 +40,7 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/incidents', require('./routes/incidentRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/assets', require('./routes/assetRoutes'));
+app.use('/api/apartments', require('./routes/apartmentRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

@@ -11,38 +11,39 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-
-// (Tái định nghĩa mock data ở đây để demo, bạn nên fetch API)
-const mockNotifications: { [key: string]: any } = {
-  'TB001': { 
-    id: 'TB001', 
-    title: 'Thông báo lịch cắt điện Tòa A', 
-    created_by: 'BQL Nguyễn Văn A',
-    created_at: '2025-10-28T10:30:00',
-    target: 'Tất cả Cư dân',
-    type: 'Khẩn cấp',
-    scheduled_at: null,
-    content: 'Do sự cố đột xuất tại trạm biến áp, Tòa A sẽ tạm ngưng cung cấp điện từ 14:00 đến 15:00 ngày 28/10/2025 để khắc phục. Mong quý cư dân thông cảm.',
-    attachments: [
-      { name: 'SoDoTramBienAp.jpg', url: '#' },
-    ]
-  },
-  // ... (thêm các thông báo khác nếu cần)
-};
+import notificationApi, { type Notification } from '../../../api/notificationApi';
 
 export default function NotificationDetail() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [notification, setNotification] = useState<any>(null);
+  const [notification, setNotification] = useState<Notification | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (id && mockNotifications[id]) {
-      setNotification(mockNotifications[id]);
+    if (id) {
+      fetchDetail(id);
     }
-    // (Trong tương lai: gọi API lấy chi tiết thông báo, bao gồm cả 'content')
   }, [id]);
 
-  if (!notification) {
+  const fetchDetail = async (notiId: string) => {
+    try {
+      setLoading(true);
+      const response = await notificationApi.getDetail(notiId);
+      // Assuming response structure
+      if (response && (response as any).data) {
+        setNotification((response as any).data);
+      } else {
+        // fallback
+        setNotification(response as any);
+      }
+    } catch (error) {
+      console.error("Failed to fetch detail", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) {
     return (
       <Paper sx={{ p: 3 }}>
         <Typography>Đang tải thông báo...</Typography>
@@ -50,20 +51,34 @@ export default function NotificationDetail() {
     );
   }
 
+  if (!notification) {
+    return (
+      <Paper sx={{ p: 3 }}>
+        <Typography>Không tìm thấy thông báo.</Typography>
+        <Button onClick={() => navigate('/bod/notification/list')}>Quay lại</Button>
+      </Paper>
+    );
+  }
+
+  // Helper for type color
+  let typeColor: "error" | "warning" | "primary" = "primary";
+  if (notification.type_name === 'Khẩn cấp') typeColor = 'error';
+  if (notification.type_name === 'Thu phí') typeColor = 'warning';
+
   return (
     <Paper sx={{ p: 4, borderRadius: 3 }}>
       {/* Hàng 1: Nút Back và Tiêu đề */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Button 
-          startIcon={<ArrowBackIcon />} 
+        <Button
+          startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/bod/notification/list')}
           sx={{ mr: 2 }}
         >
           Quay lại
         </Button>
-        <Chip 
-          label={notification.type} 
-          color={notification.type === 'Khẩn cấp' ? 'error' : (notification.type === 'Thu phí' ? 'warning' : 'primary')} 
+        <Chip
+          label={notification.type_name || 'Thông báo'}
+          color={typeColor}
         />
       </Box>
       <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
@@ -74,32 +89,31 @@ export default function NotificationDetail() {
       <Grid container spacing={2} sx={{ color: 'text.secondary', my: 2 }}>
         <Grid size={{ xs: 12, sm: 6 }}>
           <Typography variant="body2">
-            **Người gửi:** {notification.created_by}
+            <strong>Người gửi:</strong> {notification.created_by_name || notification.created_by}
           </Typography>
           <Typography variant="body2">
-            **Đối tượng:** {notification.target}
+            <strong>Đối tượng:</strong> {notification.target}
           </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
           <Typography variant="body2">
-            **Ngày tạo:** {new Date(notification.created_at).toLocaleString('vi-VN')}
+            <strong>Ngày tạo:</strong> {new Date(notification.created_at).toLocaleString('vi-VN')}
           </Typography>
           <Typography variant="body2">
-            **Lịch gửi:** {notification.scheduled_at 
+            <strong>Lịch gửi:</strong> {notification.scheduled_at
               ? new Date(notification.scheduled_at).toLocaleString('vi-VN')
               : 'Gửi ngay'}
           </Typography>
         </Grid>
       </Grid>
-      
+
       <Divider sx={{ mb: 3 }} />
 
       {/* Hàng 3: Nội dung văn bản */}
-      <Box sx={{ 
-        minHeight: 200, 
-        mb: 3, 
-        // Giữ nguyên định dạng xuống dòng
-        whiteSpace: 'pre-wrap', 
+      <Box sx={{
+        minHeight: 200,
+        mb: 3,
+        whiteSpace: 'pre-wrap',
       }}>
         <Typography variant="body1" sx={{ lineHeight: 1.7 }}>
           {notification.content}
@@ -111,15 +125,15 @@ export default function NotificationDetail() {
         <>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="h6" sx={{ mb: 1 }}>File đính kèm:</Typography>
-          {notification.attachments.map((file: any, index: number) => (
-            <Button 
-              key={index} 
-              href={file.url} 
+          {notification.attachments.map((file, index) => (
+            <Button
+              key={index}
+              href={`http://localhost:3000${file.file_path}`} // Assuming backend url
               target="_blank"
               variant="outlined"
-              sx={{ mr: 1 }}
+              sx={{ mr: 1, mb: 1 }}
             >
-              {file.name}
+              {file.file_name}
             </Button>
           ))}
         </>

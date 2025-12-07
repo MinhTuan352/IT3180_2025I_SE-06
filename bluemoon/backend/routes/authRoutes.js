@@ -25,7 +25,11 @@ router.post('/logout', authController.logout);
 // POST /api/auth/change-password - Đổi mật khẩu
 router.post('/change-password', checkAuth, authController.changePassword);
 
-// GET /api/auth/history - Xem lịch sử đăng nhập
+// GET /api/auth/history - Xem lịch sử đăng nhập cá nhân
 router.get('/history', checkAuth, authController.getLoginHistory);
+
+// GET /api/auth/all-history - Xem toàn bộ lịch sử (Chỉ BOD)
+const checkRole = require('../middleware/checkRole');
+router.get('/all-history', checkAuth, checkRole(['bod']), authController.getSystemLoginHistory);
 
 module.exports = router;

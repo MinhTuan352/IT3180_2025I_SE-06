@@ -10,32 +10,75 @@ import {
   Stack,
   TextField,
   InputAdornment,
+  Alert,
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PeopleIcon from '@mui/icons-material/People';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
+import axiosClient from '../../../api/axiosClient';
 
-// --- Mock Data ---
-const mockAdminLogins = [
-  { id: 1, username: 'admin.a', fullName: 'Nguyễn Văn A', role: 'BOD', time: '2025-10-28 08:30:00', ip: '192.168.1.10', device: 'Chrome / Windows', status: 'Thành công' },
-  { id: 2, username: 'ketoan.b', fullName: 'Trần Thị B', role: 'Kế toán', time: '2025-10-28 09:00:00', ip: '192.168.1.15', device: 'Safari / MacOS', status: 'Thành công' },
-  { id: 3, username: 'admin.a', fullName: 'Nguyễn Văn A', role: 'BOD', time: '2025-10-27 17:45:00', ip: '14.162.x.x', device: 'Mobile / iOS', status: 'Thất bại (Sai MK)' },
-  { id: 4, username: 'ketoan.c', fullName: 'Lê Văn C', role: 'Kế toán', time: '2025-10-27 08:15:00', ip: '192.168.1.20', device: 'Firefox / Windows', status: 'Thành công' },
-];
-
-const mockResidentLogins = [
-  { id: 101, username: 'chuho_a101', fullName: 'Trần Văn Hộ', apartment: 'A-101', time: '2025-10-28 19:30:00', ip: '42.113.x.x', device: 'App Mobile / Android', status: 'Thành công' },
-  { id: 102, username: 'mem_b205', fullName: 'Lê Gia Đình', apartment: 'B-205', time: '2025-10-28 18:00:00', ip: '113.160.x.x', device: 'Chrome / Windows', status: 'Thành công' },
-  { id: 103, username: 'chuho_c1503', fullName: 'Phạm Văn B', apartment: 'C-1503', time: '2025-10-27 21:15:00', ip: '14.232.x.x', device: 'App Mobile / iOS', status: 'Thất bại (Khóa TK)' },
-];
+// Interface cho Login Log (Khớp với dữ liệu trả về từ API)
+interface LoginLog {
+  id: number;
+  user_id: string;
+  username: string;
+  full_name: string;
+  role_code: string;
+  role_name: string;
+  apartment_id: string | null;
+  login_time: string;
+  ip_address: string;
+  user_agent: string;
+  user_agent_parsed?: string;
+}
 
 export default function LoginManagement() {
   const [viewMode, setViewMode] = useState<'admin' | 'resident'>('admin');
   const [searchText, setSearchText] = useState('');
+
+  // Data states
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [allLogs, setAllLogs] = useState<LoginLog[]>([]);
+
+  // Helper parser
+  const parseUserAgent = (ua: string): string => {
+    if (!ua) return 'Unknown';
+    if (ua.includes('Postman')) return 'Postman Runtime';
+    if (ua.includes('iPhone')) return 'Mobile / iOS';
+    if (ua.includes('Android')) return 'Mobile / Android';
+    if (ua.includes('Windows')) return 'Windows PC';
+    if (ua.includes('Macintosh')) return 'MacOS';
+    return 'Web Browser';
+  };
+
+  // Fetch Data từ API
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axiosClient.get('/auth/all-history');
+        if (response.data && response.data.success) {
+          const logs = response.data.data.map((log: any) => ({
+            ...log,
+            user_agent_parsed: parseUserAgent(log.user_agent)
+          }));
+          setAllLogs(logs);
+        }
+      } catch (err: any) {
+        console.error("Lỗi tải lịch sử đăng nhập:", err);
+        setError("Không thể tải dữ liệu lịch sử đăng nhập.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
 
   const handleViewChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -46,99 +89,116 @@ export default function LoginManagement() {
     }
   };
 
+  // Format Date
+  const formatDate = (isoString: string) => {
+    if (!isoString) return '';
+    return new Date(isoString).toLocaleString('vi-VN');
+  };
+
   // Columns cho Admin
   const adminColumns: GridColDef[] = [
-    { 
-      field: 'username', 
-      headerName: 'Tài khoản', 
+    {
+      field: 'username',
+      headerName: 'Tài khoản',
       width: 200,
-      renderCell: (params: GridRenderCellParams) => (
+      renderCell: (params: GridRenderCellParams<LoginLog>) => (
         <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>{params.value[0].toUpperCase()}</Avatar>
+          <Avatar sx={{ width: 24, height: 24, fontSize: 12 }}>
+            {params.value && typeof params.value === 'string' ? params.value[0].toUpperCase() : '?'}
+          </Avatar>
           <Box>
             <Typography variant="body2" fontWeight="bold">{params.value}</Typography>
-            <Typography variant="caption" color="text.secondary">{params.row.fullName}</Typography>
+            <Typography variant="caption" color="text.secondary">{params.row.full_name}</Typography>
           </Box>
         </Stack>
       )
     },
-    { 
-      field: 'role', 
-      headerName: 'Vai trò', 
-      width: 120,
+    {
+      field: 'role_name',
+      headerName: 'Vai trò',
+      width: 150,
       renderCell: (params) => (
-        <Chip 
-          label={params.value} 
-          size="small" 
-          color={params.value === 'BOD' ? 'primary' : 'secondary'} 
+        <Chip
+          label={params.value as string}
+          size="small"
+          color={['BOD', 'Ban quản trị'].includes(params.value as string) ? 'primary' : 'secondary'}
           variant="outlined"
         />
       )
     },
-    { field: 'time', headerName: 'Thời gian', width: 180 },
-    { field: 'ip', headerName: 'IP Address', width: 140 },
-    { field: 'device', headerName: 'Thiết bị', flex: 1, minWidth: 200 },
-    { 
-      field: 'status', 
-      headerName: 'Trạng thái', 
+    {
+      field: 'login_time',
+      headerName: 'Thời gian',
       width: 180,
-      renderCell: (params) => {
-        const isSuccess = params.value === 'Thành công';
-        return (
-          <Chip 
-            icon={isSuccess ? <CheckCircleIcon /> : <ErrorIcon />}
-            label={params.value} 
-            color={isSuccess ? 'success' : 'error'} 
-            size="small"
-          />
-        );
-      }
+      valueFormatter: (value) => formatDate(value as string)
+    },
+    { field: 'ip_address', headerName: 'IP Address', width: 140 },
+    { field: 'user_agent_parsed', headerName: 'Thiết bị', flex: 1, minWidth: 200 },
+    {
+      field: 'status',
+      headerName: 'Trạng thái',
+      width: 150,
+      renderCell: () => (
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Thành công"
+          color="success"
+          size="small"
+        />
+      )
     },
   ];
 
   // Columns cho Cư dân
   const residentColumns: GridColDef[] = [
-    { 
-      field: 'username', 
-      headerName: 'Tài khoản', 
+    {
+      field: 'username',
+      headerName: 'Tài khoản',
       width: 200,
-      renderCell: (params: GridRenderCellParams) => (
+      renderCell: (params: GridRenderCellParams<LoginLog>) => (
         <Stack direction="row" spacing={1} alignItems="center">
-          <Avatar sx={{ width: 24, height: 24, fontSize: 12, bgcolor: 'orange' }}>{params.value[0].toUpperCase()}</Avatar>
+          <Avatar sx={{ width: 24, height: 24, fontSize: 12, bgcolor: 'orange' }}>
+            {params.value && typeof params.value === 'string' ? params.value[0].toUpperCase() : '?'}
+          </Avatar>
           <Box>
             <Typography variant="body2" fontWeight="bold">{params.value}</Typography>
-            <Typography variant="caption" color="text.secondary">{params.row.fullName}</Typography>
+            <Typography variant="caption" color="text.secondary">{params.row.full_name}</Typography>
           </Box>
         </Stack>
       )
     },
-    { field: 'apartment', headerName: 'Căn hộ', width: 100 },
-    { field: 'time', headerName: 'Thời gian', width: 180 },
-    { field: 'ip', headerName: 'IP Address', width: 140 },
-    { field: 'device', headerName: 'Thiết bị', flex: 1, minWidth: 200 },
-    { 
-      field: 'status', 
-      headerName: 'Trạng thái', 
+    { field: 'apartment_id', headerName: 'Căn hộ', width: 100 },
+    {
+      field: 'login_time',
+      headerName: 'Thời gian',
       width: 180,
-      renderCell: (params) => {
-        const isSuccess = params.value === 'Thành công';
-        return (
-          <Chip 
-            icon={isSuccess ? <CheckCircleIcon /> : <ErrorIcon />}
-            label={params.value} 
-            color={isSuccess ? 'success' : 'error'} 
-            size="small"
-          />
-        );
-      }
+      valueFormatter: (value) => formatDate(value as string)
+    },
+    { field: 'ip_address', headerName: 'IP Address', width: 140 },
+    { field: 'user_agent_parsed', headerName: 'Thiết bị', flex: 1, minWidth: 200 },
+    {
+      field: 'status',
+      headerName: 'Trạng thái',
+      width: 150,
+      renderCell: () => (
+        <Chip
+          icon={<CheckCircleIcon />}
+          label="Thành công"
+          color="success"
+          size="small"
+        />
+      )
     },
   ];
 
-  // Filter data
-  const currentRows = viewMode === 'admin' ? mockAdminLogins : mockResidentLogins;
-  const filteredRows = currentRows.filter((row) => 
+  // Filter Data Logic
+  const adminLogs = allLogs.filter(log => !log.apartment_id);
+  const residentLogs = allLogs.filter(log => log.apartment_id);
+  const currentRows = viewMode === 'admin' ? adminLogs : residentLogs;
+
+  const filteredRows = currentRows.filter((row) =>
     row.username.toLowerCase().includes(searchText.toLowerCase()) ||
-    row.fullName.toLowerCase().includes(searchText.toLowerCase())
+    row.full_name.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (
@@ -149,17 +209,17 @@ export default function LoginManagement() {
 
       {/* Header Controls */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-        
+
         {/* Toggle Button Group (QTV vs Cư dân) */}
         <ToggleButtonGroup
           value={viewMode}
           exclusive
           onChange={handleViewChange}
           aria-label="view mode"
-          sx={{ 
-            '& .MuiToggleButton-root': { 
-              px: 3, 
-              py: 1, 
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 3,
+              py: 1,
               fontWeight: 'bold',
               border: 'none',
               borderRadius: '8px !important',
@@ -169,7 +229,7 @@ export default function LoginManagement() {
                 color: 'white',
                 '&:hover': { backgroundColor: 'primary.dark' }
               }
-            } 
+            }
           }}
         >
           <ToggleButton value="admin">
@@ -199,9 +259,17 @@ export default function LoginManagement() {
         />
       </Paper>
 
+      {/* Error Message */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       {/* Data Grid */}
       <Paper sx={{ height: 600, width: '100%', borderRadius: 3, p: 0, overflow: 'hidden' }}>
         <DataGrid
+          loading={loading}
           rows={filteredRows}
           columns={viewMode === 'admin' ? adminColumns : residentColumns}
           initialState={{

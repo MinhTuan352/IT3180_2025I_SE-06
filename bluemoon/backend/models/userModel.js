@@ -10,7 +10,7 @@ const generateUniqueId = async (prefix) => {
 
     // Kiểm tra trong bảng users xem ID này có chưa
     const [rows] = await db.execute('SELECT id FROM users WHERE id = ?', [newId]);
-    
+
     // Nếu trùng thì đệ quy gọi lại chính nó để sinh số khác
     if (rows.length > 0) {
         return await generateUniqueId(prefix);
@@ -111,7 +111,7 @@ const User = {
             console.error('Lỗi ghi lịch sử đăng nhập:', error.message);
         }
     },
-    
+
     /**
      * Lấy danh sách lịch sử đăng nhập của 1 user
      * (Cho chức năng: "Cư dân muốn xem lịch sử đăng nhập")
@@ -124,9 +124,37 @@ const User = {
                 WHERE user_id = ? 
                 ORDER BY login_time DESC 
                 LIMIT 10
-            `; 
+            `;
             // Chỉ lấy 10 lần gần nhất
             const [rows] = await db.execute(query, [userId]);
+            return rows;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * [BOD] Lấy TOÀN BỘ lịch sử đăng nhập của hệ thống
+     * Join với các bảng để lấy tên và thông tin chi tiết
+     */
+    getAllLoginHistory: async () => {
+        try {
+            const query = `
+                SELECT 
+                    lh.log_id as id, lh.user_id, lh.login_time, lh.ip_address, lh.user_agent,
+                    u.username, r.role_code, r.role_name,
+                    COALESCE(a.full_name, res.full_name, 'Unknown') as full_name,
+                    res.apartment_id
+                FROM login_history lh
+                JOIN users u ON lh.user_id = u.id
+                JOIN roles r ON u.role_id = r.id
+                LEFT JOIN admins a ON u.id = a.user_id
+                LEFT JOIN residents res ON u.id = res.user_id
+                ORDER BY lh.login_time DESC
+                LIMIT 500
+            `;
+            // Limit 500 để tránh quá tải
+            const [rows] = await db.execute(query);
             return rows;
         } catch (error) {
             throw error;
@@ -192,7 +220,7 @@ const User = {
     checkDuplicate: async (username, email, cccd, tableProfile) => {
         // 1. Check bảng Users
         const [userRows] = await db.execute(
-            'SELECT id FROM users WHERE username = ? OR email = ?', 
+            'SELECT id FROM users WHERE username = ? OR email = ?',
             [username, email]
         );
         if (userRows.length > 0) return 'Username hoặc Email đã tồn tại trong hệ thống.';
@@ -200,7 +228,7 @@ const User = {
         // 2. Check bảng Profile (Admins hoặc Residents)
         if (cccd) {
             const [profileRows] = await db.execute(
-                `SELECT id FROM ${tableProfile} WHERE cccd = ?`, 
+                `SELECT id FROM ${tableProfile} WHERE cccd = ?`,
                 [cccd]
             );
             if (profileRows.length > 0) return `Số CCCD ${cccd} đã tồn tại.`;
@@ -219,7 +247,7 @@ const User = {
             await connection.beginTransaction();
 
             const { username, password, email, phone, role_id, full_name, dob, gender, cccd } = data;
-            
+
             // 1. Sinh ID (VD: ID1234)
             const newId = await generateUniqueId('ID');
 
@@ -257,10 +285,10 @@ const User = {
         try {
             await connection.beginTransaction();
 
-            const { 
-                username, password, email, phone, 
-                full_name, gender, dob, cccd, 
-                apartment_id, role, hometown, occupation 
+            const {
+                username, password, email, phone,
+                full_name, gender, dob, cccd,
+                apartment_id, role, hometown, occupation
             } = data;
 
             // 1. Sinh ID (VD: R9999)

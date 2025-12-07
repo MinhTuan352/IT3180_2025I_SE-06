@@ -8,8 +8,8 @@ require('dotenv').config();
 // Helper: Hàm tạo Access Token
 const generateAccessToken = (user) => {
     return jwt.sign(
-        { id: user.id, role: user.role_code }, 
-        process.env.JWT_SECRET, 
+        { id: user.id, role: user.role_code },
+        process.env.JWT_SECRET,
         { expiresIn: '1h' }
     );
 };
@@ -24,7 +24,7 @@ const generateRefreshToken = (user) => {
 };
 
 const authController = {
-    
+
     // 1. XỬ LÝ ĐĂNG NHẬP
     login: async (req, res) => {
         try {
@@ -54,7 +54,7 @@ const authController = {
             // ========================================================
             // [CẬP NHẬT SỬA LỖI] GHI LỊCH SỬ ĐĂNG NHẬP
             // ========================================================
-            
+
             // 1. Lấy chuỗi IP thô
             let ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '0.0.0.0';
 
@@ -71,7 +71,7 @@ const authController = {
 
             // Lấy thông tin trình duyệt/thiết bị
             const userAgent = req.headers['user-agent'] || 'Unknown Device';
-            
+
             // Gọi Model để lưu
             User.createLoginHistory(user.id, ipAddress, userAgent);
             // =======================================================
@@ -121,7 +121,7 @@ const authController = {
     // 3. ĐĂNG XUẤT (Giữ nguyên)
     logout: async (req, res) => {
         try {
-            const userId = req.body.userId; 
+            const userId = req.body.userId;
             if (userId) {
                 await User.updateRefreshToken(userId, null);
             }
@@ -179,7 +179,7 @@ const authController = {
         try {
             const userId = req.user.id;
             const history = await User.getLoginHistory(userId);
-            
+
             res.json({
                 success: true,
                 count: history.length,
@@ -187,6 +187,21 @@ const authController = {
             });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // [BOD] Xem toàn bộ lịch sử
+    getSystemLoginHistory: async (req, res) => {
+        try {
+            const history = await User.getAllLoginHistory();
+            res.json({
+                success: true,
+                count: history.length,
+                data: history
+            });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: 'Lỗi server khi lấy lịch sử hệ thống.' });
         }
     }
 };

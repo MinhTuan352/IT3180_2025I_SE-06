@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const axiosClient = axios.create({
   // URL này trỏ đến proxy bạn đã cài trong vite.config.ts
-  baseURL: '/api', 
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -25,14 +25,15 @@ axiosClient.interceptors.request.use(
   }
 );
 
-// (Tùy chọn nâng cao) Thêm Interceptor cho response
+// Thêm Interceptor cho response
 // Để xử lý lỗi 401 (Unauthorized) - tự động logout
 axiosClient.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // THÊM ĐIỀU KIỆN NÀY:
+    // Chỉ xử lý lỗi 401 (Unauthorized)
+    if (error.response && error.response.status === 401) {
       // Chỉ reload nếu user ĐÃ ĐĂNG NHẬP (có token) 
       // hoặc KHÔNG Ở TRANG signin
       if (localStorage.getItem('token') || window.location.pathname !== '/signin') {
@@ -40,6 +41,7 @@ axiosClient.interceptors.response.use(
         localStorage.removeItem('user');
         window.location.replace('/signin');
       }
+    }
     return Promise.reject(error);
   }
 );

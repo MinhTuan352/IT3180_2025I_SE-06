@@ -14,14 +14,14 @@ export const authApi = {
     // Gọi API
     const response = await axiosClient.post('/auth/login', data);
 
-    // Backend trả về: { success, message, token, refreshToken, user }
-    // Token và user ở ROOT level, không nested trong data
+    // Backend trả về: { success, message, data: { user, accessToken, refreshToken } }
+    // Dữ liệu NESTED trong "data", và token có tên là "accessToken"
     const backendData = response.data;
 
-    // Bóc tách dữ liệu - LẤY TRỰC TIẾP TỪ ROOT
+    // Bóc tách dữ liệu - LẤY TỪ NESTED "data" object
     return {
-      user: backendData.user,
-      token: backendData.token,
+      user: backendData.data.user,
+      token: backendData.data.accessToken,
     };
   },
 };

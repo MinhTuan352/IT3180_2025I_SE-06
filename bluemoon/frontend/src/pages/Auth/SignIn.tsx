@@ -46,7 +46,7 @@ export default function SignIn() {
       // data trả về từ authApi.login (gồm token và user)
       toast.success('Đăng nhập thành công!');
       login(data.user, data.token); // Lưu vào Context
-      
+
       // Điều hướng dựa trên vai trò backend trả về
       switch (data.user.role) {
         case 'bod':
@@ -83,9 +83,9 @@ export default function SignIn() {
       {/* Component để hiển thị thông báo */}
       <Toaster position="top-right" reverseOrder={false} />
 
-      <Grid container 
-      component="main" 
-      sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+      <Grid container
+        component="main"
+        sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
         {/* 1. Cột Ảnh (Bên trái) */}
         <Grid size={{
           xs: 0,
@@ -107,10 +107,10 @@ export default function SignIn() {
         <Grid size={{
           xs: 12,
           sm: 8,
-          md: 5 
+          md: 5
         }}
-        
-        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Box
             sx={{
               my: 8,
@@ -123,23 +123,24 @@ export default function SignIn() {
             }}
           >
             {/* Logo */}
-            <Typography 
-            component="h1" 
-            variant="h5" 
-            sx={{ 
-              color: 'primary.main', 
-              fontWeight: 'bold' 
+            <Typography
+              component="h1"
+              variant="h5"
+              sx={{
+                color: 'primary.main',
+                fontWeight: 'bold'
               }}>
               WELCOME
             </Typography>
-            
-            <Typography 
-            component="h1" 
-            variant="h4" 
-            sx={{ 
-              color: 'primary.main', 
-              fontWeight: 'bold', 
-              mb: 3 }}>
+
+            <Typography
+              component="h1"
+              variant="h4"
+              sx={{
+                color: 'primary.main',
+                fontWeight: 'bold',
+                mb: 3
+              }}>
               BLUEMOON
             </Typography>
 
@@ -158,8 +159,9 @@ export default function SignIn() {
                     label="Username"
                     autoComplete="username"
                     autoFocus
-                    sx={{ '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px'
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '10px'
                       }
                     }}
                     error={!!errors.username}
@@ -180,8 +182,9 @@ export default function SignIn() {
                     type="password"
                     id="password"
                     autoComplete="current-password"
-                    sx={{ '& .MuiOutlinedInput-root': {
-                      borderRadius: '10px'
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '10px'
                       }
                     }}
                     error={!!errors.password}
@@ -193,24 +196,24 @@ export default function SignIn() {
               <Link href="#" variant="body2" sx={{ display: 'block', textAlign: 'right', mt: 1 }}>
                 Quên mật khẩu?
               </Link>
-              
+
               {/* Nút Đăng nhập */}
               <Box sx={{
                 display: 'flex',
-                justifyContent: 'flex-end', 
+                justifyContent: 'flex-end',
                 width: '100%',
-                mt: 3 
+                mt: 3
               }}>
                 <Button
                   type="submit"
                   variant="contained"
                   disabled={mutation.isPending}
-                  sx={{ 
-                    mb: 2, 
+                  sx={{
+                    mb: 2,
                     py: 1,
                     px: 5,
                     borderRadius: 9999,
-                    backgroundColor: '#0A4A9C', 
+                    backgroundColor: '#0A4A9C',
                     '&:hover': {
                       backgroundColor: '#083B7E'
                     }

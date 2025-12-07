@@ -38,4 +38,7 @@ router.get('/history/admin', checkAuth, authController.getAdminLoginHistory);
 // GET /api/auth/history/resident - Lịch sử đăng nhập của Cư dân
 router.get('/history/resident', checkAuth, authController.getResidentLoginHistory);
 
+// GET /api/auth/all-history - Toàn bộ lịch sử đăng nhập (BOD)
+router.get('/all-history', checkAuth, authController.getSystemLoginHistory);
+
 module.exports = router;

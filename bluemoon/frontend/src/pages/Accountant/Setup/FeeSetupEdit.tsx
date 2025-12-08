@@ -1,73 +1,96 @@
-// src/pages/Accountant/Setup/FeeSetupEdit.tsx
-import {
-  Box,
-  Typography,
-  Paper,
-  Grid,
-  TextField,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Tooltip,
-  type SelectChangeEvent,
-} from '@mui/material';
+import { Box, Typography, Paper, Grid, TextField, Button, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react'; // <-- Thêm state, effect
+import { useState, useEffect } from 'react';
 import InfoIcon from '@mui/icons-material/Info';
-
-// --- Mock Data (Thay bằng API call) ---
-const mockFeeTypeData: { [key: string]: any } = {
-  'PQL': { id: 'PQL', name: 'Phí Quản lý', price: 15000, unit: 'm²', calculation: 'area', description: 'Thu hàng tháng dựa trên diện tích căn hộ.' },
-  'PXE-OTO': { id: 'PXE-OTO', name: 'Phí Gửi xe Ô tô', price: 1000000, unit: 'xe/tháng', calculation: 'fixed', description: 'Thu cố định hàng tháng cho mỗi xe ô tô đăng ký.' },
-  // ...
-};
+import feeApi from '../../../api/feeApi';
+import toast from 'react-hot-toast';
 
 export default function FeeSetupEdit() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [feeData, setFeeData] = useState<any>(null); // State để lưu dữ liệu
 
-  // --- Fetch Data ---
+  const [feeData, setFeeData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
-    if (id && mockFeeTypeData[id]) {
-      setFeeData(mockFeeTypeData[id]);
-    } else {
-      navigate('/accountance/fee/setup/feeSetup'); // Không tìm thấy thì quay lại
-    }
+    const fetchData = async () => {
+      if (!id) return;
+      try {
+        const response: any = await feeApi.getTypes();
+        // response.data = { success: true, data: [...] }
+        if (response && response.data && response.data.data) {
+          const found = response.data.data.find((f: any) => f.id.toString() === id);
+          if (found) {
+            setFeeData({
+              id: found.id,
+              fee_code: found.fee_code,
+              name: found.fee_name,
+              price: found.default_price,
+              unit: found.unit,
+              calculation: 'fixed',
+              description: ''
+            });
+          } else {
+            toast.error('Không tìm thấy loại phí này');
+            navigate('/accountance/fee/setup/feeSetup');
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching fee detail:", error);
+        toast.error('Lỗi khi tải dữ liệu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, [id, navigate]);
 
-  const handleUpdate = () => {
-    // Logic gọi API cập nhật loại phí với 'id' và 'feeData'
-    alert(`Đã cập nhật loại phí ${id} (Giả lập)`);
-    navigate('/accountance/fee/setup/feeSetup');
-  };
-
-  // --- Hàm cập nhật state khi form thay đổi ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;
     setFeeData((prev: any) => ({ ...prev, [name]: value }));
   };
 
+  const handleUpdate = async () => {
+    setSaving(true);
+    try {
+      await feeApi.updateType(id!, {
+        fee_code: feeData.fee_code,
+        fee_name: feeData.name,
+        default_price: Number(feeData.price),
+        unit: feeData.unit
+      });
+      toast.success('Cập nhật thành công!');
+      navigate('/accountance/fee/setup/feeSetup');
+    } catch (error: any) {
+      console.error("Error updating fee:", error);
+      toast.error(error.response?.data?.message || 'Lỗi khi cập nhật');
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  if (!feeData) {
-    return <Typography>Đang tải...</Typography>; // Hoặc loading
+  if (loading) {
+    return <Typography sx={{ p: 3 }}>Đang tải...</Typography>;
   }
+
+  if (!feeData) return null;
 
   return (
     <Paper sx={{ p: 3, maxWidth: 700, margin: 'auto', borderRadius: 3 }}>
       <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center' }}>
-        Chỉnh sửa Loại Phí (Mã: {id})
+        Chỉnh sửa Loại Phí (Mã: {feeData.fee_code})
       </Typography>
       <Grid container spacing={3}>
-        {/* ID Phí (Không cho sửa) */}
         <Grid size={12}>
           <TextField
             label="Mã Phí"
             fullWidth
-            value={feeData.id}
-            InputProps={{ readOnly: true, // Không cho sửa mã
+            value={feeData.fee_code}
+            InputProps={{
+              readOnly: true,
               endAdornment: (
                 <Tooltip title="Mã phí là định danh duy nhất, không thể thay đổi.">
                   <InfoIcon color="action" sx={{ cursor: 'help' }} />
@@ -77,11 +100,10 @@ export default function FeeSetupEdit() {
           />
         </Grid>
 
-        {/* Tên loại phí */}
         <Grid size={12}>
           <TextField
             label="Tên Loại Phí"
-            name="name" // <-- Thêm name để state biết là field nào
+            name="name"
             fullWidth
             required
             value={feeData.name}
@@ -90,7 +112,6 @@ export default function FeeSetupEdit() {
           />
         </Grid>
 
-        {/* Đơn giá & Đơn vị tính */}
         <Grid size={6}>
           <TextField
             label="Đơn giá (VNĐ)"
@@ -115,9 +136,8 @@ export default function FeeSetupEdit() {
           />
         </Grid>
 
-        {/* Cách tính */}
         <Grid size={12}>
-           <FormControl fullWidth>
+          <FormControl fullWidth>
             <InputLabel>Cách tính</InputLabel>
             <Select
               label="Cách tính"
@@ -131,12 +151,11 @@ export default function FeeSetupEdit() {
               <MenuItem value="manual">Nhập tay thủ công mỗi kỳ</MenuItem>
             </Select>
             <Typography variant="caption" sx={{ mt: 0.5, ml: 1.5, color: 'text.secondary' }}>
-              Xác định cách hệ thống tự động tính tiền cho loại phí này.
+              Xác định cách hệ thống tự động tính tiền cho loại phí này. (Backend chưa dùng field này)
             </Typography>
           </FormControl>
         </Grid>
 
-        {/* Mô tả */}
         <Grid size={12}>
           <TextField
             label="Mô tả (Tùy chọn)"
@@ -146,18 +165,17 @@ export default function FeeSetupEdit() {
             rows={3}
             value={feeData.description}
             onChange={handleChange}
-            helperText="Giải thích rõ hơn về loại phí này nếu cần."
+            helperText="Giải thích rõ hơn về loại phí này nếu cần. (Backend chưa dùng field này)"
           />
         </Grid>
       </Grid>
 
-      {/* Nút Cập nhật và Hủy */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
-        <Button onClick={() => navigate('/accountance/fee/setup/feeSetup')}>
+        <Button onClick={() => navigate('/accountance/fee/setup/feeSetup')} disabled={saving}>
           Hủy
         </Button>
-        <Button variant="contained" onClick={handleUpdate}>
-          Cập nhật
+        <Button variant="contained" onClick={handleUpdate} disabled={saving}>
+          {saving ? 'Đang lưu...' : 'Cập nhật'}
         </Button>
       </Box>
     </Paper>

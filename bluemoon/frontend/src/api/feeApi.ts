@@ -1,4 +1,3 @@
-// src/api/feeApi.ts
 import axiosClient from './axiosClient';
 
 export interface FeeItem {
@@ -26,12 +25,10 @@ export interface Fee {
     payment_method?: string;
     created_by?: string;
     created_at?: string;
-
-    // Joined fields
     apartment_code?: string;
     building?: string;
     resident_name?: string;
-    fee_name?: string; // Type name
+    fee_name?: string;
     items?: FeeItem[];
 }
 
@@ -47,7 +44,7 @@ const feeApi = {
     },
 
     getDetail: (id: string) => {
-        return axiosClient.get(`/fees/${id}`);
+        return axiosClient.get('/fees/' + id);
     },
 
     create: (data: any) => {
@@ -55,14 +52,25 @@ const feeApi = {
     },
 
     pay: (id: string, data: { amount_paid: number, payment_method: string }) => {
-        return axiosClient.post(`/fees/${id}/pay`, data);
+        return axiosClient.post('/fees/' + id + '/pay', data);
     },
 
     getTypes: () => {
         return axiosClient.get('/fees/types');
     },
 
-    // For manual scan trigger
+    createType: (data: any) => {
+        return axiosClient.post('/fees/types', data);
+    },
+
+    updateType: (id: string, data: any) => {
+        return axiosClient.put('/fees/types/' + id, data);
+    },
+
+    deleteType: (id: string) => {
+        return axiosClient.delete('/fees/types/' + id);
+    },
+
     triggerScan: () => {
         return axiosClient.post('/fees/trigger-scan');
     }

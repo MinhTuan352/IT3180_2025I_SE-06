@@ -41,6 +41,7 @@ import AccountantPaymentSetupCreate from '../pages/Accountant/Setup/PaymentSetup
 import AccountantPaymentSetupEdit from '../pages/Accountant/Setup/PaymentSetupEdit.tsx';
 import AccountantFeeBatchCreate from '../pages/Accountant/FeeManagement/AccountantFeeBatchCreate.tsx';
 import AccountantMeasureImport from '../pages/Accountant/Setup/AccountantMeasureImport.tsx'; // Import từ folder Setup
+import AccountantDashboard from '../pages/Accountant/Dashboard/AccountantDashboard';
 
 import ResidentAccountInfo from '../pages/Resident/Account/ResidentAccountInfo.tsx';
 import ResidentProfileEdit from '../pages/Resident/Profile/ResidentProfileEdit.tsx';
@@ -131,6 +132,8 @@ export default function AppRoutes() {
               <ProtectedRoutes allowedRoles={['accountance']} />
             }
           >
+            {/* Dashboard */}
+            <Route path="accountance/dashboard" element={<AccountantDashboard />} />
             {/* Công nợ */}
             <Route path="accountance/fee/list" element={<AccountantFeeList />} />
             <Route path="accountance/fee/list/invoice/:id" element={<AccountantFeeInvoice />} />

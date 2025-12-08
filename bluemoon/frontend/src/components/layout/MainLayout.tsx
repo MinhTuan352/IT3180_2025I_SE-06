@@ -83,6 +83,7 @@ const bodMenuItems = [
 ];
 
 const accountantMenuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/accountance/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/accountance/fee/list' },
   { text: 'Thiết lập', icon: <SettingsIcon />, path: '/accountance/fee/setup' },

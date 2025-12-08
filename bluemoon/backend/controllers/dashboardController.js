@@ -136,6 +136,170 @@ const dashboardController = {
             console.error('[DashboardController] getBODStats error:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
+
+    /**
+     * Lấy thống kê cho Kế toán
+     * GET /api/dashboard/accountant
+     */
+    getAccountantStats: async (req, res) => {
+        try {
+            // 1. Thống kê hóa đơn tổng quan
+            let invoiceStats = { total: 0, paid: 0, unpaid: 0, overdue: 0 };
+            let totalRevenue = 0;
+            let totalDebt = 0;
+            try {
+                const [stats] = await db.execute(`
+                    SELECT 
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'Đã thanh toán' THEN 1 ELSE 0 END) as paid,
+                        SUM(CASE WHEN status != 'Đã thanh toán' THEN 1 ELSE 0 END) as unpaid,
+                        SUM(CASE WHEN status != 'Đã thanh toán' AND due_date < CURDATE() THEN 1 ELSE 0 END) as overdue,
+                        COALESCE(SUM(amount_paid), 0) as total_revenue,
+                        COALESCE(SUM(amount_remaining), 0) as total_debt
+                    FROM fees
+                `);
+                invoiceStats = {
+                    total: stats[0].total || 0,
+                    paid: stats[0].paid || 0,
+                    unpaid: stats[0].unpaid || 0,
+                    overdue: stats[0].overdue || 0
+                };
+                totalRevenue = stats[0].total_revenue || 0;
+                totalDebt = stats[0].total_debt || 0;
+            } catch (e) { console.log('invoice stats error:', e.message); }
+
+            // 2. Thống kê theo tháng (12 tháng gần nhất)
+            let monthlyData = [];
+            try {
+                const [data] = await db.execute(`
+                    SELECT 
+                        DATE_FORMAT(created_at, '%Y-%m') as month,
+                        COUNT(*) as total_invoices,
+                        SUM(CASE WHEN status = 'Đã thanh toán' THEN 1 ELSE 0 END) as paid_invoices,
+                        COALESCE(SUM(total_amount), 0) as total_amount,
+                        COALESCE(SUM(amount_paid), 0) as collected,
+                        COALESCE(SUM(amount_remaining), 0) as remaining
+                    FROM fees 
+                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                    ORDER BY month ASC
+                `);
+                monthlyData = data;
+            } catch (e) { console.log('monthly data error:', e.message); }
+
+            // 3. Thống kê theo loại phí
+            let feeTypeStats = [];
+            try {
+                const [data] = await db.execute(`
+                    SELECT 
+                        ft.name as fee_type,
+                        COUNT(f.id) as count,
+                        COALESCE(SUM(f.total_amount), 0) as total,
+                        COALESCE(SUM(f.amount_paid), 0) as paid,
+                        COALESCE(SUM(f.amount_remaining), 0) as remaining
+                    FROM fee_types ft
+                    LEFT JOIN fees f ON ft.id = f.fee_type_id
+                    GROUP BY ft.id, ft.name
+                    ORDER BY total DESC
+                    LIMIT 6
+                `);
+                feeTypeStats = data;
+            } catch (e) { console.log('fee type stats error:', e.message); }
+
+            // 4. Hóa đơn quá hạn gần đây
+            let overdueInvoices = [];
+            try {
+                const [data] = await db.execute(`
+                    SELECT 
+                        f.id,
+                        a.apartment_code,
+                        ft.name as fee_type,
+                        f.total_amount,
+                        f.amount_remaining,
+                        f.due_date,
+                        DATEDIFF(CURDATE(), f.due_date) as days_overdue
+                    FROM fees f
+                    LEFT JOIN apartments a ON f.apartment_id = a.id
+                    LEFT JOIN fee_types ft ON f.fee_type_id = ft.id
+                    WHERE f.status != 'Đã thanh toán' AND f.due_date < CURDATE()
+                    ORDER BY f.due_date ASC
+                    LIMIT 10
+                `);
+                overdueInvoices = data;
+            } catch (e) { console.log('overdue invoices error:', e.message); }
+
+            // 5. Dự đoán doanh thu tháng tới (dựa trên trung bình 3 tháng gần nhất)
+            let prediction = { nextMonth: 0, trend: 'stable' };
+            try {
+                const [data] = await db.execute(`
+                    SELECT COALESCE(AVG(monthly_total), 0) as avg_revenue
+                    FROM (
+                        SELECT SUM(amount_paid) as monthly_total
+                        FROM fees
+                        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)
+                        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                    ) as monthly
+                `);
+                const avgRevenue = data[0]?.avg_revenue || 0;
+
+                // Tính trend
+                if (monthlyData.length >= 2) {
+                    const lastMonth = Number(monthlyData[monthlyData.length - 1]?.collected || 0);
+                    const prevMonth = Number(monthlyData[monthlyData.length - 2]?.collected || 0);
+                    if (lastMonth > prevMonth * 1.1) prediction.trend = 'up';
+                    else if (lastMonth < prevMonth * 0.9) prediction.trend = 'down';
+                }
+
+                prediction.nextMonth = avgRevenue;
+            } catch (e) { console.log('prediction error:', e.message); }
+
+            // 6. Tỷ lệ thu phí theo căn hộ (top 5 nợ nhiều)
+            let topDebtors = [];
+            try {
+                const [data] = await db.execute(`
+                    SELECT 
+                        a.apartment_code,
+                        COUNT(f.id) as invoice_count,
+                        COALESCE(SUM(f.amount_remaining), 0) as total_debt
+                    FROM apartments a
+                    LEFT JOIN fees f ON a.id = f.apartment_id AND f.status != 'Đã thanh toán'
+                    GROUP BY a.id, a.apartment_code
+                    HAVING total_debt > 0
+                    ORDER BY total_debt DESC
+                    LIMIT 5
+                `);
+                topDebtors = data;
+            } catch (e) { console.log('top debtors error:', e.message); }
+
+            res.json({
+                success: true,
+                data: {
+                    stats: {
+                        totalInvoices: invoiceStats.total,
+                        paidInvoices: invoiceStats.paid,
+                        unpaidInvoices: invoiceStats.unpaid,
+                        overdueInvoices: invoiceStats.overdue,
+                        totalRevenue,
+                        totalDebt,
+                        collectionRate: invoiceStats.total > 0
+                            ? Math.round((invoiceStats.paid / invoiceStats.total) * 100)
+                            : 0
+                    },
+                    charts: {
+                        monthlyRevenue: monthlyData,
+                        feeTypeStats,
+                        topDebtors
+                    },
+                    overdueInvoices,
+                    prediction
+                }
+            });
+
+        } catch (error) {
+            console.error('[DashboardController] getAccountantStats error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
     }
 };
 

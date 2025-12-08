@@ -5,7 +5,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react'; //u
 export interface User {
   id: string;
   username: string;
-  role: 'bod' | 'accountance' | 'resident'; // Dựa trên cấu trúc của bạn
+  role: 'bod' | 'accountance' | 'resident' | 'cqcn'; // Dựa trên cấu trúc của bạn
 }
 
 // Định nghĩa những gì Context sẽ cung cấp

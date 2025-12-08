@@ -9,7 +9,7 @@ export interface AdminData {
   email: string;        // Từ bảng admins/users
   phone: string;        // Từ bảng admins/users
   username: string;     // Từ bảng users
-  role_code: 'bod' | 'accountance'; // Từ bảng roles (để map màu sắc)
+  role_code: 'bod' | 'accountance' | 'cqcn'; // Từ bảng roles (để map màu sắc)
   is_active: boolean;   // Từ bảng users
 }
 
@@ -26,23 +26,23 @@ export interface UserData {
   email: string;        // users.email
   phone: string;        // users.phone
   is_active: boolean;   // users.is_active
-  
+
   // Thông tin từ bảng admins (có thể null nếu chưa cập nhật profile)
-  full_name?: string;   
-  
+  full_name?: string;
+
   // Thông tin Role (Backend thường populate bảng roles)
   role?: {
-    role_code: 'bod' | 'accountance' | 'resident';
+    role_code: 'bod' | 'accountance' | 'resident' | 'cqcn';
     role_name: string;
   };
   // Hoặc nếu backend trả về role_id phẳng
-  role_id?: number; 
+  role_id?: number;
 }
 
 // Response chuẩn (giả định)
 interface UserListResponse {
   success: boolean;
-  data: UserData[]; 
+  data: UserData[];
 }
 
 const normalizeUser = (u: any): UserData => {
@@ -62,6 +62,7 @@ const normalizeUser = (u: any): UserData => {
     if (roleId == 1) roleCode = 'bod';
     else if (roleId == 2) roleCode = 'accountance';
     else if (roleId == 3) roleCode = 'resident';
+    else if (roleId == 4) roleCode = 'cqcn';
   }
 
   // 3. Nếu chỉ có role_code, tự suy ra role_id
@@ -70,6 +71,7 @@ const normalizeUser = (u: any): UserData => {
     if (code === 'bod') roleId = 1;
     else if (code === 'accountance') roleId = 2;
     else if (code === 'resident') roleId = 3;
+    else if (code === 'cqcn') roleId = 4;
   }
 
   return {
@@ -79,7 +81,7 @@ const normalizeUser = (u: any): UserData => {
     phone: u.phone,
     is_active: u.is_active,
     full_name: u.full_name,
-    role: roleCode ? { role_code: roleCode as 'bod' | 'accountance' | 'resident', role_name: roleName || '' } : undefined,
+    role: roleCode ? { role_code: roleCode as 'bod' | 'accountance' | 'resident' | 'cqcn', role_name: roleName || '' } : undefined,
     role_id: roleId
   };
 };
@@ -91,7 +93,7 @@ export const adminApi = {
     try {
       const response = await axiosClient.get<UserListResponse>(url);
       const rawData = (response.data as any).data || [];
-      
+
       // LOG DEBUG: In ra các Key của object đầu tiên để kiểm tra chính tả
       if (rawData.length > 0) {
         console.log("👉 [DEBUG KEYS] Các trường của user đầu tiên:", Object.keys(rawData[0]));
@@ -126,7 +128,7 @@ export const adminApi = {
       // Ép kiểu sang số cho chắc chắn
       const rId = Number(u.role_id);
       const isMatch = rId === 1 || rId === 2;
-      
+
       // Log nếu tìm thấy admin để debug
       if (isMatch) {
         console.log(`✅ [FILTER] Tìm thấy Admin: ${u.username} (role_id: ${rId})`);
@@ -137,12 +139,12 @@ export const adminApi = {
     console.log(`👉 [DEBUG] Kết quả sau khi lọc: ${filtered.length} admins`);
     return filtered;
   },
-    // Lấy danh sách admin
+  // Lấy danh sách admin
   getAll: async (): Promise<AdminData[]> => {
     const url = '/admins';
     // Giả sử backend trả về data trực tiếp hoặc trong field data
     const response = await axiosClient.get<AdminListResponse>(url);
-    return response.data.data || []; 
+    return response.data.data || [];
   },
 
   // Lấy chi tiết (Dùng cho trang Profile sau này)

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 // (Tùy chọn) Thêm prop để kiểm tra vai trò
 interface ProtectedRoutesProps {
-  allowedRoles?: ('bod' | 'accountance' | 'resident')[];
+  allowedRoles?: ('bod' | 'accountance' | 'resident' | 'cqcn')[];
 }
 
 export default function ProtectedRoutes({ allowedRoles }: ProtectedRoutesProps) {
@@ -20,7 +20,7 @@ export default function ProtectedRoutes({ allowedRoles }: ProtectedRoutesProps) 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     // Nếu đã đăng nhập nhưng sai vai trò, đá về trang 403 (Chưa tạo)
     // Tạm thời đá về trang chủ
-    return <Navigate to="/" replace />; 
+    return <Navigate to="/" replace />;
   }
 
   // Nếu mọi thứ OK, cho phép render trang con (Layout)

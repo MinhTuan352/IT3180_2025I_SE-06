@@ -77,7 +77,7 @@ export default function AppRoutes() {
           <Route path="building-info" element={<BuildingInfo />} />
 
           {/* BOD Routes (Ví dụ: chỉ cho phép 'bod') */}
-          <Route 
+          <Route
             element={
               <ProtectedRoutes allowedRoles={['bod']} />
             }
@@ -89,16 +89,16 @@ export default function AppRoutes() {
             {/* === RESTUCTURE RESIDENT MANAGEMENT === */}
             {/* 1. Trang chủ chọn phương thức tra cứu */}
             <Route path="bod/resident" element={<ResidentManagementLanding />} />
-            
+
             {/* 2. Tra cứu danh sách tổng hợp (Trang cũ) */}
             <Route path="bod/resident/list" element={<ResidentList />} />
-            
+
             {/* 3. Tra cứu theo căn hộ (Trang mới) */}
             <Route path="bod/resident/lookup" element={<ResidentApartmentLookup />} />
 
             {/* Route MỚI: Chi tiết căn hộ */}
             <Route path="bod/resident/apartment/:id" element={<ResidentApartmentDetail />} />
-            
+
             {/* Các trang chi tiết/tạo mới giữ nguyên */}
             <Route path="bod/resident/profile/create" element={<ResidentCreate />} />
             <Route path="bod/resident/profile/:id" element={<ResidentProfile />} />
@@ -119,12 +119,12 @@ export default function AppRoutes() {
 
             <Route path="bod/report/list" element={<ReportList />} />
             <Route path="bod/report/list/detail/:id" element={<ReportDetail />} />
-            
+
             {/* ... các route bod khác ... */}
           </Route>
 
           {/* === ACCOUNTANT Routes (THÊM MỚI) === */}
-          <Route 
+          <Route
             element={
               <ProtectedRoutes allowedRoles={['accountance']} />
             }
@@ -135,7 +135,7 @@ export default function AppRoutes() {
             <Route path="accountance/fee/list/invoice/create" element={<AccountantFeeInvoiceCreate />} />
             <Route path="accountance/fee/list/invoice/edit/:id" element={<AccountantFeeInvoiceEdit />} />
             <Route path="accountance/fee/batch-create" element={<AccountantFeeBatchCreate />} />
-            
+
             {/* Thiết lập */}
             <Route path="accountance/fee/setup" element={<AccountantSetup />} />
             <Route path="accountance/fee/setup/feeSetup" element={<AccountantFeeSetupList />} />
@@ -148,30 +148,36 @@ export default function AppRoutes() {
           </Route>
 
           {/* === RESIDENT Routes (THÊM MỚI) === */}
-          <Route element={ <ProtectedRoutes allowedRoles={['resident']} /> }>
-             {/* Account */}
-             <Route path="resident/account_info" element={<ResidentAccountInfo />} />
-             {/* Profile (Redirect handled by menu, directly use edit) */}
-             <Route path="resident/profile/edit" element={<ResidentProfileEdit />} />
-             {/* Fee */}
-             <Route path="resident/fee/list" element={<ResidentFeeList />} />
-             <Route path="resident/fee/invoice_info/:id" element={<ResidentFeeInvoiceInfo />} />
-             <Route path="resident/fee/payment/:id" element={<ResidentFeePayment />} /> {/* Assuming payment is for a specific invoice */}
-             
-             <Route path="resident/asset/list" element={<ResidentAssetList />} />
+          <Route element={<ProtectedRoutes allowedRoles={['resident']} />}>
+            {/* Account */}
+            <Route path="resident/account_info" element={<ResidentAccountInfo />} />
+            {/* Profile (Redirect handled by menu, directly use edit) */}
+            <Route path="resident/profile/edit" element={<ResidentProfileEdit />} />
+            {/* Fee */}
+            <Route path="resident/fee/list" element={<ResidentFeeList />} />
+            <Route path="resident/fee/invoice_info/:id" element={<ResidentFeeInvoiceInfo />} />
+            <Route path="resident/fee/payment/:id" element={<ResidentFeePayment />} /> {/* Assuming payment is for a specific invoice */}
 
-             <Route path="resident/service/list" element={<ResidentServiceList />} />
-             <Route path="resident/service/detail/:id" element={<ResidentServiceDetail />} />
-             
-             {/* Notification */}
-             <Route path="resident/notification/list" element={<ResidentNotificationList />} />
-             {/* Report */}
-             <Route path="resident/report/send" element={<ResidentReportSend />} />
-             <Route path="resident/report/list" element={<ResidentReportList />} />
+            <Route path="resident/asset/list" element={<ResidentAssetList />} />
 
-             {/* Auto-redirect for /resident/profile */}
-             <Route path="resident/profile" element={<ResidentProfileEdit />} />
+            <Route path="resident/service/list" element={<ResidentServiceList />} />
+            <Route path="resident/service/detail/:id" element={<ResidentServiceDetail />} />
 
+            {/* Notification */}
+            <Route path="resident/notification/list" element={<ResidentNotificationList />} />
+            {/* Report */}
+            <Route path="resident/report/send" element={<ResidentReportSend />} />
+            <Route path="resident/report/list" element={<ResidentReportList />} />
+
+            {/* Auto-redirect for /resident/profile */}
+            <Route path="resident/profile" element={<ResidentProfileEdit />} />
+
+          </Route>
+
+          {/* === CQCN Routes (Cơ quan chức năng) === */}
+          <Route element={<ProtectedRoutes allowedRoles={['cqcn']} />}>
+            {/* Tạm thời chỉ có trang Thông tin */}
+            {/* Routes sẽ được mở rộng thêm sau */}
           </Route>
 
           {/* ... các route cho Kế toán và Cư dân ... */}

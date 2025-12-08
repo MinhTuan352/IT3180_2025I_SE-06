@@ -52,6 +52,57 @@ const Resident = {
     },
 
     /**
+     * Lấy chi tiết 1 cư dân theo User ID (cho cư dân xem profile của chính mình)
+     */
+    findByUserId: async (userId) => {
+        try {
+            const query = `
+                SELECT 
+                    r.*, 
+                    a.apartment_code, 
+                    a.building,
+                    a.floor,
+                    u.email as account_email
+                FROM residents r
+                JOIN apartments a ON r.apartment_id = a.id
+                LEFT JOIN users u ON r.user_id = u.id
+                WHERE r.user_id = ?
+            `;
+            const [rows] = await db.execute(query, [userId]);
+            return rows[0];
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Cập nhật thông tin cư dân (bản thân - giới hạn trường được sửa)
+     */
+    updateMyProfile: async (userId, data) => {
+        try {
+            const { phone, email, hometown, occupation } = data;
+
+            const query = `
+                UPDATE residents 
+                SET phone=?, email=?, hometown=?, occupation=?
+                WHERE user_id=?
+            `;
+
+            await db.execute(query, [
+                phone || null,
+                email || null,
+                hometown || null,
+                occupation || null,
+                userId
+            ]);
+
+            return { userId, ...data };
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
      * Lấy chi tiết 1 cư dân theo ID
      */
     findById: async (id) => {
@@ -79,9 +130,9 @@ const Resident = {
      */
     create: async (data) => {
         try {
-            const { 
-                id, user_id, apartment_id, full_name, role, 
-                dob, gender, cccd, phone, email, status, hometown, occupation 
+            const {
+                id, user_id, apartment_id, full_name, role,
+                dob, gender, cccd, phone, email, status, hometown, occupation
             } = data;
 
             const query = `
@@ -89,24 +140,24 @@ const Resident = {
                 (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
-            
+
             // Dùng (variable || null) để đảm bảo không bao giờ truyền undefined vào SQL
             await db.execute(query, [
-                id, 
-                user_id || null, 
-                apartment_id, 
-                full_name, 
-                role, 
-                dob || null, 
-                gender || null, 
-                cccd || null, 
-                phone || null, 
-                email || null, 
-                status || 'Đang sinh sống', 
+                id,
+                user_id || null,
+                apartment_id,
+                full_name,
+                role,
+                dob || null,
+                gender || null,
+                cccd || null,
+                phone || null,
+                email || null,
+                status || 'Đang sinh sống',
                 hometown || null,   // Fix lỗi undefined
                 occupation || null  // Fix lỗi undefined
             ]);
-            
+
             return { id, ...data };
         } catch (error) {
             throw error;
@@ -118,9 +169,9 @@ const Resident = {
      */
     update: async (id, data) => {
         try {
-            const { 
-                full_name, role, dob, gender, cccd, phone, email, 
-                status, hometown, occupation, apartment_id 
+            const {
+                full_name, role, dob, gender, cccd, phone, email,
+                status, hometown, occupation, apartment_id
             } = data;
 
             const query = `
@@ -129,12 +180,12 @@ const Resident = {
                     status=?, hometown=?, occupation=?, apartment_id=?
                 WHERE id=?
             `;
-            
+
             await db.execute(query, [
-                full_name, role, dob, gender, cccd, phone, email, 
+                full_name, role, dob, gender, cccd, phone, email,
                 status, hometown, occupation, apartment_id, id
             ]);
-            
+
             return { id, ...data };
         } catch (error) {
             throw error;

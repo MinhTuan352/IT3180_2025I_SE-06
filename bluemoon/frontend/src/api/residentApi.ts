@@ -11,7 +11,7 @@ export interface Resident {
   phone: string;
   email: string;
   status: string;           // Đang sinh sống, Đã chuyển đi...
-  
+
   // Các trường chi tiết khác (dùng cho trang Detail/Edit)
   dob?: string;
   gender?: string;
@@ -68,5 +68,24 @@ export const residentApi = {
   delete: async (id: string): Promise<void> => {
     const url = `/residents/${id}`;
     await axiosClient.delete(url);
+  },
+
+  // ========================================================
+  // [MỚI] API CHO CƯ DÂN XEM/CẬP NHẬT PROFILE CỦA CHÍNH MÌNH
+  // ========================================================
+
+  // Cư dân lấy thông tin cá nhân của chính mình
+  getMyProfile: async (): Promise<Resident> => {
+    const url = '/residents/me';
+    const response = await axiosClient.get(url);
+    // Trả về data từ response { success: true, data: {...} }
+    return (response.data as any).data || response.data;
+  },
+
+  // Cư dân cập nhật thông tin cá nhân
+  updateMyProfile: async (data: Partial<Resident>): Promise<{ success: boolean; message: string }> => {
+    const url = '/residents/me';
+    const response = await axiosClient.put(url, data);
+    return response.data;
   }
 };

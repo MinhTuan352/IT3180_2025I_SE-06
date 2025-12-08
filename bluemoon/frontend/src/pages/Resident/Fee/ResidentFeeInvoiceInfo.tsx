@@ -12,95 +12,107 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PaymentIcon from '@mui/icons-material/Payment';
-import { format } from 'date-fns'; // <-- Thêm dòng này
-// (Thư viện Print/PDF nếu bạn muốn cư dân cũng có thể in/lưu)
-// import PrintIcon from '@mui/icons-material/Print';
-// import SaveAltIcon from '@mui/icons-material/SaveAlt';
-// import { useReactToPrint } from 'react-to-print';
-// import jsPDF from 'jspdf';
-// import html2canvas from 'html2canvas';
+import { format, parseISO } from 'date-fns';
+import feeApi, { type Fee, type FeeItem } from '../../../api/feeApi';
 
-// (Logo của bạn)
-// import logoBluemoon from '../../../assets/bluemoon-logo.png';
+// Hàm chuyển số thành chữ tiếng Việt (đơn giản)
+const numberToWords = (num: number): string => {
+  if (num === 0) return 'Không đồng';
+  // Đây là hàm đơn giản, có thể thay bằng thư viện chuyên dụng
+  //const units = ['', 'nghìn', 'triệu', 'tỷ'];
+  //const digits = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
 
-// --- Mock Data (Thay bằng API call lấy chi tiết hóa đơn theo ID) ---
-const mockInvoiceDetail: { [key: string]: any } = {
-  'HD0001': {
-    id: 'HD0001', so: '0001234', ngay: '28/10/2025',
-    residentName: 'Trần Văn Hộ', apartment: 'A-101', paymentMethod: 'Chuyển khoản',
-    items: [ { stt: 1, name: 'Phí Quản lý T10/2025', dvt: 'Tháng', sl: 1, don_gia: 1200000, thanh_tien: 1200000 } ],
-    total: 1200000, totalInWords: 'Một triệu hai trăm nghìn đồng chẵn.', status: 'Đã thanh toán',
-  },
-  'HD0002': {
-     id: 'HD0002', so: '0001235', ngay: '28/10/2025',
-     residentName: 'Trần Văn Hộ', apartment: 'A-101', paymentMethod: 'Chuyển khoản',
-     items: [ { stt: 1, name: 'Phí Gửi xe T10/2025 (Xe 29A-12345)', dvt: 'Tháng', sl: 1, don_gia: 1000000, thanh_tien: 1000000 } ],
-     total: 1000000, totalInWords: 'Một triệu đồng chẵn.', status: 'Chưa thanh toán',
-     dueDate: '2025-10-15', // Thêm hạn thanh toán
-  },
+  let result = num.toLocaleString('vi-VN') + ' đồng';
+  return result;
 };
 
 export default function ResidentFeeInvoiceInfo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [invoice, setInvoice] = useState<any>(null);
+  const [invoice, setInvoice] = useState<Fee | null>(null);
   const [loading, setLoading] = useState(true);
-  const invoiceRef = useRef<HTMLDivElement>(null); // Ref cho in/pdf (nếu cần)
+  const [error, setError] = useState<string | null>(null);
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-        if (id && mockInvoiceDetail[id]) {
-            setInvoice(mockInvoiceDetail[id]);
-        } else {
-            // Xử lý không tìm thấy -> quay về list
-            navigate('/resident/fee/list');
-        }
-        setLoading(false);
-    }, 300); // Giả lập độ trễ
-  }, [id, navigate]);
+    if (id) {
+      fetchInvoiceDetail();
+    }
+  }, [id]);
 
-  // --- Logic In/PDF (Nếu bạn muốn thêm cho Cư dân) ---
-  // const handlePrint = useReactToPrint({ content: () => invoiceRef.current });
-  // const handleSavePdf = async () => { /* ... (logic jspdf + html2canvas) ... */ };
+  const fetchInvoiceDetail = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await feeApi.getDetail(id!);
+      const data = (response.data as any).data || response.data;
+      setInvoice(data);
+    } catch (err: any) {
+      console.error('Error fetching invoice detail:', err);
+      if (err.response?.status === 403) {
+        setError('Bạn không có quyền xem hóa đơn này.');
+      } else if (err.response?.status === 404) {
+        setError('Không tìm thấy hóa đơn.');
+      } else {
+        setError(err.response?.data?.message || 'Không thể tải chi tiết hóa đơn.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const needsPayment = invoice?.status === 'Chưa thanh toán' || invoice?.status === 'Quá hạn';
+  const needsPayment = invoice?.status === 'Chưa thanh toán' || invoice?.status === 'Quá hạn' || invoice?.status === 'Thanh toán một phần';
 
   if (loading) {
     return (
       <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography>Đang tải chi tiết phiếu báo phí...</Typography>
+        <CircularProgress />
+        <Typography sx={{ mt: 2 }}>Đang tải chi tiết phiếu báo phí...</Typography>
       </Paper>
     );
   }
 
-  if (!invoice) return null; // Trường hợp không tìm thấy đã navigate đi
+  if (error) {
+    return (
+      <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/resident/fee/list')}>
+          Quay lại Danh sách Phí
+        </Button>
+      </Paper>
+    );
+  }
+
+  if (!invoice) return null;
+
+  // Format ngày tháng
+  const invoiceDate = invoice.created_at ? parseISO(invoice.created_at) : new Date();
+  const dueDate = invoice.due_date ? parseISO(invoice.due_date) : null;
 
   return (
     <>
       {/* KHUNG A4 */}
       <Paper
-        ref={invoiceRef} // Gán ref nếu dùng in/pdf
+        ref={invoiceRef}
         elevation={3}
         sx={{
           width: '210mm',
-          minHeight: '270mm', // Có thể giảm chiều cao nếu không cần chữ ký
+          minHeight: '270mm',
           margin: '2rem auto',
           padding: '15mm',
           position: 'relative',
           fontSize: '11pt',
           fontFamily: '"Times New Roman", Times, serif',
-          // Watermark
           '&::before': {
             content: '""', position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%) rotate(-45deg)',
-            // backgroundImage: `url(${logoBluemoon})`,
             backgroundRepeat: 'no-repeat', backgroundPosition: 'center',
             backgroundSize: 'contain', width: '70%', height: '70%',
             opacity: 0.08, zIndex: 0,
@@ -111,34 +123,33 @@ export default function ResidentFeeInvoiceInfo() {
           {/* Header */}
           <Grid container justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
             <Grid>
-              {/* <img src={logoBluemoon} alt="Logo" style={{ width: 100, marginBottom: '8px' }} /> */}
-               <Typography variant="h6" sx={{fontWeight: 'bold'}}>BLUEMOON</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>BLUEMOON</Typography>
               <Typography variant="body2">Ban Quản Lý Chung Cư</Typography>
               <Typography variant="body2">Địa chỉ: 123 Đường ABC, P.XYZ, Q.1, TP.HCM</Typography>
             </Grid>
-            <Grid sx={{textAlign: 'right'}}>
-              <Typography variant="h5" sx={{fontWeight: 'bold'}}>PHIẾU BÁO PHÍ DỊCH VỤ</Typography>
+            <Grid sx={{ textAlign: 'right' }}>
+              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>PHIẾU BÁO PHÍ DỊCH VỤ</Typography>
               <Typography variant="body2" sx={{ fontStyle: 'italic', mt: 1 }}>
-                Ngày {invoice.ngay.split('/')[0]} tháng {invoice.ngay.split('/')[1]} năm {invoice.ngay.split('/')[2]}
+                Ngày {format(invoiceDate, 'dd')} tháng {format(invoiceDate, 'MM')} năm {format(invoiceDate, 'yyyy')}
               </Typography>
-              <Typography variant="body2">Số: {invoice.so}</Typography>
+              <Typography variant="body2">Số: {invoice.id}</Typography>
             </Grid>
           </Grid>
 
-          <Divider sx={{ my: 2 }}/>
+          <Divider sx={{ my: 2 }} />
 
           {/* Thông tin Cư dân */}
           <Typography sx={{ fontWeight: 'bold' }}>Kính gửi Ông/Bà:</Typography>
-          <Typography sx={{ ml: 2 }}>{invoice.residentName}</Typography>
+          <Typography sx={{ ml: 2 }}>{invoice.resident_name || 'N/A'}</Typography>
           <Typography sx={{ fontWeight: 'bold' }}>Căn hộ:</Typography>
-          <Typography sx={{ ml: 2 }}>{invoice.apartment}</Typography>
-          {invoice.dueDate && (
-             <>
-                <Typography sx={{ fontWeight: 'bold', mt: 1 }}>Hạn thanh toán:</Typography>
-                <Typography sx={{ ml: 2, color: needsPayment ? 'error.main' : 'inherit', fontWeight: needsPayment ? 'bold': 'normal' }}>
-                    {format(new Date(invoice.dueDate), 'dd/MM/yyyy')}
-                </Typography>
-             </>
+          <Typography sx={{ ml: 2 }}>{invoice.apartment_code || 'N/A'}</Typography>
+          {dueDate && (
+            <>
+              <Typography sx={{ fontWeight: 'bold', mt: 1 }}>Hạn thanh toán:</Typography>
+              <Typography sx={{ ml: 2, color: needsPayment ? 'error.main' : 'inherit', fontWeight: needsPayment ? 'bold' : 'normal' }}>
+                {format(dueDate, 'dd/MM/yyyy')}
+              </Typography>
+            </>
           )}
 
           {/* Bảng Chi tiết Phí */}
@@ -146,46 +157,79 @@ export default function ResidentFeeInvoiceInfo() {
           <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #ccc' }}>
             <Table size="small">
               <TableHead sx={{ bgcolor: '#f4f6f8' }}>
-                 <TableRow sx={{ '& th': { fontWeight: 'bold' } }}>
-                    <TableCell>STT</TableCell>
-                    <TableCell>Nội dung</TableCell>
-                    <TableCell>ĐVT</TableCell>
-                    <TableCell align="right">Số lượng</TableCell>
-                    <TableCell align="right">Đơn giá</TableCell>
-                    <TableCell align="right">Thành tiền</TableCell>
+                <TableRow sx={{ '& th': { fontWeight: 'bold' } }}>
+                  <TableCell>STT</TableCell>
+                  <TableCell>Nội dung</TableCell>
+                  <TableCell>ĐVT</TableCell>
+                  <TableCell align="right">Số lượng</TableCell>
+                  <TableCell align="right">Đơn giá</TableCell>
+                  <TableCell align="right">Thành tiền</TableCell>
                 </TableRow>
               </TableHead>
-               <TableBody>
-                {invoice.items.map((item: any) => (
-                    <TableRow key={item.stt}>
-                        <TableCell>{item.stt}</TableCell>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>{item.dvt}</TableCell>
-                        <TableCell align="right">{item.sl}</TableCell>
-                        <TableCell align="right">{item.don_gia.toLocaleString('vi-VN')}</TableCell>
-                        <TableCell align="right">{item.thanh_tien.toLocaleString('vi-VN')}</TableCell>
+              <TableBody>
+                {invoice.items && invoice.items.length > 0 ? (
+                  invoice.items.map((item: FeeItem, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell>{item.stt || index + 1}</TableCell>
+                      <TableCell>{item.item_name}</TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                      <TableCell align="right">{item.quantity}</TableCell>
+                      <TableCell align="right">{item.unit_price?.toLocaleString('vi-VN')}</TableCell>
+                      <TableCell align="right">{item.amount?.toLocaleString('vi-VN')}</TableCell>
                     </TableRow>
-                ))}
-                 {/* Dòng Tổng cộng */}
-                 <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '1px solid #ccc'} }}>
-                     <TableCell colSpan={5} align="right">Tổng cộng:</TableCell>
-                     <TableCell align="right">{invoice.total.toLocaleString('vi-VN')} đ</TableCell>
-                 </TableRow>
-               </TableBody>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <Typography color="text.secondary">Không có chi tiết</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+                {/* Dòng Tổng cộng */}
+                <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '1px solid #ccc' } }}>
+                  <TableCell colSpan={5} align="right">Tổng cộng:</TableCell>
+                  <TableCell align="right">{invoice.total_amount?.toLocaleString('vi-VN')} đ</TableCell>
+                </TableRow>
+                {/* Dòng Đã thanh toán */}
+                {invoice.amount_paid > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="right">Đã thanh toán:</TableCell>
+                    <TableCell align="right" sx={{ color: 'success.main' }}>
+                      {invoice.amount_paid?.toLocaleString('vi-VN')} đ
+                    </TableCell>
+                  </TableRow>
+                )}
+                {/* Dòng Còn lại */}
+                {invoice.amount_remaining > 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} align="right" sx={{ fontWeight: 'bold' }}>Còn phải thanh toán:</TableCell>
+                    <TableCell align="right" sx={{ color: 'error.main', fontWeight: 'bold' }}>
+                      {invoice.amount_remaining?.toLocaleString('vi-VN')} đ
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
           </TableContainer>
 
-          <Typography sx={{ mt: 2 }}>Bằng chữ: {invoice.totalInWords}</Typography>
+          <Typography sx={{ mt: 2 }}>Bằng chữ: {numberToWords(invoice.total_amount || 0)}</Typography>
 
           {/* Trạng thái */}
           <Typography sx={{ mt: 3, fontWeight: 'bold' }}>
             Trạng thái:{' '}
-            <Typography component="span" sx={{ color: needsPayment ? 'warning.main' : 'success.main', fontStyle: 'italic' }}>
-                {invoice.status}
+            <Typography
+              component="span"
+              sx={{
+                color: invoice.status === 'Đã thanh toán' ? 'success.main' :
+                  invoice.status === 'Quá hạn' ? 'error.main' : 'warning.main',
+                fontStyle: 'italic'
+              }}
+            >
+              {invoice.status}
             </Typography>
           </Typography>
 
-          {/* Thông tin thêm (tùy chọn) */}
+          {/* Thông tin thêm */}
           <Typography variant="body2" sx={{ mt: 4, fontStyle: 'italic', color: 'text.secondary' }}>
             Quý cư dân vui lòng thanh toán trước hạn. Mọi thắc mắc xin liên hệ Văn phòng BQL. Xin cảm ơn!
           </Typography>
@@ -193,22 +237,19 @@ export default function ResidentFeeInvoiceInfo() {
       </Paper>
 
       {/* Nút chức năng */}
-       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, my: 3, position: 'sticky', bottom: 16 }}>
-         <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/resident/fee/list')}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, my: 3, position: 'sticky', bottom: 16 }}>
+        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/resident/fee/list')}>
           Quay lại Danh sách Phí
         </Button>
-        {/* Optional Buttons */}
-        {/* <Button variant="contained" color="secondary" startIcon={<SaveAltIcon />} onClick={handleSavePdf}>Lưu PDF</Button> */}
-        {/* <Button variant="contained" color="secondary" startIcon={<PrintIcon />} onClick={handlePrint}>In Phiếu</Button> */}
-        {needsPayment && ( // Chỉ hiển thị nút Thanh toán nếu chưa thanh toán
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<PaymentIcon />}
-              onClick={() => navigate(`/resident/fee/payment/${id}`)}
-            >
-              Xem Thông tin Thanh toán
-            </Button>
+        {needsPayment && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<PaymentIcon />}
+            onClick={() => navigate(`/resident/fee/payment/${id}`)}
+          >
+            Xem Thông tin Thanh toán
+          </Button>
         )}
       </Box>
     </>

@@ -3,7 +3,69 @@
 const Resident = require('../models/residentModel');
 
 const residentController = {
-    
+
+    // ========================================================
+    // [MỚI] CƯ DÂN XEM PROFILE CỦA CHÍNH MÌNH
+    // ========================================================
+
+    // [GET] /api/residents/me
+    getMyProfile: async (req, res) => {
+        try {
+            const userId = req.user.id; // Lấy từ token
+            const resident = await Resident.findByUserId(userId);
+
+            if (!resident) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin cư dân. Có thể tài khoản của bạn chưa được liên kết với hồ sơ cư dân.'
+                });
+            }
+
+            res.status(200).json({ success: true, data: resident });
+        } catch (error) {
+            console.error('Error in getMyProfile:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // [PUT] /api/residents/me
+    updateMyProfile: async (req, res) => {
+        try {
+            const userId = req.user.id;
+
+            // Kiểm tra xem cư dân có tồn tại không
+            const existingResident = await Resident.findByUserId(userId);
+            if (!existingResident) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin cư dân.'
+                });
+            }
+
+            // Chỉ cho phép cập nhật các trường hạn chế
+            const allowedFields = {
+                phone: req.body.phone,
+                email: req.body.email,
+                hometown: req.body.hometown,
+                occupation: req.body.occupation
+            };
+
+            await Resident.updateMyProfile(userId, allowedFields);
+
+            res.json({
+                success: true,
+                message: 'Cập nhật thông tin cá nhân thành công!'
+            });
+        } catch (error) {
+            console.error('Error in updateMyProfile:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // ========================================================
+    // CÁC HÀM QUẢN LÝ CƯ DÂN (CHO BOD/ACCOUNTANT)
+    // ========================================================
+
     // [GET] /api/residents
     getAllResidents: async (req, res) => {
         try {
@@ -16,7 +78,7 @@ const residentController = {
             };
 
             const residents = await Resident.getAll(filters);
-            
+
             res.status(200).json({
                 success: true,
                 count: residents.length,
@@ -47,9 +109,9 @@ const residentController = {
     createResident: async (req, res) => {
         try {
             // Lấy dữ liệu từ form
-            const { 
-                id, apartment_id, full_name, role, 
-                dob, gender, cccd, phone, email 
+            const {
+                id, apartment_id, full_name, role,
+                dob, gender, cccd, phone, email
             } = req.body;
 
             // 1. Validate cơ bản
@@ -72,7 +134,7 @@ const residentController = {
                 return res.status(409).json({ message: 'Dữ liệu bị trùng lặp (ID hoặc CCCD đã tồn tại).' });
             }
             if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-                 return res.status(400).json({ message: 'Mã căn hộ (apartment_id) không tồn tại.' });
+                return res.status(400).json({ message: 'Mã căn hộ (apartment_id) không tồn tại.' });
             }
             res.status(500).json({ message: 'Lỗi server khi thêm cư dân.', error: error.message });
         }
@@ -92,7 +154,7 @@ const residentController = {
 
             res.json({ success: true, message: 'Cập nhật thông tin thành công.' });
         } catch (error) {
-             if (error.code === 'ER_DUP_ENTRY') {
+            if (error.code === 'ER_DUP_ENTRY') {
                 return res.status(409).json({ message: 'CCCD mới bị trùng với cư dân khác.' });
             }
             res.status(500).json({ message: 'Lỗi server.', error: error.message });

@@ -1,74 +1,258 @@
 // src/pages/Resident/Profile/ResidentProfileEdit.tsx
-import { Box, Typography, Paper, Grid, TextField, Button, Avatar } from '@mui/material';
-// import { useAuth } from '../../../contexts/AuthContext';
-// import { useState, useEffect } from 'react';
+import { Box, Typography, Paper, Grid, TextField, Button, Avatar, Snackbar, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { residentApi, type Resident } from '../../../api/residentApi';
 
 export default function ResidentProfileEdit() {
- // const { user } = useAuth();
- // const [profileData, setProfileData] = useState({ /* initial data */ });
+    // State cho dữ liệu profile
+    const [profileData, setProfileData] = useState<Resident | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
- // useEffect(() => {
- //   // Fetch detailed resident profile based on user.id from residentModel
- // }, [user]);
+    // State cho form (các trường được phép sửa)
+    const [formData, setFormData] = useState({
+        phone: '',
+        email: '',
+        hometown: '',
+        occupation: ''
+    });
 
- // const handleChange = (e) => { /* Update state */ };
+    // State cho Snackbar
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error';
+    }>({ open: false, message: '', severity: 'success' });
 
-  const handleSaveProfile = () => {
-    // Logic to call API to update resident profile (Maybe a different endpoint than BOD uses)
-    alert('Lưu thông tin cá nhân...');
-  };
+    // Fetch dữ liệu khi component mount
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
- return (
-    <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
-            Thông tin Cá nhân
-        </Typography>
-        <Grid container spacing={3}>
-            {/* Avatar Column */}
-            <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: 'center' }}>
-                <Avatar sx={{ width: 120, height: 120, mb: 2, margin: 'auto' }} />
-                <Button component="label">
-                    Đổi ảnh đại diện
-                    <input type="file" hidden accept="image/*" />
+    const fetchProfile = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await residentApi.getMyProfile();
+            setProfileData(data);
+            // Khởi tạo form data từ dữ liệu nhận được
+            setFormData({
+                phone: data.phone || '',
+                email: data.email || '',
+                hometown: data.hometown || '',
+                occupation: data.occupation || ''
+            });
+        } catch (err: any) {
+            console.error('Error fetching profile:', err);
+            setError(err.response?.data?.message || 'Không thể tải thông tin cá nhân. Vui lòng thử lại sau.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Xử lý thay đổi input form
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    // Xử lý lưu thông tin
+    const handleSaveProfile = async () => {
+        try {
+            setSaving(true);
+            const result = await residentApi.updateMyProfile(formData);
+            setSnackbar({
+                open: true,
+                message: result.message || 'Cập nhật thông tin thành công!',
+                severity: 'success'
+            });
+            // Refresh để lấy dữ liệu mới nhất
+            await fetchProfile();
+        } catch (err: any) {
+            console.error('Error saving profile:', err);
+            setSnackbar({
+                open: true,
+                message: err.response?.data?.message || 'Không thể lưu thông tin. Vui lòng thử lại.',
+                severity: 'error'
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Hiển thị loading
+    if (loading) {
+        return (
+            <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+                <CircularProgress />
+            </Paper>
+        );
+    }
+
+    // Hiển thị lỗi
+    if (error) {
+        return (
+            <Paper sx={{ p: 3, borderRadius: 3 }}>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+                <Button variant="contained" onClick={fetchProfile}>
+                    Thử lại
                 </Button>
-                <Typography variant="h6" sx={{ mt: 2 }}>[Tên Cư dân]</Typography>
-                <Typography color="text.secondary">Căn hộ: [Số căn hộ]</Typography>
+            </Paper>
+        );
+    }
+
+    return (
+        <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
+                Thông tin Cá nhân
+            </Typography>
+            <Grid container spacing={3}>
+                {/* Avatar Column */}
+                <Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: 'center' }}>
+                    <Avatar
+                        sx={{ width: 120, height: 120, mb: 2, margin: 'auto', bgcolor: 'primary.main', fontSize: '3rem' }}
+                    >
+                        {profileData?.full_name?.charAt(0) || 'U'}
+                    </Avatar>
+                    <Button component="label">
+                        Đổi ảnh đại diện
+                        <input type="file" hidden accept="image/*" />
+                    </Button>
+                    <Typography variant="h6" sx={{ mt: 2 }}>
+                        {profileData?.full_name || 'Chưa có tên'}
+                    </Typography>
+                    <Typography color="text.secondary">
+                        Căn hộ: {profileData?.apartment_code || 'N/A'}
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2">
+                        {profileData?.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}
+                    </Typography>
+                </Grid>
+
+                {/* Info Column */}
+                <Grid size={{ xs: 12, md: 8 }}>
+                    <Grid container spacing={2}>
+                        {/* Các trường KHÔNG được sửa */}
+                        <Grid size={{ xs: 12 }}>
+                            <TextField
+                                label="Họ và tên"
+                                fullWidth
+                                value={profileData?.full_name || ''}
+                                InputProps={{ readOnly: true }}
+                                helperText="Liên hệ BQL để thay đổi thông tin này."
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                label="Ngày sinh"
+                                type="date"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                value={profileData?.dob ? new Date(profileData.dob).toISOString().split('T')[0] : ''}
+                                InputProps={{ readOnly: true }}
+                                helperText="Liên hệ BQL để thay đổi."
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <FormControl fullWidth>
+                                <InputLabel>Giới tính</InputLabel>
+                                <Select
+                                    value={profileData?.gender || ''}
+                                    label="Giới tính"
+                                    inputProps={{ readOnly: true }}
+                                >
+                                    <MenuItem value="Nam">Nam</MenuItem>
+                                    <MenuItem value="Nữ">Nữ</MenuItem>
+                                    <MenuItem value="Khác">Khác</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
+                        {/* Các trường ĐƯỢC sửa */}
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                label="Số điện thoại"
+                                fullWidth
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                label="Email"
+                                type="email"
+                                fullWidth
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                            />
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField
+                                label="Quê quán"
+                                fullWidth
+                                name="hometown"
+                                value={formData.hometown}
+                                onChange={handleChange}
+                            />
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField
+                                label="Nghề nghiệp"
+                                fullWidth
+                                name="occupation"
+                                value={formData.occupation}
+                                onChange={handleChange}
+                            />
+                        </Grid>
+
+                        {/* Trường KHÔNG được sửa */}
+                        <Grid size={12}>
+                            <TextField
+                                label="CCCD"
+                                fullWidth
+                                value={profileData?.cccd || ''}
+                                InputProps={{ readOnly: true }}
+                                helperText="Liên hệ BQL để thay đổi thông tin này."
+                            />
+                        </Grid>
+                    </Grid>
+                </Grid>
             </Grid>
-            {/* Info Column */}
-            <Grid size={{ xs: 12, md: 8 }}>
-                 <Grid container spacing={2}>
-                     <Grid size={{ xs: 12 }}>
-                        <TextField label="Họ và tên" fullWidth required defaultValue="[Tên Cư dân]" />
-                     </Grid>
-                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField label="Ngày sinh" type="date" fullWidth InputLabelProps={{ shrink: true }} defaultValue="[Ngày sinh]" />
-                     </Grid>
-                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField label="Giới tính" fullWidth defaultValue="[Giới tính]" />
-                     </Grid>
-                     <Grid size={{ xs: 12, sm: 6 }}>
-                         <TextField label="Số điện thoại" fullWidth required defaultValue="[Số điện thoại]" />
-                     </Grid>
-                     <Grid size={{ xs: 12, sm: 6 }}>
-                         <TextField label="Email" type="email" fullWidth defaultValue="[Email]" />
-                     </Grid>
-                     <Grid size={12}>
-                          <TextField label="Quê quán" fullWidth defaultValue="[Quê quán]" />
-                     </Grid>
-                      <Grid size={12}>
-                          <TextField label="Nghề nghiệp" fullWidth defaultValue="[Nghề nghiệp]" />
-                     </Grid>
-                      <Grid size={12}>
-                          <TextField label="CCCD" fullWidth defaultValue="[CCCD]" InputProps={{ readOnly: true }} helperText="Liên hệ BQL để thay đổi thông tin này."/>
-                     </Grid>
-                 </Grid>
-            </Grid>
-        </Grid>
-         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-            <Button variant="contained" size="large" onClick={handleSaveProfile}>
-                Lưu Thay Đổi
-            </Button>
-        </Box>
-    </Paper>
- );
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                <Button
+                    variant="contained"
+                    size="large"
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                >
+                    {saving ? <CircularProgress size={24} color="inherit" /> : 'Lưu Thay Đổi'}
+                </Button>
+            </Box>
+
+            {/* Snackbar thông báo */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                    severity={snackbar.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </Paper>
+    );
 }

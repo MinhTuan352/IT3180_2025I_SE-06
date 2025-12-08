@@ -62,6 +62,34 @@ const residentController = {
         }
     },
 
+    // [GET] /api/residents/my-apartment
+    // Cư dân xem thông tin căn hộ của mình
+    getMyApartment: async (req, res) => {
+        try {
+            const userId = req.user.id; // Lấy từ token
+
+            // 1. Tìm thông tin cư dân của user
+            const resident = await Resident.findByUserId(userId);
+            if (!resident) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin cư dân. Có thể tài khoản của bạn chưa được liên kết với hồ sơ cư dân.'
+                });
+            }
+
+            // 2. Lấy thông tin căn hộ từ apartment_id của cư dân
+            const apartmentResult = await Resident.getApartmentWithMembers(resident.apartment_id);
+
+            res.status(200).json({
+                success: true,
+                data: apartmentResult
+            });
+        } catch (error) {
+            console.error('Error in getMyApartment:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
     // ========================================================
     // CÁC HÀM QUẢN LÝ CƯ DÂN (CHO BOD/ACCOUNTANT)
     // ========================================================

@@ -54,6 +54,7 @@ import ApartmentIcon from '@mui/icons-material/Apartment';
 import SecurityIcon from '@mui/icons-material/Security';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import HomeIcon from '@mui/icons-material/Home';
 import ChatButton from '../Chatbot/ChatButton';
 import ChatWindow from '../Chatbot/ChatWindow';
 //import HistoryIcon from '@mui/icons-material/History';
@@ -91,15 +92,15 @@ const accountantMenuItems = [
 
 // --- THÊM MỚI: Resident Menu ---
 const residentMenuItems = [
-  // Redirect /resident/profile to /resident/profile/edit for simplicity
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Thông tin Cá nhân', icon: <AccountCircleIcon />, path: '/resident/profile/edit' },
+  { text: 'Căn hộ', icon: <HomeIcon />, path: '/resident/apartment' },
   { text: 'Tài khoản', icon: <VpnKeyIcon />, path: '/resident/account_info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/resident/fee/list' },
   { text: 'Tài sản', icon: <InventoryIcon />, path: '/resident/asset/list' },
   { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/resident/service/list' },
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/resident/notification/list' },
-  { text: 'Báo cáo Sự cố', icon: <ReportProblemIcon />, path: '/resident/report/list' }, // Link to list first
+  { text: 'Báo cáo Sự cố', icon: <ReportProblemIcon />, path: '/resident/report/list' },
 ];
 
 // --- THÊM MỚI: CQCN Menu (Cơ quan chức năng) ---

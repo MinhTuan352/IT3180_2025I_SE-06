@@ -202,6 +202,46 @@ const Resident = {
         } catch (error) {
             throw error;
         }
+    },
+
+    /**
+     * Lấy thông tin căn hộ kèm danh sách thành viên
+     * Dùng cho cư dân xem căn hộ của chính mình
+     */
+    getApartmentWithMembers: async (apartmentId) => {
+        try {
+            // 1. Lấy thông tin căn hộ
+            const apartmentQuery = `
+                SELECT * FROM apartments WHERE id = ?
+            `;
+            const [apartmentRows] = await db.execute(apartmentQuery, [apartmentId]);
+
+            if (apartmentRows.length === 0) {
+                return null;
+            }
+
+            const apartment = apartmentRows[0];
+
+            // 2. Lấy danh sách thành viên trong căn hộ
+            const membersQuery = `
+                SELECT 
+                    r.id, r.full_name, r.role, r.phone, r.email, 
+                    r.gender, r.dob, r.status
+                FROM residents r
+                WHERE r.apartment_id = ? AND r.status = 'Đang sinh sống'
+                ORDER BY 
+                    CASE WHEN r.role = 'owner' THEN 0 ELSE 1 END, 
+                    r.full_name ASC
+            `;
+            const [members] = await db.execute(membersQuery, [apartmentId]);
+
+            return {
+                ...apartment,
+                members: members
+            };
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

@@ -21,6 +21,9 @@ router.get('/me', residentController.getMyProfile);
 // Cư dân cập nhật thông tin cá nhân
 router.put('/me', residentController.updateMyProfile);
 
+// [MỚI] Cư dân xem thông tin căn hộ của mình
+router.get('/my-apartment', residentController.getMyApartment);
+
 // ========================================================
 // ROUTE CHO BOD/ACCOUNTANT QUẢN LÝ CƯ DÂN
 // ========================================================

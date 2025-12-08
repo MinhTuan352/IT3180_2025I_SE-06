@@ -295,7 +295,13 @@ CREATE TABLE service_types (
     description TEXT,
     base_price DECIMAL(15,2) DEFAULT 0 COMMENT 'Giá cơ bản',
     unit VARCHAR(50) COMMENT 'Giờ, Lần, Người',
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    category VARCHAR(100) COMMENT 'Danh mục: Sức khỏe, Ăn uống...',
+    location VARCHAR(255) COMMENT 'Vị trí: Tầng 3, Sảnh A...',
+    open_hours VARCHAR(100) COMMENT 'Giờ mở cửa: 8:00 - 22:00',
+    contact_phone VARCHAR(20) COMMENT 'Hotline dịch vụ',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- 21. SERVICE_BOOKINGS (Đơn đặt dịch vụ của cư dân)
@@ -313,7 +319,18 @@ CREATE TABLE service_bookings (
     FOREIGN KEY (service_type_id) REFERENCES service_types(id)
 ) ENGINE=InnoDB;
 
--- 22. VISITORS (Khách ra vào)
+-- 22. SERVICE_ATTACHMENTS (File đính kèm dịch vụ)
+CREATE TABLE service_attachments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    service_type_id INT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_type_id) REFERENCES service_types(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 23. VISITORS (Khách ra vào)
 CREATE TABLE visitors (
     id INT PRIMARY KEY AUTO_INCREMENT,
     apartment_id INT NOT NULL COMMENT 'Đến căn hộ nào',
@@ -328,7 +345,7 @@ CREATE TABLE visitors (
     FOREIGN KEY (security_guard_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 23. AUDIT_LOGS (Lịch sử hệ thống - QUAN TRỌNG)
+-- 24. AUDIT_LOGS (Lịch sử hệ thống - QUAN TRỌNG)
 CREATE TABLE audit_logs (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(20) COMMENT 'Ai làm?',
@@ -353,7 +370,8 @@ CREATE TABLE audit_logs (
 INSERT INTO roles (id, role_name, role_code) VALUES
 (1, 'Ban Quản Trị', 'bod'),
 (2, 'Kế Toán', 'accountance'),
-(3, 'Cư Dân', 'resident');
+(3, 'Cư Dân', 'resident'),
+(4, 'Cơ Quan Chức Năng', 'cqcn');
 
 -- Notification Types
 INSERT INTO notification_types (type_name, type_code) VALUES
@@ -381,6 +399,7 @@ INSERT INTO users (id, username, password, email, phone, role_id) VALUES
 ('ID0001', 'admin.a', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'admin.a@bluemoon.com', '0900000001', 1),
 ('ID0002', 'ketoan.b', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'ketoan.b@bluemoon.com', '0900000002', 2),
 ('R0001', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3);
+('ID0003', 'cqcn.c', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'cqcn.c@bluemoon.com', '0900000003', 4);
 
 INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VALUES
 ('ID0001', 'ID0001', 'Nguyễn Văn A', '1990-01-01', 'Nam', '012345678901', '0900000001', 'admin.a@bluemoon.com'),
@@ -445,11 +464,37 @@ INSERT INTO reports (id, title, description, location, reported_by, status, prio
 ('SC003', 'Bóng đèn hành lang tầng 15 Tòa A bị cháy', 'Bóng đèn hành lang tầng 15 Tòa A đã cháy từ 2 ngày nay, ban đêm rất tối.', 'Hành lang Tầng 15, Tòa A', 'R0004', 'Hoàn thành', 'Trung bình', '2025-10-27 11:00:00', 'Đã thay bóng đèn mới.', '2025-10-28 16:00:00', 1, 'Phản hồi rất muộn.'),
 ('SC004', 'Tiếng ồn lạ từ máy phát điện', 'Tối qua khoảng 22h, tôi nghe thấy tiếng ồn lạ phát ra từ phòng kỹ thuật, có vẻ là từ máy phát điện.', 'Phòng kỹ thuật, Tầng G', 'R0005', 'Mới', 'Cao', '2025-10-26 22:00:00', 'Đã đến kiểm tra và không có tiếng ồn.', '2025-10-26 22:15:00', 4, 'Không phải tiếng ồn thật.');
 
--- Mẫu Dịch vụ
-INSERT INTO service_types (name, base_price, unit) VALUES 
-('Thuê khu vực BBQ', 200000, 'Giờ'),
-('Dọn vệ sinh căn hộ', 150000, 'Giờ'),
-('Đặt sân Tennis', 100000, 'Giờ');
+NSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone, image_url) VALUES 
+('BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', TRUE, 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567', '/uploads/services/gym_thumb.jpg'),
+
+('Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua (chưa bao gồm tiền hàng hóa thực tế).', 30000, 'Lần', TRUE, 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999', '/uploads/services/mart_thumb.jpg'),
+
+('Moonlight Coffee & Lounge', 'Thuê phòng VIP để họp nhóm, tiếp khách hoặc làm việc. Không gian yên tĩnh, view panorama toàn thành phố.', 200000, 'Giờ', TRUE, 'Ẩm thực & Giải trí', 'Tầng Thượng (Rooftop)', '08:00 - 23:00', '0912.333.444', '/uploads/services/coffee_thumb.jpg'),
+
+('Trường Mầm non Little Stars', 'Môi trường giáo dục chuẩn quốc tế, giáo viên bản ngữ. Đăng ký giữ chỗ hoặc tham quan trường cho bé.', 8500000, 'Tháng', TRUE, 'Giáo dục', 'Tầng 2 - Tòa C', '07:00 - 17:30', '024.3333.8888', '/uploads/services/school_thumb.jpg'),
+
+('Nhà hàng Ẩm thực Á Đông', 'Đặt bàn tiệc gia đình, sinh nhật, tất niên. Thực đơn phong phú 3 miền. Giá tham khảo cho bàn 6 người.', 3500000, 'Bàn', TRUE, 'Ẩm thực & Giải trí', 'Tầng 1 - Tòa D', '10:00 - 22:00', '0988.777.666', '/uploads/services/restaurant_thumb.jpg'),
+
+('Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp. Giá vé ưu đãi cho cư dân.', 120000, 'Vé', TRUE, 'Giải trí', 'Tầng 2 - Trung tâm thương mại', '09:00 - 21:30', '0905.111.222', '/uploads/services/kidz_thumb.jpg');
+
+-- B. Dữ liệu Bookings (Giả định ID Service chạy từ 1->6 do vừa Reset bảng)
+-- R0001 đặt Gym 1 tháng
+INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status, note)
+VALUES ('R0001', 1, '2025-12-01 08:00:00', 1, 500000, 'Đã duyệt', 'Gia hạn thẻ tập tháng 12');
+
+-- R0002 đặt phòng họp 3 tiếng
+INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status, note)
+VALUES ('R0002', 3, '2025-12-15 14:00:00', 3, 600000, 'Hoàn thành', 'Họp team marketing, cần máy chiếu');
+
+-- R0003 nhờ đi chợ hộ
+INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status, note)
+VALUES ('R0003', 2, NOW(), 1, 30000, 'Chờ duyệt', 'Mua giúp 2kg gạo ST25 và 1 vỉ trứng gà');
+
+-- C. Dữ liệu Attachments (Ảnh chi tiết cho Gym)
+INSERT INTO service_attachments (service_id, file_name, file_path, file_size) VALUES 
+(1, 'gym_detail_1.jpg', '/uploads/services/gym_detail_1.jpg', 102400),
+(1, 'gym_detail_2.jpg', '/uploads/services/gym_detail_2.jpg', 204800),
+(1, 'gym_pool.jpg', '/uploads/services/gym_pool.jpg', 512000);
 
 -- Mẫu Tài sản
 INSERT INTO assets (asset_code, name, location, status) VALUES 
@@ -460,10 +505,6 @@ INSERT INTO assets (asset_code, name, location, status) VALUES
 INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, status, technician_name, cost) VALUES 
 (1, 'Bảo trì thang máy A1 Quý 4', 'Tra dầu, kiểm tra cáp, vệ sinh buồng máy', '2025-11-01', 'Lên lịch', 'Cty Thang máy Otis', 5000000),
 (2, 'Sửa chữa máy bơm PCCC', 'Thay phớt máy bơm bị rò rỉ', '2025-10-20', 'Hoàn thành', 'Kỹ thuật tòa nhà', 200000);
-
--- Cư dân R0001 đặt BBQ
-INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status, note) VALUES 
-('R0001', 1, '2025-11-05 18:00:00', 3, 600000, 'Chờ duyệt', 'Gia đình 10 người, cần mượn thêm ghế');
 
 -- Giả lập log admin sửa phí
 INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, old_values, new_values, ip_address, user_agent) VALUES 

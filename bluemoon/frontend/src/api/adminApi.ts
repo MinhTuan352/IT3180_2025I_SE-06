@@ -107,7 +107,7 @@ export const adminApi = {
     }
   },
 
-  // Hàm helper để lọc chỉ lấy Admin (BOD & Kế toán)
+  // Hàm helper để lọc chỉ lấy Admin (BOD, Kế toán, CQCN)
   getAdminsOnly: async (): Promise<UserData[]> => {
     const allUsers = await adminApi.getAllUsers();
     // LOG DEBUG: Xem trước khi lọc
@@ -122,12 +122,11 @@ export const adminApi = {
         role: allUsers[0].role
       });
     }
-    // Lọc theo role_code (bod hoặc accountance)
-    // --- SỬA LẠI: Lọc theo role_id (1=BOD, 2=Kế Toán) ---
+    // Lọc theo role_id (1=BOD, 2=Kế Toán, 4=CQCN) - KHÔNG bao gồm Cư dân (3)
     const filtered = allUsers.filter(u => {
       // Ép kiểu sang số cho chắc chắn
       const rId = Number(u.role_id);
-      const isMatch = rId === 1 || rId === 2;
+      const isMatch = rId === 1 || rId === 2 || rId === 4;
 
       // Log nếu tìm thấy admin để debug
       if (isMatch) {

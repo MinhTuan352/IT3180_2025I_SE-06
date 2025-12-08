@@ -34,16 +34,16 @@ import * as XLSX from 'xlsx';
 
 // Dữ liệu giả (Mock Data) để test (--- CẬP NHẬT --- Yêu cầu 4)
 //const mockAdmins = [
-  //{ id: 'ID0001', name: 'Nguyễn Văn A', role: 'bod' },
-  //{ id: 'ID0002', name: 'Nguyễn Văn B', role: 'accountance' },
-  //{ id: 'ID0003', name: 'Nguyễn Văn C', role: 'bod' },
-  //{ id: 'ID0004', name: 'Nguyễn Văn D', role: 'accountance' },
-  //{ id: 'ID0005', name: 'Trần Thị E', role: 'bod' },
-  //{ id: 'ID0006', name: 'Lê Văn F', role: 'accountance' },
-  //{ id: 'ID0007', name: 'Phạm Hữu G', role: 'bod' },
-  //{ id: 'ID0008', name: 'Hoàng Minh H', role: 'bod' },
-  //{ id: 'ID0009', name: 'Vũ Thị I', role: 'accountance' },
-  //{ id: 'ID0010', name: 'Đặng Văn K', role: 'bod' },
+//{ id: 'ID0001', name: 'Nguyễn Văn A', role: 'bod' },
+//{ id: 'ID0002', name: 'Nguyễn Văn B', role: 'accountance' },
+//{ id: 'ID0003', name: 'Nguyễn Văn C', role: 'bod' },
+//{ id: 'ID0004', name: 'Nguyễn Văn D', role: 'accountance' },
+//{ id: 'ID0005', name: 'Trần Thị E', role: 'bod' },
+//{ id: 'ID0006', name: 'Lê Văn F', role: 'accountance' },
+//{ id: 'ID0007', name: 'Phạm Hữu G', role: 'bod' },
+//{ id: 'ID0008', name: 'Hoàng Minh H', role: 'bod' },
+//{ id: 'ID0009', name: 'Vũ Thị I', role: 'accountance' },
+//{ id: 'ID0010', name: 'Đặng Văn K', role: 'bod' },
 //];
 
 // Định nghĩa màu cho các vai trò (giữ nguyên)
@@ -51,7 +51,8 @@ import * as XLSX from 'xlsx';
 const roleMap: Record<number, { label: string, color: string, code: string }> = {
   1: { label: 'Ban quản trị', color: 'primary', code: 'bod' },
   2: { label: 'Kế toán', color: 'secondary', code: 'accountance' },
-  3: { label: 'Cư dân', color: 'default', code: 'resident' }
+  3: { label: 'Cư dân', color: 'default', code: 'resident' },
+  4: { label: 'Cơ quan chức năng', color: 'warning', code: 'cqcn' }
 };
 
 // Cấu hình phân trang
@@ -72,7 +73,7 @@ export default function AdminList() {
   // --- LOGIC TÍNH TOÁN PHÂN TRANG (Client-side) ---
   const totalRows = adminList.length;
   const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
-  
+
   // Cắt mảng adminList theo trang hiện tại
   const paginatedAdmins = adminList.slice(
     (page - 1) * ROWS_PER_PAGE,
@@ -114,7 +115,7 @@ export default function AdminList() {
     navigate('/bod/admin/profile/create');
     handleClosePrimaryModal();
   };
-  
+
   // 1.1: Xử lý thêm tài khoản có sẵn
   const handleAddExistingAccount = () => {
     // (Đây là nơi bạn sẽ gọi API để kiểm tra ID)
@@ -126,7 +127,7 @@ export default function AdminList() {
     }
     handleCloseExistingModal();
   };
-  
+
   const handleViewProfile = (adminId: string) => {
     navigate(`/bod/admin/profile/${adminId}`); //
   }
@@ -146,7 +147,7 @@ export default function AdminList() {
     // 3. Tạo workbook
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DanhSachQuanTriVien');
-    
+
     // 4. Xuất file
     XLSX.writeFile(wb, 'DanhSachQuanTriVien.xlsx');
   };
@@ -167,14 +168,14 @@ export default function AdminList() {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'array' });
-        
+
         // Lấy sheet đầu tiên
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        
+
         // Chuyển đổi sheet thành JSON
         const json = XLSX.utils.sheet_to_json(worksheet);
-        
+
         // (Đây là nơi bạn xử lý dữ liệu json, ví dụ: gửi lên server)
         console.log('Dữ liệu Import từ Excel:', json);
         alert('Đã đọc file Excel thành công! Xem dữ liệu ở Console (F12).');
@@ -184,7 +185,7 @@ export default function AdminList() {
         alert('Đã xảy ra lỗi khi đọc file. Vui lòng kiểm tra định dạng file.');
       }
     };
-    
+
     // Đọc file
     reader.readAsArrayBuffer(file);
 
@@ -220,10 +221,10 @@ export default function AdminList() {
           <Button
             variant="outlined"
             startIcon={<FileUploadIcon />}
-            sx={{ 
-              mr: 1, 
-              backgroundColor: 'white', 
-              color: '#333', 
+            sx={{
+              mr: 1,
+              backgroundColor: 'white',
+              color: '#333',
               borderColor: '#ccc',
               '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' }
             }}
@@ -234,10 +235,10 @@ export default function AdminList() {
           <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
-            sx={{ 
-              mr: 1, 
-              backgroundColor: 'white', 
-              color: '#333', 
+            sx={{
+              mr: 1,
+              backgroundColor: 'white',
+              color: '#333',
               borderColor: '#ccc',
               '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' }
             }}
@@ -263,20 +264,20 @@ export default function AdminList() {
             // --- CẬP NHẬT: Dùng mảng đã phân trang (paginatedAdmins) ---
             paginatedAdmins.map((admin) => {
               const roleInfo = roleMap[admin.role_id || 3] || roleMap[3];
-              
+
               // --- LOGIC HIỂN THỊ TÊN ---
               // Ưu tiên full_name nếu có và không rỗng, ngược lại dùng username
-              const displayName = (admin.full_name && admin.full_name.trim() !== "") 
-                                  ? admin.full_name 
-                                  : admin.username;
-              
+              const displayName = (admin.full_name && admin.full_name.trim() !== "")
+                ? admin.full_name
+                : admin.username;
+
               return (
                 <Grid size={{ xs: 12 }} key={admin.id}>
                   <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
                     <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
                       {displayName.charAt(0).toUpperCase()}
                     </Avatar>
-                    
+
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="h6">
                         {displayName} {/* Hiển thị tên thật nếu có, ko thì username */}
@@ -284,16 +285,16 @@ export default function AdminList() {
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         ID: {admin.id} | Email: {admin.email}
                       </Typography>
-                      <Chip 
-                        label={roleInfo.label} 
-                        color={roleInfo.color as any} 
-                        size="small" 
+                      <Chip
+                        label={roleInfo.label}
+                        color={roleInfo.color as any}
+                        size="small"
                       />
                       {!admin.is_active && (
                         <Chip label="Đã khóa" color="error" size="small" sx={{ ml: 1 }} />
                       )}
                     </Box>
-                    
+
                     <Button variant="contained" onClick={() => handleViewProfile(admin.id)}>
                       Xem thêm
                     </Button>
@@ -308,12 +309,12 @@ export default function AdminList() {
       {/* --- CẬP NHẬT: Pagination Component --- */}
       {!isLoading && !error && totalRows > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination 
+          <Pagination
             count={totalPages}      // Tổng số trang tính toán được
             page={page}             // Trang hiện tại
             onChange={handlePageChange} // Hàm xử lý khi đổi trang
-            color="primary" 
-            showFirstButton 
+            color="primary"
+            showFirstButton
             showLastButton
           />
         </Box>
@@ -335,7 +336,7 @@ export default function AdminList() {
               </ListItemIcon>
               <ListItemText primary="Tài khoản sẵn có" />
             </ListItemButton>
-            
+
             {/* 1.2: Tạo tài khoản mới */}
             <ListItemButton onClick={handleNavigateToCreate}>
               <ListItemIcon>
@@ -346,7 +347,7 @@ export default function AdminList() {
           </List>
         </DialogContent>
       </Dialog>
-      
+
       {/* --- THÊM MỚI: MODAL 2 (Yêu cầu 1.1) --- */}
       <Dialog
         open={openExisting}

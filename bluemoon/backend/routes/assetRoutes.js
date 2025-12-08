@@ -15,16 +15,21 @@ router.use(checkAuth);
 // ==========================================
 // 1. NHÓM API ĐỌC DỮ LIỆU (READ)
 // ==========================================
-// Cho phép: Ban quản trị (bod) & Kế toán (accountance)
-// Cư dân (resident) không cần xem danh sách máy bơm/thang máy chi tiết làm gì.
 
-router.get('/', 
-    checkRole(['bod', 'accountance']), 
+// API dành cho Cư dân - Chỉ xem danh sách tài sản công cộng (Read-only)
+router.get('/resident',
+    checkRole(['resident']),
     assetController.getAllAssets
 );
 
-router.get('/:id', 
-    checkRole(['bod', 'accountance']), 
+// Cho phép: Ban quản trị (bod) & Kế toán (accountance)
+router.get('/',
+    checkRole(['bod', 'accountance']),
+    assetController.getAllAssets
+);
+
+router.get('/:id',
+    checkRole(['bod', 'accountance']),
     assetController.getAssetDetail
 );
 
@@ -34,20 +39,20 @@ router.get('/:id',
 // Chỉ cho phép: Ban quản trị (bod)
 
 // Thêm tài sản mới
-router.post('/', 
-    checkRole(['bod']), 
+router.post('/',
+    checkRole(['bod']),
     assetController.createAsset
 );
 
 // Cập nhật thông tin tài sản
-router.put('/:id', 
-    checkRole(['bod']), 
+router.put('/:id',
+    checkRole(['bod']),
     assetController.updateAsset
 );
 
 // Xóa tài sản
-router.delete('/:id', 
-    checkRole(['bod']), 
+router.delete('/:id',
+    checkRole(['bod']),
     assetController.deleteAsset
 );
 

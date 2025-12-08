@@ -398,12 +398,13 @@ INSERT INTO apartments (apartment_code, building, floor, area, status) VALUES
 INSERT INTO users (id, username, password, email, phone, role_id) VALUES
 ('ID0001', 'admin.a', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'admin.a@bluemoon.com', '0900000001', 1),
 ('ID0002', 'ketoan.b', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'ketoan.b@bluemoon.com', '0900000002', 2),
-('R0001', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3);
+('R0001', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3),
 ('ID0003', 'cqcn.c', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'cqcn.c@bluemoon.com', '0900000003', 4);
 
 INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VALUES
 ('ID0001', 'ID0001', 'Nguyễn Văn A', '1990-01-01', 'Nam', '012345678901', '0900000001', 'admin.a@bluemoon.com'),
-('ID0002', 'ID0002', 'Nguyễn Văn B', '1992-05-10', 'Nam', '012345678902', '0900000002', 'ketoan.b@bluemoon.com');
+('ID0002', 'ID0002', 'Nguyễn Văn B', '1992-05-10', 'Nam', '012345678902', '0900000002', 'ketoan.b@bluemoon.com'),
+('ID0003', 'ID0003', 'Trần Thị C', '1988-03-15', 'Nữ', '012345678903', '0900000003', 'cqcn.c@bluemoon.com');
 
 -- Residents
 INSERT INTO residents (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation) VALUES
@@ -464,18 +465,13 @@ INSERT INTO reports (id, title, description, location, reported_by, status, prio
 ('SC003', 'Bóng đèn hành lang tầng 15 Tòa A bị cháy', 'Bóng đèn hành lang tầng 15 Tòa A đã cháy từ 2 ngày nay, ban đêm rất tối.', 'Hành lang Tầng 15, Tòa A', 'R0004', 'Hoàn thành', 'Trung bình', '2025-10-27 11:00:00', 'Đã thay bóng đèn mới.', '2025-10-28 16:00:00', 1, 'Phản hồi rất muộn.'),
 ('SC004', 'Tiếng ồn lạ từ máy phát điện', 'Tối qua khoảng 22h, tôi nghe thấy tiếng ồn lạ phát ra từ phòng kỹ thuật, có vẻ là từ máy phát điện.', 'Phòng kỹ thuật, Tầng G', 'R0005', 'Mới', 'Cao', '2025-10-26 22:00:00', 'Đã đến kiểm tra và không có tiếng ồn.', '2025-10-26 22:15:00', 4, 'Không phải tiếng ồn thật.');
 
-NSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone, image_url) VALUES 
-('BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', TRUE, 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567', '/uploads/services/gym_thumb.jpg'),
-
-('Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua (chưa bao gồm tiền hàng hóa thực tế).', 30000, 'Lần', TRUE, 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999', '/uploads/services/mart_thumb.jpg'),
-
-('Moonlight Coffee & Lounge', 'Thuê phòng VIP để họp nhóm, tiếp khách hoặc làm việc. Không gian yên tĩnh, view panorama toàn thành phố.', 200000, 'Giờ', TRUE, 'Ẩm thực & Giải trí', 'Tầng Thượng (Rooftop)', '08:00 - 23:00', '0912.333.444', '/uploads/services/coffee_thumb.jpg'),
-
-('Trường Mầm non Little Stars', 'Môi trường giáo dục chuẩn quốc tế, giáo viên bản ngữ. Đăng ký giữ chỗ hoặc tham quan trường cho bé.', 8500000, 'Tháng', TRUE, 'Giáo dục', 'Tầng 2 - Tòa C', '07:00 - 17:30', '024.3333.8888', '/uploads/services/school_thumb.jpg'),
-
-('Nhà hàng Ẩm thực Á Đông', 'Đặt bàn tiệc gia đình, sinh nhật, tất niên. Thực đơn phong phú 3 miền. Giá tham khảo cho bàn 6 người.', 3500000, 'Bàn', TRUE, 'Ẩm thực & Giải trí', 'Tầng 1 - Tòa D', '10:00 - 22:00', '0988.777.666', '/uploads/services/restaurant_thumb.jpg'),
-
-('Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp. Giá vé ưu đãi cho cư dân.', 120000, 'Vé', TRUE, 'Giải trí', 'Tầng 2 - Trung tâm thương mại', '09:00 - 21:30', '0905.111.222', '/uploads/services/kidz_thumb.jpg');
+INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone) VALUES 
+('BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', TRUE, 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567'),
+('Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua (chưa bao gồm tiền hàng hóa thực tế).', 30000, 'Lần', TRUE, 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999'),
+('Moonlight Coffee & Lounge', 'Thuê phòng VIP để họp nhóm, tiếp khách hoặc làm việc. Không gian yên tĩnh, view panorama toàn thành phố.', 200000, 'Giờ', TRUE, 'Ẩm thực & Giải trí', 'Tầng Thượng (Rooftop)', '08:00 - 23:00', '0912.333.444'),
+('Trường Mầm non Little Stars', 'Môi trường giáo dục chuẩn quốc tế, giáo viên bản ngữ. Đăng ký giữ chỗ hoặc tham quan trường cho bé.', 8500000, 'Tháng', TRUE, 'Giáo dục', 'Tầng 2 - Tòa C', '07:00 - 17:30', '024.3333.8888'),
+('Nhà hàng Ẩm thực Á Đông', 'Đặt bàn tiệc gia đình, sinh nhật, tất niên. Thực đơn phong phú 3 miền. Giá tham khảo cho bàn 6 người.', 3500000, 'Bàn', TRUE, 'Ẩm thực & Giải trí', 'Tầng 1 - Tòa D', '10:00 - 22:00', '0988.777.666'),
+('Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp. Giá vé ưu đãi cho cư dân.', 120000, 'Vé', TRUE, 'Giải trí', 'Tầng 2 - Trung tâm thương mại', '09:00 - 21:30', '0905.111.222');
 
 -- B. Dữ liệu Bookings (Giả định ID Service chạy từ 1->6 do vừa Reset bảng)
 -- R0001 đặt Gym 1 tháng
@@ -491,7 +487,7 @@ INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quanti
 VALUES ('R0003', 2, NOW(), 1, 30000, 'Chờ duyệt', 'Mua giúp 2kg gạo ST25 và 1 vỉ trứng gà');
 
 -- C. Dữ liệu Attachments (Ảnh chi tiết cho Gym)
-INSERT INTO service_attachments (service_id, file_name, file_path, file_size) VALUES 
+INSERT INTO service_attachments (service_type_id, file_name, file_path, file_size) VALUES 
 (1, 'gym_detail_1.jpg', '/uploads/services/gym_detail_1.jpg', 102400),
 (1, 'gym_detail_2.jpg', '/uploads/services/gym_detail_2.jpg', 204800),
 (1, 'gym_pool.jpg', '/uploads/services/gym_pool.jpg', 512000);

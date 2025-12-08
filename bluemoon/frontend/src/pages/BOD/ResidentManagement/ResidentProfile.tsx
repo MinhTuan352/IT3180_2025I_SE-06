@@ -12,69 +12,82 @@ import {
   FormControl,
   InputLabel,
   Paper,
+  CircularProgress,
+  Alert,
   type SelectChangeEvent,
 } from '@mui/material';
 import { useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-
-// (Cập nhật Mock Data với các trường mới)
-const mockData = {
-  'R0001': {
-    fullName: 'Trần Văn Hộ',
-    apartment: 'A-101',
-    role: 'owner', // <-- Chủ hộ
-    dob: '1980-01-01',
-    gender: 'Nam',
-    cccd: '012345678001',
-    phone: '0900000001',
-    email: 'chuho.a@bluemoon.com',
-    status: 'Đang sinh sống',
-    hometown: 'Hà Nội', // <-- THÊM MỚI
-    occupation: 'Kỹ sư', // <-- THÊM MỚI
-    username: 'chuho_a101', // <-- THÊM MỚI
-  },
-  'R0002': {
-    fullName: 'Nguyễn Thị Thành Viên',
-    apartment: 'A-101',
-    role: 'member', // <-- Thành viên
-    dob: '1985-02-02',
-    gender: 'Nữ',
-    cccd: '012345678002',
-    phone: '0900000002',
-    email: 'thanhvien.a@bluemoon.com',
-    status: 'Đang sinh sống',
-    hometown: 'Hải Phòng', // <-- THÊM MỚI
-    occupation: 'Giáo viên', // <-- THÊM MỚI
-    username: null, // (Không có tài khoản)
-  },
-};
+import { residentApi, type Resident } from '../../../api/residentApi';
 
 export default function ResidentProfile() {
-  const { id } = useParams<{ id: string }>(); 
-  const [userData, setUserData] = useState<any>(null);
+  const { id } = useParams<{ id: string }>();
+  const [userData, setUserData] = useState<Resident | null>(null);
   const [currentRole, setCurrentRole] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id && (mockData as any)[id]) {
-      const data = (mockData as any)[id];
-      setUserData(data);
-      setCurrentRole(data.role); // <-- Set vai trò ban đầu
-    }
+    const fetchResident = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await residentApi.getById(id);
+        // Handle response structure
+        const data = (response as any).data || response;
+        setUserData(data);
+        setCurrentRole(data.role || '');
+      } catch (err: any) {
+        console.error('Error fetching resident:', err);
+        setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResident();
   }, [id]);
 
   const handleRoleChange = (event: SelectChangeEvent) => {
     setCurrentRole(event.target.value as string);
   };
 
-  const handleUpdateResident = () => {
-    alert('Logic cập nhật Cư dân sẽ được thêm vào đây!');
-    // (Đây là nơi gọi API /api/residents/:id từ residentController.js)
+  const handleUpdateResident = async () => {
+    if (!id || !userData) return;
+
+    try {
+      await residentApi.update(id, {
+        ...userData,
+        role: currentRole as 'owner' | 'member'
+      });
+      alert('Cập nhật thành công!');
+    } catch (err: any) {
+      alert('Lỗi: ' + (err.response?.data?.message || 'Không thể cập nhật.'));
+    }
   };
+
+  if (loading) {
+    return (
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <CircularProgress />
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Paper>
+    );
+  }
 
   if (!userData) {
     return (
       <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h5">Đang tải...</Typography>
+        <Alert severity="warning">Không tìm thấy thông tin cư dân với ID: {id}</Alert>
       </Paper>
     );
   }
@@ -87,66 +100,64 @@ export default function ResidentProfile() {
 
       <Grid container spacing={3}>
         {/* CỘT BÊN TRÁI: Avatar và ID */}
-        <Grid size={{
-          xs: 12,
-          md: 4
-        }}>
-          <Card sx={{ 
-            p: 3, 
-            display: 'flex', 
-            flexDirection: 'column', 
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card sx={{
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            textAlign: 'center' 
+            textAlign: 'center'
           }}>
-            <Avatar sx={{ width: 120, height: 120, mb: 2 }} />
+            <Avatar sx={{ width: 120, height: 120, mb: 2, bgcolor: 'primary.main', fontSize: '2rem' }}>
+              {userData.full_name?.charAt(0) || '?'}
+            </Avatar>
             <Typography variant="h6" gutterBottom>
               {id}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Căn hộ: {userData.apartment}
+              Căn hộ: {userData.apartment_code || 'N/A'}
             </Typography>
           </Card>
         </Grid>
 
         {/* CỘT BÊN PHẢI: Form điền thông tin */}
-        <Grid size={{
-          xs: 12,
-          md: 8
-        }}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Card sx={{ p: 3 }}>
             <Grid container spacing={2}>
-              {/* (Điền sẵn defaultValue) */}
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
-                <TextField label="Họ và tên" fullWidth defaultValue={userData.fullName} />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Họ và tên"
+                  fullWidth
+                  value={userData.full_name || ''}
+                  onChange={(e) => setUserData({ ...userData, full_name: e.target.value })}
+                />
               </Grid>
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
-                <TextField label="Số căn hộ" fullWidth defaultValue={userData.apartment} />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Số căn hộ"
+                  fullWidth
+                  value={userData.apartment_code || ''}
+                  InputProps={{ readOnly: true }}
+                />
               </Grid>
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Ngày sinh"
                   type="date"
                   fullWidth
                   InputLabelProps={{ shrink: true }}
-                  defaultValue={userData.dob}
+                  value={userData.dob || ''}
+                  onChange={(e) => setUserData({ ...userData, dob: e.target.value })}
                 />
               </Grid>
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Giới tính</InputLabel>
-                  <Select label="Giới tính" defaultValue={userData.gender}>
+                  <Select
+                    label="Giới tính"
+                    value={userData.gender || ''}
+                    onChange={(e) => setUserData({ ...userData, gender: e.target.value })}
+                  >
                     <MenuItem value="Nam">Nam</MenuItem>
                     <MenuItem value="Nữ">Nữ</MenuItem>
                     <MenuItem value="Khác">Khác</MenuItem>
@@ -154,50 +165,63 @@ export default function ResidentProfile() {
                 </FormControl>
               </Grid>
 
-              {/* --- THÊM MỚI: Quê quán --- */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField label="Quê quán" fullWidth defaultValue={userData.hometown} />
-              </Grid>
-              
-              {/* --- THÊM MỚI: Nghề nghiệp --- */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField label="Nghề nghiệp" fullWidth defaultValue={userData.occupation} />
+                <TextField
+                  label="Quê quán"
+                  fullWidth
+                  value={userData.hometown || ''}
+                  onChange={(e) => setUserData({ ...userData, hometown: e.target.value })}
+                />
               </Grid>
 
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
-                <TextField label="CCCD" fullWidth defaultValue={userData.cccd} />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Nghề nghiệp"
+                  fullWidth
+                  value={userData.occupation || ''}
+                  onChange={(e) => setUserData({ ...userData, occupation: e.target.value })}
+                />
               </Grid>
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
-                <TextField label="Số điện thoại" fullWidth defaultValue={userData.phone} />
+
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="CCCD"
+                  fullWidth
+                  value={userData.cccd || ''}
+                  onChange={(e) => setUserData({ ...userData, cccd: e.target.value })}
+                />
               </Grid>
-              <Grid size={{
-                xs: 12
-              }}>
-                <TextField label="Email" type="email" fullWidth defaultValue={userData.email} />
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="Số điện thoại"
+                  fullWidth
+                  value={userData.phone || ''}
+                  onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                />
               </Grid>
-              
               <Grid size={{ xs: 12 }}>
-                 <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                   Thông tin Cư trú & Tài khoản
-                 </Typography>
+                <TextField
+                  label="Email"
+                  type="email"
+                  fullWidth
+                  value={userData.email || ''}
+                  onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                />
               </Grid>
 
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                  Thông tin Cư trú & Tài khoản
+                </Typography>
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Quyền hạn</InputLabel>
-                  <Select 
-                  label="Quyền hạn" 
-                  value={currentRole} // <-- CẬP NHẬT
-                  onChange={handleRoleChange} // <-- CẬP NHẬT
+                  <Select
+                    label="Quyền hạn"
+                    value={currentRole}
+                    onChange={handleRoleChange}
                   >
                     <MenuItem value="owner">Chủ hộ</MenuItem>
                     <MenuItem value="member">Thành viên</MenuItem>
@@ -205,29 +229,31 @@ export default function ResidentProfile() {
                 </FormControl>
               </Grid>
 
-              <Grid size={{
-                xs: 12,
-                sm: 6
-              }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel>Tình trạng</InputLabel>
-                  <Select label="Tình trạng" defaultValue={userData.status}>
+                  <Select
+                    label="Tình trạng"
+                    value={userData.status || ''}
+                    onChange={(e) => setUserData({ ...userData, status: e.target.value })}
+                  >
                     <MenuItem value="Đang sinh sống">Đang sinh sống</MenuItem>
                     <MenuItem value="Đã chuyển đi">Đã chuyển đi</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
 
-              {/* --- THÊM MỚI: Khối tài khoản (Conditional) --- */}
+              {/* Khối tài khoản (Conditional) */}
               {currentRole === 'owner' && (
                 <>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       label="Username (tài khoản Cư dân)"
                       fullWidth
-                      defaultValue={userData.username}
+                      value={userData.user_id || ''}
                       helperText="Cư dân sẽ dùng tài khoản này để đăng nhập"
                       sx={{ mt: 2 }}
+                      InputProps={{ readOnly: true }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -245,14 +271,14 @@ export default function ResidentProfile() {
           </Card>
         </Grid>
       </Grid>
-      
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        mt: 3 
+
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        mt: 3
       }}>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           size="large"
           onClick={handleUpdateResident}
         >

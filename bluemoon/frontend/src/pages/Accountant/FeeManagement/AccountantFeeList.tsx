@@ -37,6 +37,7 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
 import feeApi, { type Fee } from '../../../api/feeApi';
+import toast, { Toaster } from 'react-hot-toast';
 
 type FeeStatus = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn' | 'Đã hủy' | 'Thanh toán một phần';
 
@@ -51,6 +52,7 @@ export default function AccountantFeeList() {
 
   const [fees, setFees] = useState<Fee[]>([]);
   const [loading, setLoading] = useState(false);
+  const [remindLoading, setRemindLoading] = useState(false);
 
   const dynamicPaperWidth = windowWidth
     - (isSidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_OPEN)
@@ -187,8 +189,8 @@ export default function AccountantFeeList() {
           <Tooltip title="Gửi nhắc nhở">
             <IconButton
               size="small"
-              onClick={() => alert(`Gửi nhắc nhở: ${params.row.id}`)}
-              disabled={params.row.status === 'Đã thanh toán'}
+              onClick={() => handleSendReminder(params.row.id)}
+              disabled={params.row.status === 'Đã thanh toán' || remindLoading}
             >
               <NotificationsIcon />
             </IconButton>
@@ -197,6 +199,35 @@ export default function AccountantFeeList() {
       )
     }
   ];
+
+  // Gửi nhắc nợ cho 1 hóa đơn
+  const handleSendReminder = async (id: string) => {
+    try {
+      setRemindLoading(true);
+      const res: any = await feeApi.sendReminder(id);
+      toast.success(res.data?.message || 'Đã gửi nhắc nợ thành công!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi gửi nhắc nợ');
+    } finally {
+      setRemindLoading(false);
+    }
+  };
+
+  // Gửi nhắc nợ hàng loạt
+  const handleBatchReminder = async () => {
+    if (!window.confirm('Bạn có chắc muốn gửi nhắc nợ cho TẤT CẢ hóa đơn chưa thanh toán?')) return;
+
+    try {
+      setRemindLoading(true);
+      const res: any = await feeApi.sendBatchReminder({ filter: 'all_unpaid' });
+      const data = res.data?.data || res.data;
+      toast.success(`Đã gửi nhắc nợ cho ${data?.sent || 0} cư dân (${data?.total_invoices || 0} hóa đơn)`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi gửi nhắc nợ hàng loạt');
+    } finally {
+      setRemindLoading(false);
+    }
+  };
 
   const [openAddModal, setOpenAddModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -285,6 +316,7 @@ export default function AccountantFeeList() {
 
   return (
     <>
+      <Toaster position="top-right" />
       <input
         type="file"
         ref={fileInputRef}
@@ -331,6 +363,17 @@ export default function AccountantFeeList() {
               sx={{ ml: 1 }}
             >
               Quét công nợ
+            </Button>
+
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<NotificationsIcon />}
+              onClick={handleBatchReminder}
+              disabled={remindLoading}
+              sx={{ ml: 1 }}
+            >
+              {remindLoading ? 'Đang gửi...' : 'Nhắc nợ hàng loạt'}
             </Button>
 
             <Button variant="contained" onClick={handleOpenAddModal} sx={{ ml: 1 }}>

@@ -90,6 +90,16 @@ const feeApi = {
     // [MỚI] Batch create - Tạo hóa đơn hàng loạt
     batchCreate: (data: { billing_period: string; invoices: any[] }) => {
         return axiosClient.post('/fees/batch-create', data);
+    },
+
+    // [MỚI] Gửi nhắc nợ cho 1 hóa đơn
+    sendReminder: (id: string) => {
+        return axiosClient.post(`/fees/${id}/remind`);
+    },
+
+    // [MỚI] Gửi nhắc nợ hàng loạt
+    sendBatchReminder: (data: { invoice_ids?: string[]; filter?: string }) => {
+        return axiosClient.post('/fees/batch-remind', data);
     }
 };
 

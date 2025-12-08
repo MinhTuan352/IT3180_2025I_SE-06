@@ -69,6 +69,12 @@ router.post('/batch-create',
     feeController.batchCreate
 );
 
+// [MỚI] Gửi nhắc nợ hàng loạt
+router.post('/batch-remind',
+    checkRole(['accountance', 'bod']),
+    feeController.sendBatchReminder
+);
+
 // === ROUTE ĐỘNG ĐẶT SAU CÙNG ===
 
 // [GET] /api/fees/:id - Xem chi tiết hóa đơn
@@ -84,6 +90,12 @@ router.post('/',
 router.post('/:id/pay',
     checkRole(['accountance']),
     feeController.payInvoice
+);
+
+// [MỚI] Gửi nhắc nợ cho 1 hóa đơn
+router.post('/:id/remind',
+    checkRole(['accountance', 'bod']),
+    feeController.sendReminder
 );
 
 module.exports = router;

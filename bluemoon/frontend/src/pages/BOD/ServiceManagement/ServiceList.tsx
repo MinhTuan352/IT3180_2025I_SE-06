@@ -18,6 +18,10 @@ interface ServiceType {
   base_price: number;
   unit: string;
   is_active: number; // 1 or 0
+  category: string | null;
+  location: string | null;
+  open_hours: string | null;
+  contact_phone: string | null;
 }
 
 export default function ServiceList() {
@@ -54,7 +58,8 @@ export default function ServiceList() {
 
   const handleCreateClick = () => {
     setEditingService({
-      name: '', description: '', base_price: 0, unit: 'Lượt', is_active: 1
+      name: '', description: '', base_price: 0, unit: 'Lượt', is_active: 1,
+      category: '', location: '', open_hours: '', contact_phone: ''
     });
     setIsNew(true);
     setOpenEdit(true);
@@ -90,15 +95,18 @@ export default function ServiceList() {
   // --- Columns ---
   const columns: GridColDef[] = [
     { field: 'id', headerName: 'ID', width: 70 },
-    { field: 'name', headerName: 'Tên Dịch vụ', flex: 1, minWidth: 200 },
+    { field: 'name', headerName: 'Tên Dịch vụ', flex: 1, minWidth: 180 },
+    { field: 'category', headerName: 'Danh mục', width: 150 },
     {
-      field: 'base_price', headerName: 'Đơn giá (VNĐ)', width: 150,
+      field: 'base_price', headerName: 'Đơn giá (VNĐ)', width: 130,
       valueFormatter: (value) => new Intl.NumberFormat('vi-VN').format(value as number)
     },
-    { field: 'unit', headerName: 'Đơn vị tính', width: 120 },
-    { field: 'description', headerName: 'Mô tả', flex: 1, minWidth: 200 },
+    { field: 'unit', headerName: 'Đơn vị', width: 80 },
+    { field: 'location', headerName: 'Vị trí', width: 150 },
+    { field: 'open_hours', headerName: 'Giờ mở cửa', width: 120 },
+    { field: 'contact_phone', headerName: 'Hotline', width: 120 },
     {
-      field: 'is_active', headerName: 'Trạng thái', width: 150,
+      field: 'is_active', headerName: 'Trạng thái', width: 130,
       renderCell: (params) => (
         <Chip
           label={params.value ? 'Đang hoạt động' : 'Tạm dừng'}
@@ -151,26 +159,39 @@ export default function ServiceList() {
         <DialogContent dividers>
           {editingService && (
             <Grid container spacing={2}>
-              <Grid sx={{ xs: 12 }}>
-                <TextField label="Tên dịch vụ" name="name" fullWidth value={editingService.name} onChange={handleChange} />
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField label="Tên dịch vụ" name="name" fullWidth value={editingService.name || ''} onChange={handleChange} />
+              </Grid>
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField label="Danh mục" name="category" fullWidth value={editingService.category || ''} onChange={handleChange} placeholder="VD: Sức khỏe & Làm đẹp" />
               </Grid>
 
               <Grid sx={{ xs: 12, sm: 6 }}>
-                <TextField type="number" label="Đơn giá cơ bản" name="base_price" fullWidth value={editingService.base_price} onChange={handleChange} />
+                <TextField type="number" label="Đơn giá cơ bản (VNĐ)" name="base_price" fullWidth value={editingService.base_price || 0} onChange={handleChange} />
               </Grid>
               <Grid sx={{ xs: 12, sm: 6 }}>
-                <TextField label="Đơn vị tính (VD: Giờ, Lần)" name="unit" fullWidth value={editingService.unit} onChange={handleChange} />
-              </Grid>
-
-              <Grid sx={{ xs: 12 }}>
-                <TextField label="Mô tả chi tiết" name="description" fullWidth multiline rows={3} value={editingService.description} onChange={handleChange} />
+                <TextField label="Đơn vị tính" name="unit" fullWidth value={editingService.unit || ''} onChange={handleChange} placeholder="VD: Giờ, Lần, Tháng" />
               </Grid>
 
               <Grid sx={{ xs: 12, sm: 6 }}>
-                <TextField select label="Trạng thái" name="is_active" fullWidth value={editingService.is_active} onChange={handleChange}>
+                <TextField label="Vị trí" name="location" fullWidth value={editingService.location || ''} onChange={handleChange} placeholder="VD: Tầng 3 - Tòa A" />
+              </Grid>
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField label="Giờ mở cửa" name="open_hours" fullWidth value={editingService.open_hours || ''} onChange={handleChange} placeholder="VD: 08:00 - 22:00" />
+              </Grid>
+
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField label="Hotline liên hệ" name="contact_phone" fullWidth value={editingService.contact_phone || ''} onChange={handleChange} placeholder="VD: 0901.234.567" />
+              </Grid>
+              <Grid sx={{ xs: 12, sm: 6 }}>
+                <TextField select label="Trạng thái" name="is_active" fullWidth value={editingService.is_active ?? 1} onChange={handleChange}>
                   <MenuItem value={1}>Đang hoạt động</MenuItem>
                   <MenuItem value={0}>Tạm dừng</MenuItem>
                 </TextField>
+              </Grid>
+
+              <Grid sx={{ xs: 12 }}>
+                <TextField label="Mô tả chi tiết" name="description" fullWidth multiline rows={3} value={editingService.description || ''} onChange={handleChange} />
               </Grid>
             </Grid>
           )}

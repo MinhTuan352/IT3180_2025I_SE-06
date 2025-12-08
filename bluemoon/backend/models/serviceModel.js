@@ -14,26 +14,29 @@ const Service = {
     },
 
     create: async (data) => {
-        const { name, description, base_price, unit, is_active } = data;
+        const { name, description, base_price, unit, is_active, category, location, open_hours, contact_phone } = data;
         const query = `
-            INSERT INTO service_types (name, description, base_price, unit, is_active)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const [result] = await db.execute(query, [
-            name, description, base_price || 0, unit, is_active !== undefined ? is_active : 1
+            name, description, base_price || 0, unit, is_active !== undefined ? is_active : 1,
+            category || null, location || null, open_hours || null, contact_phone || null
         ]);
         return { id: result.insertId, ...data };
     },
 
     update: async (id, data) => {
-        const { name, description, base_price, unit, is_active } = data;
+        const { name, description, base_price, unit, is_active, category, location, open_hours, contact_phone } = data;
         const query = `
             UPDATE service_types 
-            SET name = ?, description = ?, base_price = ?, unit = ?, is_active = ?
+            SET name = ?, description = ?, base_price = ?, unit = ?, is_active = ?,
+                category = ?, location = ?, open_hours = ?, contact_phone = ?
             WHERE id = ?
         `;
         await db.execute(query, [
-            name, description, base_price, unit, is_active, id
+            name, description, base_price, unit, is_active,
+            category || null, location || null, open_hours || null, contact_phone || null, id
         ]);
         return { id, ...data };
     },

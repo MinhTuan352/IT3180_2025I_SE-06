@@ -30,7 +30,7 @@ import { residentApi, type Resident } from '../../../api/residentApi';
 export default function NotificationCreate() {
   const navigate = useNavigate();
   const [targetType, setTargetType] = useState('all_residents');
-  const [targetValue, setTargetValue] = useState<string>('');
+  const [targetValue] = useState<string>('');
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');

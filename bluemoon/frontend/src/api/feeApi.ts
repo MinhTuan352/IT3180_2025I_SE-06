@@ -78,6 +78,18 @@ const feeApi = {
 
     triggerScan: () => {
         return axiosClient.post('/fees/trigger-scan');
+    },
+
+    // [MỚI] Batch preview - Xem trước hóa đơn sẽ tạo
+    batchPreview: (billingPeriod: string) => {
+        return axiosClient.get('/fees/batch-preview', {
+            params: { billing_period: billingPeriod }
+        });
+    },
+
+    // [MỚI] Batch create - Tạo hóa đơn hàng loạt
+    batchCreate: (data: { billing_period: string; invoices: any[] }) => {
+        return axiosClient.post('/fees/batch-create', data);
     }
 };
 

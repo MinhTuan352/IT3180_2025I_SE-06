@@ -43,20 +43,12 @@ router.delete('/types/:id',
 // (Controller tự động lọc: Kế toán thấy hết, Cư dân thấy của mình)
 router.get('/', feeController.getFees);
 
-// [GET] /api/fees/:id - Xem chi tiết hóa đơn
-router.get('/:id', feeController.getFeeDetail);
+// === CÁC ROUTE CỐ ĐỊNH PHẢI ĐẶT TRƯỚC /:id ===
 
-// [POST] /api/fees - Tạo hóa đơn mới (Chỉ Kế toán & Admin)
-router.post('/',
-    checkRole(['bod', 'accountance']),
-    feeController.createInvoice
-);
-
-// [POST] /api/fees/:id/pay - Xác nhận thanh toán (Chỉ Kế toán)
-// Cư dân không tự gọi API này được, họ phải chuyển khoản -> Kế toán check -> Kế toán gọi API này
-router.post('/:id/pay',
-    checkRole(['accountance']),
-    feeController.payInvoice
+// [MỚI] Batch preview - Xem trước danh sách hóa đơn sẽ tạo
+router.get('/batch-preview',
+    checkRole(['accountance', 'bod']),
+    feeController.batchPreview
 );
 
 // [MỚI] Trigger quét nợ thủ công (Chỉ Admin)
@@ -69,6 +61,29 @@ router.post('/trigger-scan',
 router.post('/import-water',
     checkRole(['accountance', 'bod']),
     feeController.importWaterMeter
+);
+
+// [MỚI] Batch create - Tạo hóa đơn hàng loạt
+router.post('/batch-create',
+    checkRole(['accountance', 'bod']),
+    feeController.batchCreate
+);
+
+// === ROUTE ĐỘNG ĐẶT SAU CÙNG ===
+
+// [GET] /api/fees/:id - Xem chi tiết hóa đơn
+router.get('/:id', feeController.getFeeDetail);
+
+// [POST] /api/fees - Tạo hóa đơn mới (Chỉ Kế toán & Admin)
+router.post('/',
+    checkRole(['bod', 'accountance']),
+    feeController.createInvoice
+);
+
+// [POST] /api/fees/:id/pay - Xác nhận thanh toán (Chỉ Kế toán)
+router.post('/:id/pay',
+    checkRole(['accountance']),
+    feeController.payInvoice
 );
 
 module.exports = router;

@@ -283,18 +283,6 @@ export default function AccountantFeeList() {
     e.target.value = '';
   };
 
-  const handleBatchScan = async () => {
-    if (window.confirm("Bạn có chắc muốn chạy quét công nợ (tạo hóa đơn định kỳ) ngay bây giờ?")) {
-      try {
-        await feeApi.triggerScan();
-        alert("Đã gửi yêu cầu quét công nợ.");
-        fetchFees();
-      } catch (err) {
-        alert("Lỗi khi quét công nợ");
-      }
-    }
-  }
-
   return (
     <>
       <input
@@ -339,10 +327,10 @@ export default function AccountantFeeList() {
               variant="contained"
               color="success"
               startIcon={<PlaylistAddIcon />}
-              onClick={handleBatchScan}
+              onClick={() => navigate('/accountance/fee/batch-create')}
               sx={{ ml: 1 }}
             >
-              Quét công nợ (Demo)
+              Quét công nợ
             </Button>
 
             <Button variant="contained" onClick={handleOpenAddModal} sx={{ ml: 1 }}>

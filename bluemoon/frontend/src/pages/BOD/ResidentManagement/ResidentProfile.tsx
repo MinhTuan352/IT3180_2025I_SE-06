@@ -1,4 +1,5 @@
 // src/pages/BOD/ResidentManagement/ResidentProfile.tsx
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -14,57 +15,99 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  Snackbar,
   type SelectChangeEvent,
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { residentApi, type Resident } from '../../../api/residentApi';
+import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
 
 export default function ResidentProfile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [userData, setUserData] = useState<Resident | null>(null);
-  const [currentRole, setCurrentRole] = useState('');
+  const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false, message: '', severity: 'success'
+  });
 
   useEffect(() => {
-    const fetchResident = async () => {
+    const fetchData = async () => {
       if (!id) return;
 
       try {
         setLoading(true);
         setError(null);
-        const response = await residentApi.getById(id);
+
+        // Fetch resident and apartments in parallel
+        const [resResponse, aptsData] = await Promise.all([
+          residentApi.getById(id),
+          apartmentApi.getAll()
+        ]);
+
         // Handle response structure
-        const data = (response as any).data || response;
+        const data = (resResponse as any).data || resResponse;
         setUserData(data);
-        setCurrentRole(data.role || '');
+        setApartments(aptsData);
       } catch (err: any) {
-        console.error('Error fetching resident:', err);
+        console.error('Error fetching data:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchResident();
+    fetchData();
   }, [id]);
 
-  const handleRoleChange = (event: SelectChangeEvent) => {
-    setCurrentRole(event.target.value as string);
+  const handleChange = (field: keyof Resident) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (!userData) return;
+    setUserData({ ...userData, [field]: e.target.value });
+  };
+
+  const handleSelectChange = (field: keyof Resident) => (e: SelectChangeEvent) => {
+    if (!userData) return;
+    setUserData({ ...userData, [field]: e.target.value });
   };
 
   const handleUpdateResident = async () => {
     if (!id || !userData) return;
 
+    setSaving(true);
     try {
-      await residentApi.update(id, {
-        ...userData,
-        role: currentRole as 'owner' | 'member'
-      });
-      alert('Cập nhật thành công!');
+      await residentApi.update(id, userData);
+      setSnackbar({ open: true, message: 'Cập nhật thành công!', severity: 'success' });
     } catch (err: any) {
-      alert('Lỗi: ' + (err.response?.data?.message || 'Không thể cập nhật.'));
+      console.error('Error updating resident:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Không thể cập nhật. Vui lòng thử lại.',
+        severity: 'error'
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteResident = async () => {
+    if (!id) return;
+
+    if (!window.confirm('Bạn có chắc chắn muốn xóa cư dân này?')) return;
+
+    try {
+      await residentApi.delete(id);
+      setSnackbar({ open: true, message: 'Đã xóa cư dân!', severity: 'success' });
+      setTimeout(() => navigate('/bod/resident/list'), 1500);
+    } catch (err: any) {
+      console.error('Error deleting resident:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Không thể xóa cư dân.',
+        severity: 'error'
+      });
     }
   };
 
@@ -111,7 +154,7 @@ export default function ResidentProfile() {
             <Avatar sx={{ width: 120, height: 120, mb: 2, bgcolor: 'primary.main', fontSize: '2rem' }}>
               {userData.full_name?.charAt(0) || '?'}
             </Avatar>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" gutterBottom color="primary">
               {id}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -129,16 +172,24 @@ export default function ResidentProfile() {
                   label="Họ và tên"
                   fullWidth
                   value={userData.full_name || ''}
-                  onChange={(e) => setUserData({ ...userData, full_name: e.target.value })}
+                  onChange={handleChange('full_name')}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Số căn hộ"
-                  fullWidth
-                  value={userData.apartment_code || ''}
-                  InputProps={{ readOnly: true }}
-                />
+                <FormControl fullWidth>
+                  <InputLabel>Căn hộ</InputLabel>
+                  <Select
+                    label="Căn hộ"
+                    value={String(userData.apartment_id) || ''}
+                    onChange={handleSelectChange('apartment_id' as any)}
+                  >
+                    {apartments.map(apt => (
+                      <MenuItem key={apt.id} value={String(apt.id)}>
+                        {apt.apartment_code}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
@@ -147,7 +198,7 @@ export default function ResidentProfile() {
                   fullWidth
                   InputLabelProps={{ shrink: true }}
                   value={userData.dob || ''}
-                  onChange={(e) => setUserData({ ...userData, dob: e.target.value })}
+                  onChange={handleChange('dob')}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -156,7 +207,7 @@ export default function ResidentProfile() {
                   <Select
                     label="Giới tính"
                     value={userData.gender || ''}
-                    onChange={(e) => setUserData({ ...userData, gender: e.target.value })}
+                    onChange={handleSelectChange('gender')}
                   >
                     <MenuItem value="Nam">Nam</MenuItem>
                     <MenuItem value="Nữ">Nữ</MenuItem>
@@ -170,7 +221,7 @@ export default function ResidentProfile() {
                   label="Quê quán"
                   fullWidth
                   value={userData.hometown || ''}
-                  onChange={(e) => setUserData({ ...userData, hometown: e.target.value })}
+                  onChange={handleChange('hometown')}
                 />
               </Grid>
 
@@ -179,7 +230,7 @@ export default function ResidentProfile() {
                   label="Nghề nghiệp"
                   fullWidth
                   value={userData.occupation || ''}
-                  onChange={(e) => setUserData({ ...userData, occupation: e.target.value })}
+                  onChange={handleChange('occupation')}
                 />
               </Grid>
 
@@ -188,7 +239,7 @@ export default function ResidentProfile() {
                   label="CCCD"
                   fullWidth
                   value={userData.cccd || ''}
-                  onChange={(e) => setUserData({ ...userData, cccd: e.target.value })}
+                  onChange={handleChange('cccd')}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -196,7 +247,7 @@ export default function ResidentProfile() {
                   label="Số điện thoại"
                   fullWidth
                   value={userData.phone || ''}
-                  onChange={(e) => setUserData({ ...userData, phone: e.target.value })}
+                  onChange={handleChange('phone')}
                 />
               </Grid>
               <Grid size={{ xs: 12 }}>
@@ -205,7 +256,7 @@ export default function ResidentProfile() {
                   type="email"
                   fullWidth
                   value={userData.email || ''}
-                  onChange={(e) => setUserData({ ...userData, email: e.target.value })}
+                  onChange={handleChange('email')}
                 />
               </Grid>
 
@@ -220,8 +271,8 @@ export default function ResidentProfile() {
                   <InputLabel>Quyền hạn</InputLabel>
                   <Select
                     label="Quyền hạn"
-                    value={currentRole}
-                    onChange={handleRoleChange}
+                    value={userData.role || ''}
+                    onChange={handleSelectChange('role')}
                   >
                     <MenuItem value="owner">Chủ hộ</MenuItem>
                     <MenuItem value="member">Thành viên</MenuItem>
@@ -235,7 +286,7 @@ export default function ResidentProfile() {
                   <Select
                     label="Tình trạng"
                     value={userData.status || ''}
-                    onChange={(e) => setUserData({ ...userData, status: e.target.value })}
+                    onChange={handleSelectChange('status')}
                   >
                     <MenuItem value="Đang sinh sống">Đang sinh sống</MenuItem>
                     <MenuItem value="Đã chuyển đi">Đã chuyển đi</MenuItem>
@@ -243,48 +294,57 @@ export default function ResidentProfile() {
                 </FormControl>
               </Grid>
 
-              {/* Khối tài khoản (Conditional) */}
-              {currentRole === 'owner' && (
-                <>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Username (tài khoản Cư dân)"
-                      fullWidth
-                      value={userData.user_id || ''}
-                      helperText="Cư dân sẽ dùng tài khoản này để đăng nhập"
-                      sx={{ mt: 2 }}
-                      InputProps={{ readOnly: true }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Mật khẩu (tài khoản Cư dân)"
-                      type="password"
-                      fullWidth
-                      helperText="Bỏ trống nếu không muốn đổi mật khẩu"
-                      sx={{ mt: 2 }}
-                    />
-                  </Grid>
-                </>
+              {/* User account info (if owner) */}
+              {userData.role === 'owner' && userData.user_id && (
+                <Grid size={{ xs: 12 }}>
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    Tài khoản liên kết: User ID {userData.user_id}
+                  </Alert>
+                </Grid>
               )}
             </Grid>
           </Card>
         </Grid>
       </Grid>
 
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'flex-end',
-        mt: 3
-      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
         <Button
-          variant="contained"
-          size="large"
-          onClick={handleUpdateResident}
+          variant="outlined"
+          color="error"
+          onClick={handleDeleteResident}
         >
-          Cập nhật
+          Xóa cư dân
         </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/bod/resident/list')}
+          >
+            Quay lại
+          </Button>
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handleUpdateResident}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {saving ? 'Đang lưu...' : 'Cập nhật'}
+          </Button>
+        </Box>
       </Box>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 }

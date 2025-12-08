@@ -29,4 +29,16 @@ export const authApi = {
     // GET /api/auth/history
     return axiosClient.get('/auth/history');
   },
+
+  // [MỚI] Đổi mật khẩu
+  changePassword: async (data: { oldPassword: string; newPassword: string }): Promise<{ success: boolean; message: string }> => {
+    const response = await axiosClient.post('/auth/change-password', data);
+    return response.data;
+  },
+
+  // [MỚI] Quên mật khẩu - Gửi yêu cầu reset
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+    const response = await axiosClient.post('/auth/forgot-password', { email });
+    return response.data;
+  },
 };

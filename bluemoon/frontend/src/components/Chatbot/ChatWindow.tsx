@@ -1,15 +1,15 @@
 // src/components/Chatbot/ChatWindow.tsx
-import { 
-  Box, Paper, Typography, TextField, IconButton, 
-  Avatar, List, ListItem, Divider 
+import {
+  Box, Paper, Typography, TextField, IconButton,
+  Avatar, List, ListItem, Divider
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { chatbotApi } from '../../api/chatbotApi'; // Import mới
-import { getSystemContext } from '../../utils/chatbotKnowledge'; // Import mới
-import CircularProgress from '@mui/material/CircularProgress'; // Import icon loading
+import { chatbotApi } from '../../api/chatbotApi';
+import { fetchUserContext, getSystemContext } from '../../utils/chatbotKnowledge';
+import CircularProgress from '@mui/material/CircularProgress';
 import ReactMarkdown from 'react-markdown';
 
 // Định nghĩa kiểu tin nhắn
@@ -20,10 +20,23 @@ interface Message {
   timestamp: Date;
 }
 
+// Interface cho dữ liệu user context
+interface UserContextData {
+  hasResident: boolean;
+  resident?: any;
+  apartment?: any;
+  fees?: any[];
+  services?: any[];
+  notifications?: any[];
+  incidents?: any[];
+}
+
 export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
   const { user } = useAuth();
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // Thêm state loading
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  const [userContext, setUserContext] = useState<UserContextData | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     { id: 1, text: `Xin chào ${user?.username || 'Cư dân'}! Tôi là trợ lý ảo Bluemoon. Tôi có thể giúp gì cho bạn?`, sender: 'bot', timestamp: new Date() }
   ]);
@@ -34,6 +47,35 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // [MỚI] Fetch user context khi mở chatbot
+  useEffect(() => {
+    if (isOpen && !userContext) {
+      loadUserContext();
+    }
+  }, [isOpen]);
+
+  const loadUserContext = async () => {
+    try {
+      setIsLoadingContext(true);
+      const context = await fetchUserContext();
+      setUserContext(context);
+
+      // Cập nhật tin nhắn chào mừng với tên thật
+      if (context?.hasResident && context.resident?.fullName) {
+        setMessages([{
+          id: 1,
+          text: `Xin chào **${context.resident.fullName}**! Tôi là trợ lý ảo Bluemoon.\n\nTôi có thể giúp bạn tra cứu thông tin về:\n- 🏠 Căn hộ của bạn\n- 💰 Công nợ & hóa đơn\n- 📋 Dịch vụ đã đăng ký\n- 📜 Nội quy tòa nhà\n\nHãy hỏi tôi bất cứ điều gì!`,
+          sender: 'bot',
+          timestamp: new Date()
+        }]);
+      }
+    } catch (error) {
+      console.error('Lỗi tải user context:', error);
+    } finally {
+      setIsLoadingContext(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -42,28 +84,34 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
     const userMsg: Message = { id: Date.now(), text: userText, sender: 'user', timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    setIsLoading(true); // Bật loading
+    setIsLoading(true);
 
     try {
-      // 2. Chuẩn bị dữ liệu (Context)
-      // Bạn có thể tùy biến context dựa trên user đang đăng nhập (ví dụ thêm tên, số căn hộ vào context)
-      const systemContext = getSystemContext(); 
-      
+      // 2. Chuẩn bị dữ liệu (Context) - SỬ DỤNG DỮ LIỆU TỪ DATABASE
+      const systemContext = getSystemContext(userContext);
+
       // 3. Gọi AI
       const aiResponse = await chatbotApi.sendMessage(systemContext, userText);
 
       // 4. Hiển thị tin nhắn của Bot
-      const botMsg: Message = { 
-        id: Date.now() + 1, 
-        text: aiResponse, 
-        sender: 'bot', 
-        timestamp: new Date() 
+      const botMsg: Message = {
+        id: Date.now() + 1,
+        text: aiResponse,
+        sender: 'bot',
+        timestamp: new Date()
       };
       setMessages(prev => [...prev, botMsg]);
     } catch (error) {
-      // Xử lý lỗi nếu cần
+      // Xử lý lỗi
+      const errorMsg: Message = {
+        id: Date.now() + 1,
+        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
+        sender: 'bot',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
-      setIsLoading(false); // Tắt loading
+      setIsLoading(false);
     }
   };
 
@@ -78,7 +126,7 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
       elevation={6}
       sx={{
         position: 'fixed',
-        bottom: 90, // Nằm trên nút ChatButton
+        bottom: 90,
         right: 24,
         width: 350,
         height: 500,
@@ -94,10 +142,22 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
         <Avatar sx={{ bgcolor: 'white', color: 'primary.main', mr: 1.5 }}>
           <SmartToyIcon />
         </Avatar>
-        <Box>
+        <Box sx={{ flexGrow: 1 }}>
           <Typography variant="subtitle1" fontWeight="bold">Trợ lý Bluemoon</Typography>
-          <Typography variant="caption">Luôn sẵn sàng hỗ trợ 24/7</Typography>
+          <Typography variant="caption">
+            {isLoadingContext ? 'Đang tải dữ liệu...' : 'Luôn sẵn sàng hỗ trợ 24/7'}
+          </Typography>
         </Box>
+        {/* Indicator cho biết đã có context */}
+        {userContext?.hasResident && (
+          <Box sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            bgcolor: 'success.light',
+            animation: 'pulse 2s infinite'
+          }} />
+        )}
       </Box>
 
       {/* Message List */}
@@ -105,28 +165,26 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
         <List>
           {messages.map((msg) => (
             <ListItem key={msg.id} sx={{ justifyContent: msg.sender === 'user' ? 'flex-end' : 'flex-start', mb: 1 }}>
-              <Paper 
-                sx={{ 
-                  p: 1.5, 
-                  maxWidth: '80%', 
+              <Paper
+                sx={{
+                  p: 1.5,
+                  maxWidth: '80%',
                   borderRadius: 2,
                   bgcolor: msg.sender === 'user' ? 'primary.light' : 'white',
                   color: msg.sender === 'user' ? 'white' : 'text.primary',
-                  // 2. Thêm style để Markdown hiển thị đẹp (xóa margin thừa của thẻ p)
                   '& p': { m: 0 },
                   '& ul, & ol': { pl: 2, my: 0.5 },
                   '& li': { mb: 0.5 },
-                  '& strong': { fontWeight: 'bold' } // Đảm bảo in đậm hiển thị rõ
+                  '& strong': { fontWeight: 'bold' }
                 }}
               >
-                {/* 3. Dùng ReactMarkdown thay cho text thường */}
                 {msg.sender === 'bot' ? (
                   <ReactMarkdown>{msg.text}</ReactMarkdown>
                 ) : (
                   <Typography variant="body2">{msg.text}</Typography>
                 )}
                 <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7, fontSize: '0.65rem', textAlign: 'right' }}>
-                  {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Typography>
               </Paper>
             </ListItem>
@@ -149,7 +207,7 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
 
       <Divider />
 
-      {/* Input Area (Cập nhật disabled khi loading) */}
+      {/* Input Area */}
       <Box sx={{ p: 2, bgcolor: 'white', display: 'flex' }}>
         <TextField
           fullWidth
@@ -158,10 +216,10 @@ export default function ChatWindow({ isOpen }: { isOpen: boolean }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          disabled={isLoading} // Khóa khi đang gửi
+          disabled={isLoading || isLoadingContext}
           sx={{ mr: 1 }}
         />
-        <IconButton color="primary" onClick={handleSend} disabled={!input.trim() || isLoading}>
+        <IconButton color="primary" onClick={handleSend} disabled={!input.trim() || isLoading || isLoadingContext}>
           <SendIcon />
         </IconButton>
       </Box>

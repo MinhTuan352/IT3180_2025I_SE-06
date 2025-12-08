@@ -38,6 +38,24 @@ const User = {
     },
 
     /**
+     * Tìm user theo email (cho chức năng quên mật khẩu)
+     */
+    findByEmail: async (email) => {
+        try {
+            const query = `
+                SELECT u.*, r.role_code, r.role_name 
+                FROM users u
+                JOIN roles r ON u.role_id = r.id
+                WHERE u.email = ? AND u.is_active = TRUE
+            `;
+            const [rows] = await db.execute(query, [email]);
+            return rows[0];
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
      * Tìm user theo ID (Có lấy thêm password để dùng cho chức năng đổi mật khẩu)
      */
     findById: async (id) => {

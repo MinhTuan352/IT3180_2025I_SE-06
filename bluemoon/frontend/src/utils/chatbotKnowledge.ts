@@ -1,8 +1,7 @@
 // src/utils/chatbotKnowledge.ts
-import { mockServices } from '../data/mockServices';
-// Bạn có thể cần export các biến projectInfo, regulations từ BuildingInfo.tsx để import vào đây
-// Hoặc copy lại dữ liệu tĩnh vào đây nếu muốn tách biệt hoàn toàn.
-// 2. Dữ liệu Quy định (Nội quy tòa nhà)
+import axiosClient from '../api/axiosClient';
+
+// Dữ liệu cứng về tòa nhà (Giữ nguyên)
 const regulations = [
   {
     title: '1. Quy định về An ninh & Ra vào',
@@ -39,7 +38,6 @@ const regulations = [
       'Tham gia đầy đủ các buổi diễn tập PCCC định kỳ do BQL tổ chức.'
     ]
   },
-  
   {
     title: '5. Quy định về Thú cưng',
     content: [
@@ -51,55 +49,189 @@ const regulations = [
   }
 ];
 
-// Dữ liệu cứng về tòa nhà (Lấy từ BuildingInfo.tsx)
 const buildingInfo = {
   name: 'CHUNG CƯ BLUEMOON',
   investor: 'Tổng công ty CP Xuất nhập khẩu & Xây dựng Việt Nam (VINACONEX)',
   location: '289 Khuất Duy Tiến - Trung Hòa - Cầu Giấy - Hà Nội',
   hotline: '0988484068',
   scale: 'Cao 31 tầng, 03 tầng hầm, 04 tầng dịch vụ thương mại.',
-  apartments: '216 căn hộ diện tích từ 86,5 - 113m2',
-  description: `Tọa lạc tại vị trí đắc địa, Chung cư Bluemoon tiếp giáp với nút giao thông trung tâm Vành đai 3 - Đại lộ Thăng Long - Trần Duy Hưng. 
-  
-  Tòa nhà được thiết kế với không gian sống xanh, hòa với thiên nhiên cùng hệ thống hạ tầng khớp nối đồng bộ. Tiện ích và dịch vụ hoàn hảo, khép kín phù hợp với nhu cầu đa dạng của các thế hệ trong gia đình: Siêu thị, dịch vụ spa, phòng tập gym, nhà trẻ...
-  
-  Với tiêu chí an toàn cho cư dân, tòa nhà có hệ thống PCCC tự động, hiện đại, hệ thống camera giám sát an ninh, hệ thống kiểm soát bảo vệ 24/24.`,
-  totalArea: '1,3 ha',
-  startDate: 'Quý IV/2016',
-  finishDate: 'Quý IV/2018',
-  regulations: regulations
+  apartments: '216 căn hộ diện tích từ 86,5 - 113m2'
 };
 
+// Interface cho dữ liệu user từ API
+interface UserContextData {
+  hasResident: boolean;
+  resident?: {
+    fullName: string;
+    phone: string;
+    email: string;
+    role: string;
+    status: string;
+  };
+  apartment?: {
+    code: string;
+    building: string;
+    floor: number;
+    area: number;
+    status: string;
+    members: Array<{ name: string; role: string; phone: string }>;
+  };
+  fees?: Array<{
+    month: string;
+    type: string;
+    total: number;
+    paid: number;
+    status: string;
+    dueDate: string;
+  }>;
+  services?: Array<{
+    name: string;
+    category: string;
+    price: number;
+    status: string;
+  }>;
+  notifications?: Array<{
+    title: string;
+    content: string;
+    type: string;
+    date: string;
+  }>;
+  incidents?: Array<{
+    title: string;
+    status: string;
+    date: string;
+  }>;
+}
 
-// Hàm này sẽ được gọi khi chuẩn bị gửi tin nhắn lên AI
-export const getSystemContext = () => {
-  // 1. Chuyển đổi danh sách dịch vụ thành văn bản dễ đọc cho AI
-  const servicesText = mockServices.map(s => 
-    `- ${s.name} (${s.category}): Tầng ${s.location}. Mở cửa: ${s.openTime}. Hotline: ${s.phone}. Trạng thái: ${s.status}.`
-  ).join('\n');
+// [MỚI] Fetch dữ liệu user từ backend
+export const fetchUserContext = async (): Promise<UserContextData | null> => {
+  try {
+    const response = await axiosClient.get('/chatbot/context');
+    return (response.data as any).data || null;
+  } catch (error) {
+    console.error('Lỗi fetch user context cho chatbot:', error);
+    return null;
+  }
+};
 
-  // 2. Chuyển đổi nội quy từ Object sang Text dễ đọc
-  const regulationsText = buildingInfo.regulations.map(rule => 
+// [CẬP NHẬT] Tạo system context với dữ liệu động
+export const getSystemContext = (userData?: UserContextData | null) => {
+  // 1. Nội quy (cố định)
+  const regulationsText = regulations.map(rule =>
     `${rule.title}\n${rule.content.map(line => `- ${line}`).join('\n')}`
   ).join('\n\n');
 
-  // 3. Tạo Prompt ngữ cảnh hệ thống (System Prompt)
+  // 2. Thông tin cá nhân từ database
+  let personalInfoText = '';
+  if (userData?.hasResident && userData.resident) {
+    personalInfoText = `
+    --- THÔNG TIN CÁ NHÂN CỦA BẠN ---
+    Họ tên: ${userData.resident.fullName}
+    Số điện thoại: ${userData.resident.phone || 'Chưa cập nhật'}
+    Email: ${userData.resident.email || 'Chưa cập nhật'}
+    Vai trò: ${userData.resident.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}
+    Trạng thái: ${userData.resident.status}
+    `;
+  }
+
+  // 3. Thông tin căn hộ
+  let apartmentText = '';
+  if (userData?.apartment) {
+    const apt = userData.apartment;
+    const membersText = apt.members?.map(m =>
+      `  - ${m.name} (${m.role === 'owner' ? 'Chủ hộ' : 'Thành viên'})`
+    ).join('\n') || 'Không có thông tin';
+
+    apartmentText = `
+    --- CĂN HỘ CỦA BẠN ---
+    Mã căn hộ: ${apt.code}
+    Tòa nhà: ${apt.building}
+    Tầng: ${apt.floor}
+    Diện tích: ${apt.area} m²
+    Thành viên trong căn hộ:
+${membersText}
+    `;
+  }
+
+  // 4. Thông tin công nợ
+  let feesText = '';
+  if (userData?.fees && userData.fees.length > 0) {
+    const feesItems = userData.fees.slice(0, 5).map(f => {
+      const remaining = f.total - f.paid;
+      return `  - ${f.type} (${f.month}): Tổng ${f.total?.toLocaleString()}đ, Đã trả ${f.paid?.toLocaleString()}đ, Còn nợ ${remaining?.toLocaleString()}đ - ${f.status}`;
+    }).join('\n');
+
+    feesText = `
+    --- CÔNG NỢ GẦN ĐÂY ---
+${feesItems}
+    `;
+  }
+
+  // 5. Dịch vụ đăng ký
+  let servicesText = '';
+  if (userData?.services && userData.services.length > 0) {
+    const servicesItems = userData.services.map(s =>
+      `  - ${s.name} (${s.category}): ${s.price?.toLocaleString()}đ/tháng - ${s.status}`
+    ).join('\n');
+
+    servicesText = `
+    --- DỊCH VỤ ĐANG ĐĂNG KÝ ---
+${servicesItems}
+    `;
+  }
+
+  // 6. Thông báo gần đây
+  let notificationsText = '';
+  if (userData?.notifications && userData.notifications.length > 0) {
+    const notifItems = userData.notifications.slice(0, 3).map(n =>
+      `  - ${n.title}: ${n.content?.substring(0, 100)}...`
+    ).join('\n');
+
+    notificationsText = `
+    --- THÔNG BÁO GẦN ĐÂY ---
+${notifItems}
+    `;
+  }
+
+  // 7. Sự cố đã báo cáo
+  let incidentsText = '';
+  if (userData?.incidents && userData.incidents.length > 0) {
+    const incidentItems = userData.incidents.map(i =>
+      `  - ${i.title}: ${i.status}`
+    ).join('\n');
+
+    incidentsText = `
+    --- SỰ CỐ ĐÃ BÁO CÁO ---
+${incidentItems}
+    `;
+  }
+
+  // Tạo Prompt ngữ cảnh hệ thống (System Prompt)
   return `
     Bạn là Trợ lý ảo AI của chung cư Bluemoon.
-    Dưới đây là thông tin về tòa nhà (Knowledge Base):
+    Dưới đây là thông tin về tòa nhà và thông tin cá nhân của cư dân đang chat với bạn (Knowledge Base):
 
-    --- THÔNG TIN CHUNG ---
+    --- THÔNG TIN CHUNG VỀ TÒA NHÀ ---
     Tên: ${buildingInfo.name}
     Địa chỉ: ${buildingInfo.location}
     Hotline BQL: ${buildingInfo.hotline}
-
+    Quy mô: ${buildingInfo.scale}
+    ${personalInfoText}
+    ${apartmentText}
+    ${feesText}
+    ${servicesText}
+    ${notificationsText}
+    ${incidentsText}
     --- NỘI QUY TÒA NHÀ ---
     ${regulationsText}
 
-    --- DANH SÁCH DỊCH VỤ & TIỆN ÍCH ---
-    ${servicesText}
-
-    Hãy trả lời câu hỏi của cư dân dựa trên thông tin trên. Giọng điệu thân thiện, lịch sự, chuyên nghiệp.
-    Nếu không tìm thấy thông tin, hãy hướng dẫn họ liên hệ Hotline BQL.
+    HƯỚNG DẪN:
+    - Khi cư dân hỏi về thông tin cá nhân, căn hộ, công nợ, dịch vụ: Trả lời dựa trên dữ liệu phía trên.
+    - Khi cư dân hỏi về nội quy, quy định: Trả lời dựa trên nội quy tòa nhà.
+    - Giọng điệu thân thiện, lịch sự, chuyên nghiệp.
+    - Nếu không tìm thấy thông tin, hãy hướng dẫn họ liên hệ Hotline BQL: ${buildingInfo.hotline}.
   `;
 };
+
+// [GIỮ NGUYÊN] Export cho tương thích ngược
+export const getStaticSystemContext = () => getSystemContext(null);

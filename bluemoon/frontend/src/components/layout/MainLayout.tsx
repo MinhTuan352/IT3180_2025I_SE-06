@@ -15,7 +15,6 @@ import {
   Avatar, // --- THÊM MỚI ---
   Menu, // --- THÊM MỚI ---
   MenuItem, // --- THÊM MỚI ---
-  InputBase, // --- THÊM MỚI ---
   Divider,
   Dialog,
   DialogTitle,
@@ -28,14 +27,14 @@ import {
 } from '@mui/material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useMemo } from 'react'; // --- THÊM MỚI ---
-import { alpha } from '@mui/material/styles'; // --- THÊM MỚI ---
 import { useAuth } from '../../contexts/AuthContext'; // --- THÊM MỚI ---
 import { LayoutContext } from '../../contexts/LayoutContext';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { authApi } from '../../api/authApi';
+import toast, { Toaster } from 'react-hot-toast';
 
 // --- THÊM MỚI CÁC ICON ---
 import MenuIcon from '@mui/icons-material/Menu';
-import SearchIcon from '@mui/icons-material/Search';
 
 // Import icons cho sidebar
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -128,6 +127,12 @@ export default function MainLayout() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
+  // --- State cho giá trị form đổi mật khẩu ---
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changePassLoading, setChangePassLoading] = useState(false);
+
   // --- CẬP NHẬT: Quyết định menu nào sẽ hiển thị ---
   const menuItems = useMemo(() => {
     switch (user?.role) {
@@ -168,13 +173,37 @@ export default function MainLayout() {
     setShowOldPass(false);
     setShowNewPass(false);
     setShowConfirmPass(false);
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
     setOpenChangePassModal(true);
   };
 
-  const handleChangePassSubmit = () => {
-    // Logic đổi mật khẩu giả lập
-    alert("Đã gửi yêu cầu đổi mật khẩu thành công!");
-    setOpenChangePassModal(false);
+  const handleChangePassSubmit = async () => {
+    // Validation
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      toast.error('Vui lòng nhập đầy đủ thông tin.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Mật khẩu mới không khớp.');
+      return;
+    }
+
+    try {
+      setChangePassLoading(true);
+      const result = await authApi.changePassword({ oldPassword, newPassword });
+      toast.success(result.message || 'Đổi mật khẩu thành công!');
+      setOpenChangePassModal(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Đổi mật khẩu thất bại.');
+    } finally {
+      setChangePassLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -231,49 +260,6 @@ export default function MainLayout() {
 
             {/* --- THÊM MỚI --- (Spacer để đẩy sang phải) */}
             <Box sx={{ flexGrow: 1 }} />
-
-            {/* --- THÊM MỚI --- (Yêu cầu 5: Search Bar) */}
-            <Box
-              sx={{
-                position: 'relative',
-                borderRadius: '999px', // Bo tròn
-                backgroundColor: alpha('#FFFFFF', 0.15),
-                '&:hover': {
-                  backgroundColor: alpha('#FFFFFF', 0.25),
-                },
-                marginLeft: 3,
-                marginRight: 3,
-                width: 'auto',
-              }}
-            >
-              <Box
-                sx={{
-                  padding: (theme) => theme.spacing(0, 2),
-                  height: '100%',
-                  position: 'absolute',
-                  pointerEvents: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <SearchIcon />
-              </Box>
-              <InputBase
-                placeholder="Tìm kiếm..."
-                inputProps={{ 'aria-label': 'search' }}
-                sx={{
-                  color: 'inherit',
-                  '& .MuiInputBase-input': {
-                    padding: (theme) => theme.spacing(1, 1, 1, 0),
-                    paddingLeft: (theme) => `calc(1em + ${theme.spacing(4)})`,
-                    width: '300px', // Tăng chiều rộng
-                  },
-                }}
-              />
-            </Box>
-
-
 
             {/* --- THÊM MỚI --- (Yêu cầu 3: Avatar Dropdown) */}
             <Box>
@@ -491,6 +477,8 @@ export default function MainLayout() {
                 type={showOldPass ? 'text' : 'password'}
                 fullWidth
                 variant="outlined"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -512,6 +500,8 @@ export default function MainLayout() {
                 type={showNewPass ? 'text' : 'password'}
                 fullWidth
                 variant="outlined"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -533,6 +523,8 @@ export default function MainLayout() {
                 type={showConfirmPass ? 'text' : 'password'}
                 fullWidth
                 variant="outlined"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -551,14 +543,17 @@ export default function MainLayout() {
             </Stack>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'center' }}>
-            <Button onClick={() => setOpenChangePassModal(false)} color="inherit" variant="outlined" sx={{ width: '40%' }}>
+            <Button onClick={() => setOpenChangePassModal(false)} color="inherit" variant="outlined" sx={{ width: '40%' }} disabled={changePassLoading}>
               Hủy
             </Button>
-            <Button onClick={handleChangePassSubmit} variant="contained" sx={{ width: '40%' }}>
-              Lưu
+            <Button onClick={handleChangePassSubmit} variant="contained" sx={{ width: '40%' }} disabled={changePassLoading}>
+              {changePassLoading ? 'Đang xử lý...' : 'Lưu'}
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Toaster cho thông báo */}
+        <Toaster position="top-right" />
 
         {/* CHATBOT WIDGET (Chỉ hiện cho Resident hoặc tất cả tùy bạn) */}
         {user?.role === 'resident' && (

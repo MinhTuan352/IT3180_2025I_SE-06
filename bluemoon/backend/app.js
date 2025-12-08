@@ -53,6 +53,7 @@ app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/apartments', require('./routes/apartmentRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
+app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

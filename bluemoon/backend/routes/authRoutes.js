@@ -18,6 +18,9 @@ router.post('/refresh-token', authController.refreshToken);
 // POST /api/auth/logout
 router.post('/logout', authController.logout);
 
+// POST /api/auth/forgot-password - Quên mật khẩu
+router.post('/forgot-password', authController.forgotPassword);
+
 // ==========================
 // PRIVATE ROUTES (Phải đăng nhập)
 // ==========================

@@ -7,12 +7,17 @@ import {
   Typography,
   Link,
   CircularProgress,
-} from '@mui/material'; // thêm Alert
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
+} from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-//import { useState } from 'react';
+import { useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,11 +25,17 @@ import { authApi } from '../../api/authApi';
 import { type LoginFormInputs, loginSchema } from '../../schemas/auth.schema';
 
 // Import ảnh nền (sửa đường dẫn nếu cần)
-import backgroundImage from '../../assets/bluemoon-background.jpg'; // <-- Thay ảnh của bạn vào đây
+import backgroundImage from '../../assets/bluemoon-background.jpg';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { login } = useAuth();
+
+  // === State cho Forgot Password Modal ===
+  const [openForgotModal, setOpenForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotResult, setForgotResult] = useState<{ success: boolean; message: string; tempPassword?: string } | null>(null);
 
   // === React Hook Form ===
   const {
@@ -78,6 +89,34 @@ export default function SignIn() {
     console.error('VALIDATION THẤT BẠI:', errors);
   };
 
+  // === Handler cho Forgot Password ===
+  const handleOpenForgotModal = () => {
+    setForgotEmail('');
+    setForgotResult(null);
+    setOpenForgotModal(true);
+  };
+
+  const handleForgotSubmit = async () => {
+    if (!forgotEmail) {
+      toast.error('Vui lòng nhập email.');
+      return;
+    }
+
+    try {
+      setForgotLoading(true);
+      setForgotResult(null);
+      const result = await authApi.forgotPassword(forgotEmail);
+      setForgotResult(result);
+    } catch (error: any) {
+      setForgotResult({
+        success: false,
+        message: error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.'
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
     <>
       {/* Component để hiển thị thông báo */}
@@ -94,7 +133,7 @@ export default function SignIn() {
         }}
 
           sx={{
-            backgroundImage: `url(${backgroundImage})`, // <-- Ảnh của bạn
+            backgroundImage: `url(${backgroundImage})`,
             backgroundRepeat: 'no-repeat',
             backgroundColor: (t) =>
               t.palette.mode === 'light' ? t.palette.grey[50] : t.palette.grey[900],
@@ -193,7 +232,13 @@ export default function SignIn() {
                 )}
               />
 
-              <Link href="#" variant="body2" sx={{ display: 'block', textAlign: 'right', mt: 1 }}>
+              <Link
+                component="button"
+                type="button"
+                variant="body2"
+                onClick={handleOpenForgotModal}
+                sx={{ display: 'block', textAlign: 'right', mt: 1, cursor: 'pointer' }}
+              >
                 Quên mật khẩu?
               </Link>
 
@@ -227,6 +272,64 @@ export default function SignIn() {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Modal Quên Mật Khẩu */}
+      <Dialog open={openForgotModal} onClose={() => setOpenForgotModal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold', textAlign: 'center' }}>
+          Quên Mật Khẩu
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, textAlign: 'center' }}>
+            Nhập email đã đăng ký để nhận mật khẩu mới
+          </Typography>
+
+          <TextField
+            label="Email"
+            type="email"
+            fullWidth
+            variant="outlined"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
+            disabled={forgotLoading}
+            sx={{ mb: 2 }}
+          />
+
+          {/* Hiển thị kết quả */}
+          {forgotResult && (
+            <Alert
+              severity={forgotResult.success ? 'success' : 'error'}
+              sx={{ mb: 2 }}
+            >
+              {forgotResult.message}
+              {/* Chỉ hiển thị trong DEV mode */}
+              {forgotResult.tempPassword && (
+                <Box sx={{ mt: 1 }}>
+                  <strong>Mật khẩu tạm: </strong>
+                  <code>{forgotResult.tempPassword}</code>
+                </Box>
+              )}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, justifyContent: 'center' }}>
+          <Button
+            onClick={() => setOpenForgotModal(false)}
+            color="inherit"
+            variant="outlined"
+            sx={{ width: '40%' }}
+          >
+            Đóng
+          </Button>
+          <Button
+            onClick={handleForgotSubmit}
+            variant="contained"
+            sx={{ width: '40%' }}
+            disabled={forgotLoading}
+          >
+            {forgotLoading ? 'Đang gửi...' : 'Gửi'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

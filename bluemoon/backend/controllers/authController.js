@@ -132,6 +132,52 @@ const authController = {
     },
 
     // ========================================================
+    // [MỚI] QUÊN MẬT KHẨU
+    // ========================================================
+    forgotPassword: async (req, res) => {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ message: 'Vui lòng nhập email.' });
+            }
+
+            // 1. Tìm user theo email
+            const user = await User.findByEmail(email);
+            if (!user) {
+                // Không tiết lộ email có tồn tại hay không (bảo mật)
+                return res.json({
+                    success: true,
+                    message: 'Nếu email tồn tại trong hệ thống, mật khẩu mới đã được gửi đến email của bạn.'
+                });
+            }
+
+            // 2. Tạo mật khẩu tạm ngẫu nhiên (6 ký tự)
+            const tempPassword = Math.random().toString(36).slice(-8);
+
+            // 3. Mã hóa và lưu mật khẩu mới
+            const salt = await bcrypt.genSalt(10);
+            const newPasswordHash = await bcrypt.hash(tempPassword, salt);
+            await User.changePassword(user.id, newPasswordHash);
+
+            // 4. Trong thực tế, gửi email có chứa tempPassword
+            // Hiện tại console.log để test
+            console.log(`[FORGOT PASSWORD] User: ${user.username}, Temp Password: ${tempPassword}`);
+
+            res.json({
+                success: true,
+                message: 'Mật khẩu mới đã được gửi đến email của bạn.',
+                // CHỈ DÙNG CHO DEV - Loại bỏ trong production
+                tempPassword: tempPassword
+            });
+
+        } catch (error) {
+            console.error('Forgot Password Error:', error);
+            res.status(500).json({ message: 'Lỗi server khi xử lý yêu cầu.' });
+        }
+    },
+
+    // ========================================================
     // [MỚI] CHỨC NĂNG ĐỔI MẬT KHẨU
     // ========================================================
     changePassword: async (req, res) => {

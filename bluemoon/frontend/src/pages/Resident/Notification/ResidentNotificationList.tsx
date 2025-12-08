@@ -79,7 +79,7 @@ export default function ResidentNotificationList() {
       field: 'created_by_name',
       headerName: 'Người gửi',
       width: 180,
-      valueGetter: (value, row) => row.created_by_name || 'Ban quản trị'
+      valueGetter: (_value, row) => row.created_by_name || 'Ban quản trị'
     },
     {
       field: 'created_at', headerName: 'Ngày gửi', width: 160, type: 'dateTime',

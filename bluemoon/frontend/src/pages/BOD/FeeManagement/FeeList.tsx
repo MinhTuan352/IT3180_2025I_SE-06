@@ -271,7 +271,7 @@ export default function FeeList() {
       field: 'apartment_code',
       headerName: 'Căn hộ',
       width: 80,
-      valueGetter: (value, row) => row.apartment_code || row.apartment_id
+      valueGetter: (_value, row) => row.apartment_code || row.apartment_id
     },
     { field: 'resident_name', headerName: 'Người TT', width: 150 },
     { field: 'fee_name', headerName: 'Loại phí', width: 120 },

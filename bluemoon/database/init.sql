@@ -391,8 +391,8 @@ INSERT INTO fee_types (fee_name, fee_code, default_price, unit) VALUES
 INSERT INTO apartments (apartment_code, building, floor, area, status) VALUES
 ('A-101', 'A', 1, 85.5, 'Đang sinh sống'),
 ('B-205', 'B', 2, 92.0, 'Đang sinh sống'),
-('C-1503', 'C', 15, 110.5, 'Đang sinh sống'),
-('D-404', 'D', 4, 78.0, 'Đang sinh sống');
+('A-1503', 'A', 15, 110.5, 'Đang sinh sống'),
+('B-404', 'B', 4, 78.0, 'Đang sinh sống');
 
 -- Users & Admins (Password: password123 -> Hash mẫu)
 INSERT INTO users (id, username, password, email, phone, role_id) VALUES

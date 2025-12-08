@@ -52,6 +52,7 @@ console.log('--- DBG: Loading Service Routes... ---');
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/apartments', require('./routes/apartmentRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

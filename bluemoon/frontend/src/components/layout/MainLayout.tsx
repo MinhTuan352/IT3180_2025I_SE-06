@@ -61,6 +61,7 @@ import ChatWindow from '../Chatbot/ChatWindow';
 //import PaymentIcon from '@mui/icons-material/Payment'; // For Fee Payment
 
 import sidebarBackground from '../../assets/bluemoon-background.jpg';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 //import { theme } from '../../theme/theme';
 
 const drawerWidth = 240; // Chiều rộng của Sidebar
@@ -68,6 +69,7 @@ const collapsedWidth = 72; // Chiều rộng khi thu gọn
 
 // Danh sách menu [cite: 8]
 const bodMenuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/bod/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident' }, // [cite: 28]

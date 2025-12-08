@@ -25,6 +25,7 @@ import LoginManagement from '../pages/BOD/LoginManagement/LoginManagement.tsx';
 import AssetList from '../pages/BOD/AssetManagement/AssetList';
 import AssetDetail from '../pages/BOD/AssetManagement/AssetDetail';
 import ServiceList from '../pages/BOD/ServiceManagement/ServiceList';
+import BODDashboard from '../pages/BOD/Dashboard/BODDashboard';
 
 // --- Import các trang Kế toán ---
 import AccountantFeeList from '../pages/Accountant/FeeManagement/AccountantFeeList.tsx';
@@ -82,6 +83,7 @@ export default function AppRoutes() {
               <ProtectedRoutes allowedRoles={['bod']} />
             }
           >
+            <Route path="bod/dashboard" element={<BODDashboard />} />
             <Route path="bod/admin/list" element={<AdminList />} />
             <Route path="bod/admin/profile/create" element={<AdminCreate />} />
             <Route path="bod/admin/profile/:id" element={<AdminProfile />} />

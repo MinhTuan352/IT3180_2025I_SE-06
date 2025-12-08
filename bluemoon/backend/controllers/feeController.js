@@ -67,12 +67,12 @@ const feeController = {
             // [FIX LỖI] Nếu là cư dân, phải tìm resident_id thật sự
             if (currentUser.role === 'resident') {
                 const realResidentId = await getResidentIdFromUser(currentUser.id);
-                
+
                 if (!realResidentId) {
                     // Trường hợp user này chưa được gán vào resident nào
                     return res.json({ success: true, count: 0, data: [] });
                 }
-                
+
                 filters.resident_id = realResidentId;
             }
 
@@ -95,7 +95,7 @@ const feeController = {
             // [FIX LỖI] Bảo mật: Cư dân xem hóa đơn
             if (req.user.role === 'resident') {
                 const realResidentId = await getResidentIdFromUser(req.user.id);
-                
+
                 if (fee.resident_id !== realResidentId) {
                     return res.status(403).json({ message: 'Bạn không có quyền xem hóa đơn này.' });
                 }
@@ -112,9 +112,9 @@ const feeController = {
      */
     createInvoice: async (req, res) => {
         try {
-            const { 
-                apartment_id, resident_id, fee_type_id, 
-                description, billing_period, due_date, items 
+            const {
+                apartment_id, resident_id, fee_type_id,
+                description, billing_period, due_date, items
             } = req.body;
 
             // 1. Validation
@@ -174,9 +174,9 @@ const feeController = {
             }
 
             const result = await Fee.updatePaymentStatus(
-                id, 
-                amount_paid, 
-                payment_method || 'Tiền mặt', 
+                id,
+                amount_paid,
+                payment_method || 'Tiền mặt',
                 req.user.id // ID người xác nhận (Kế toán)
             );
 
@@ -228,7 +228,7 @@ const feeController = {
     deleteFeeType: async (req, res) => {
         try {
             const { id } = req.params;
-            
+
             await Fee.deleteFeeType(id);
 
             res.json({ success: true, message: 'Đã xóa loại phí thành công.' });
@@ -237,8 +237,8 @@ const feeController = {
             // [QUAN TRỌNG] Bắt lỗi ràng buộc khóa ngoại (Foreign Key Constraint)
             // Mã lỗi 1451: Cannot delete or update a parent row
             if (error.errno === 1451) {
-                return res.status(400).json({ 
-                    message: 'Không thể xóa loại phí này vì đã có hóa đơn sử dụng nó. Hãy thử tắt kích hoạt thay vì xóa.' 
+                return res.status(400).json({
+                    message: 'Không thể xóa loại phí này vì đã có hóa đơn sử dụng nó. Hãy thử tắt kích hoạt thay vì xóa.'
                 });
             }
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
@@ -251,6 +251,118 @@ const feeController = {
             // Chạy hàm logic của Cron Job
             await invoiceNotifier.checkAndNotify();
             res.json({ success: true, message: 'Đã thực hiện quét công nợ thủ công. Kiểm tra Terminal để xem kết quả.' });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [MỚI] Import chỉ số nước hàng loạt và tạo hóa đơn
+     * Body: { billingPeriod: 'T12/2025', readings: [{ apartmentCode, oldIndex, newIndex, usage, amount }] }
+     */
+    importWaterMeter: async (req, res) => {
+        try {
+            const { billingPeriod, readings } = req.body;
+
+            if (!billingPeriod || !readings || !Array.isArray(readings) || readings.length === 0) {
+                return res.status(400).json({ message: 'Dữ liệu không hợp lệ. Cần billingPeriod và readings.' });
+            }
+
+            const results = [];
+            const errors = [];
+
+            // Lấy fee_type_id của Phí Nước (fee_code = 'PN')
+            const [feeTypes] = await db.execute("SELECT id, default_price FROM fee_types WHERE fee_code = 'PN'");
+            if (feeTypes.length === 0) {
+                return res.status(400).json({ message: 'Không tìm thấy loại phí Nước (PN) trong hệ thống.' });
+            }
+            const feeTypeId = feeTypes[0].id;
+            const unitPrice = feeTypes[0].default_price || 15000;
+
+            // Tính due_date = ngày cuối tháng sau
+            const now = new Date();
+            const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15); // Ngày 15 tháng sau
+
+            for (const reading of readings) {
+                try {
+                    const { apartmentCode, oldIndex, newIndex, usage, amount } = reading;
+
+                    // 1. Tìm apartment
+                    const [apartments] = await db.execute(
+                        "SELECT id FROM apartments WHERE apartment_code = ?",
+                        [apartmentCode]
+                    );
+                    if (apartments.length === 0) {
+                        errors.push({ apartmentCode, error: 'Không tìm thấy căn hộ' });
+                        continue;
+                    }
+                    const apartmentId = apartments[0].id;
+
+                    // 2. Tìm chủ hộ (owner)
+                    const [residents] = await db.execute(
+                        "SELECT id FROM residents WHERE apartment_id = ? AND role = 'owner' LIMIT 1",
+                        [apartmentId]
+                    );
+                    if (residents.length === 0) {
+                        errors.push({ apartmentCode, error: 'Căn hộ chưa có chủ hộ' });
+                        continue;
+                    }
+                    const residentId = residents[0].id;
+
+                    // 3. Tạo mã hóa đơn
+                    const invoiceId = generateInvoiceId();
+
+                    // 4. Tính tiền thực tế
+                    const actualUsage = usage || (newIndex - oldIndex);
+                    const actualAmount = amount || (actualUsage * unitPrice);
+
+                    // 5. Tạo hóa đơn
+                    const invoiceData = {
+                        id: invoiceId,
+                        apartment_id: apartmentId,
+                        resident_id: residentId,
+                        fee_type_id: feeTypeId,
+                        description: `Tiền nước ${billingPeriod} (${actualUsage} m³)`,
+                        billing_period: billingPeriod,
+                        due_date: dueDate.toISOString().split('T')[0],
+                        total_amount: actualAmount,
+                        created_by: req.user.id
+                    };
+
+                    const itemsData = [{
+                        item_name: `Tiền nước ${billingPeriod}`,
+                        unit: 'm³',
+                        quantity: actualUsage,
+                        unit_price: unitPrice,
+                        amount: actualAmount
+                    }];
+
+                    await Fee.createInvoice(invoiceData, itemsData);
+
+                    results.push({
+                        apartmentCode,
+                        invoiceId,
+                        usage: actualUsage,
+                        amount: actualAmount,
+                        status: 'Thành công'
+                    });
+
+                } catch (err) {
+                    errors.push({ apartmentCode: reading.apartmentCode, error: err.message });
+                }
+            }
+
+            res.json({
+                success: true,
+                message: `Đã tạo ${results.length} hóa đơn nước thành công.`,
+                data: {
+                    created: results.length,
+                    failed: errors.length,
+                    results,
+                    errors
+                }
+            });
+
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }

@@ -18,20 +18,20 @@ router.use(checkAuth);
 router.get('/types', feeController.getFeeTypes);
 
 // [POST] /api/fees/types - Tạo loại phí mới (Chỉ Admin & Kế toán)
-router.post('/types', 
-    checkRole(['bod', 'accountance']), 
+router.post('/types',
+    checkRole(['bod', 'accountance']),
     feeController.createFeeType
 );
 
 // [MỚI] Sửa loại phí (VD: Tăng giá phí quản lý)
-router.put('/types/:id', 
-    checkRole(['bod', 'accountance']), 
+router.put('/types/:id',
+    checkRole(['bod', 'accountance']),
     feeController.updateFeeType
 );
 
 // [MỚI] Xóa loại phí (VD: Xóa phí cũ không dùng nữa)
-router.delete('/types/:id', 
-    checkRole(['bod', 'accountance']), 
+router.delete('/types/:id',
+    checkRole(['bod', 'accountance']),
     feeController.deleteFeeType
 );
 
@@ -47,22 +47,28 @@ router.get('/', feeController.getFees);
 router.get('/:id', feeController.getFeeDetail);
 
 // [POST] /api/fees - Tạo hóa đơn mới (Chỉ Kế toán & Admin)
-router.post('/', 
-    checkRole(['bod', 'accountance']), 
+router.post('/',
+    checkRole(['bod', 'accountance']),
     feeController.createInvoice
 );
 
 // [POST] /api/fees/:id/pay - Xác nhận thanh toán (Chỉ Kế toán)
 // Cư dân không tự gọi API này được, họ phải chuyển khoản -> Kế toán check -> Kế toán gọi API này
-router.post('/:id/pay', 
-    checkRole(['accountance']), 
+router.post('/:id/pay',
+    checkRole(['accountance']),
     feeController.payInvoice
 );
 
 // [MỚI] Trigger quét nợ thủ công (Chỉ Admin)
-router.post('/trigger-scan', 
-    checkRole(['bod', 'accountance']), 
+router.post('/trigger-scan',
+    checkRole(['bod', 'accountance']),
     feeController.triggerLateFeeScan
+);
+
+// [MỚI] Import chỉ số nước hàng loạt và tạo hóa đơn (Chỉ Kế toán)
+router.post('/import-water',
+    checkRole(['accountance', 'bod']),
+    feeController.importWaterMeter
 );
 
 module.exports = router;

@@ -23,6 +23,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import SaveIcon from '@mui/icons-material/Save';
 import toast, { Toaster } from 'react-hot-toast';
+import feeApi from '../../../api/feeApi';
 
 // --- MOCK CONFIG (Lấy từ FeeSetup) ---
 const UNIT_PRICE_WATER = 15000; // 15k/m3
@@ -46,12 +47,12 @@ export default function AccountantMeasureImport() {
       { MaCanHo: 'A-102', ChuHo: 'Nguyễn Thị B', ChiSoCu: 345, ChiSoMoi: '' },
       { MaCanHo: 'B-205', ChuHo: 'Lê Văn C', ChiSoCu: 88, ChiSoMoi: '' },
     ];
-    
+
     const ws = XLSX.utils.json_to_sheet(templateData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'NhapChiSoNuoc');
     XLSX.writeFile(wb, 'Mau_Nhap_Chi_So_Nuoc_T12_2025.xlsx');
-    
+
     toast.success('Đã tải file mẫu thành công!');
     setActiveStep(1); // Chuyển sang bước 2
   };
@@ -77,7 +78,7 @@ export default function AccountantMeasureImport() {
         const processedData = jsonData.map((row, index) => {
           const oldIndex = Number(row['ChiSoCu'] || 0);
           const newIndex = Number(row['ChiSoMoi'] || 0);
-          
+
           // Validate cơ bản
           let status = 'Hợp lệ';
           if (!row['ChiSoMoi']) status = 'Thiếu chỉ số mới';
@@ -113,7 +114,7 @@ export default function AccountantMeasureImport() {
   };
 
   // 3. Lưu vào hệ thống
-  const handleSaveData = () => {
+  const handleSaveData = async () => {
     // Kiểm tra dữ liệu lỗi
     const hasError = importedData.some(item => item.status !== 'Hợp lệ');
     if (hasError) {
@@ -122,12 +123,37 @@ export default function AccountantMeasureImport() {
     }
 
     setIsProcessing(true);
-    // Giả lập gọi API lưu
-    setTimeout(() => {
+    try {
+      // Chuẩn bị dữ liệu gửi lên API
+      const readings = importedData.map(item => ({
+        apartmentCode: item.apartmentId,
+        oldIndex: item.oldIndex,
+        newIndex: item.newIndex,
+        usage: item.usage,
+        amount: item.amount
+      }));
+
+      const response: any = await feeApi.importWater({
+        billingPeriod: 'T12/2025',
+        readings
+      });
+
+      if (response.data && response.data.success) {
+        toast.success(`Đã tạo ${response.data.data.created} hóa đơn nước thành công!`);
+        if (response.data.data.failed > 0) {
+          toast.error(`Có ${response.data.data.failed} căn hộ lỗi. Kiểm tra Console để biết chi tiết.`);
+          console.log('Import errors:', response.data.data.errors);
+        }
+        navigate('/accountance/fee/list'); // Quay về danh sách
+      } else {
+        toast.error(response.data?.message || 'Lỗi khi import dữ liệu');
+      }
+    } catch (error: any) {
+      console.error('Import error:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi lưu dữ liệu');
+    } finally {
       setIsProcessing(false);
-      toast.success('Đã cập nhật chỉ số và tính phí thành công!');
-      navigate('/accountance/fee/list'); // Quay về danh sách
-    }, 2000);
+    }
   };
 
   // Cấu hình cột cho bảng Review
@@ -135,29 +161,29 @@ export default function AccountantMeasureImport() {
     { field: 'apartmentId', headerName: 'Căn hộ', width: 100 },
     { field: 'residentName', headerName: 'Chủ hộ', width: 180 },
     { field: 'oldIndex', headerName: 'Chỉ số Cũ', width: 120, type: 'number' },
-    { 
-      field: 'newIndex', 
-      headerName: 'Chỉ số Mới', 
-      width: 120, 
+    {
+      field: 'newIndex',
+      headerName: 'Chỉ số Mới',
+      width: 120,
       type: 'number',
       editable: true, // Cho phép sửa trực tiếp nếu sai sót nhỏ
       cellClassName: (params) => params.row.newIndex < params.row.oldIndex ? 'text-red-600 font-bold' : '',
     },
     { field: 'usage', headerName: 'Tiêu thụ (m3)', width: 120, type: 'number' },
-    { 
-      field: 'amount', 
-      headerName: 'Thành tiền (Dự kiến)', 
-      width: 150, 
-      valueFormatter: (value: number) => value.toLocaleString('vi-VN') + ' đ' 
+    {
+      field: 'amount',
+      headerName: 'Thành tiền (Dự kiến)',
+      width: 150,
+      valueFormatter: (value: number) => value.toLocaleString('vi-VN') + ' đ'
     },
-    { 
-      field: 'status', 
-      headerName: 'Trạng thái', 
+    {
+      field: 'status',
+      headerName: 'Trạng thái',
       width: 180,
       renderCell: (params) => (
-        <Typography 
-          color={params.value === 'Hợp lệ' ? 'success.main' : 'error.main'} 
-          variant="body2" 
+        <Typography
+          color={params.value === 'Hợp lệ' ? 'success.main' : 'error.main'}
+          variant="body2"
           fontWeight="bold"
         >
           {params.value}
@@ -169,7 +195,7 @@ export default function AccountantMeasureImport() {
   return (
     <Paper sx={{ p: 3, borderRadius: 3, minHeight: '85vh' }}>
       <Toaster position="top-right" />
-      
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/accountance/fee/list')} sx={{ mr: 2 }}>
@@ -191,18 +217,18 @@ export default function AccountantMeasureImport() {
 
       <Grid container spacing={3}>
         {/* CỘT TRÁI: KHU VỰC THAO TÁC */}
-        <Grid sx={{xs: 12, md: 4}}>
+        <Grid sx={{ xs: 12, md: 4 }}>
           <Card variant="outlined">
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Typography variant="h6">Thao tác</Typography>
-              
+
               {/* Bước 1: Download */}
               <Box>
                 <Typography variant="subtitle2" gutterBottom>Bước 1: Tải file mẫu</Typography>
-                <Button 
-                  fullWidth 
-                  variant="outlined" 
-                  startIcon={<DownloadIcon />} 
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<DownloadIcon />}
                   onClick={handleDownloadTemplate}
                 >
                   Tải Excel Mẫu (.xlsx)
@@ -224,9 +250,9 @@ export default function AccountantMeasureImport() {
                   style={{ display: 'none' }}
                   onChange={handleFileUpload}
                 />
-                <Button 
-                  fullWidth 
-                  variant="contained" 
+                <Button
+                  fullWidth
+                  variant="contained"
                   startIcon={<CloudUploadIcon />}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -243,25 +269,25 @@ export default function AccountantMeasureImport() {
 
           {/* Hướng dẫn */}
           <Alert severity="info" sx={{ mt: 2 }}>
-            Lưu ý: <br/>
-            - Hệ thống sẽ tự động tính: <b>(Mới - Cũ) * 15.000đ</b>.<br/>
+            Lưu ý: <br />
+            - Hệ thống sẽ tự động tính: <b>(Mới - Cũ) * 15.000đ</b>.<br />
             - Các dòng lỗi (Chỉ số mới nhỏ hơn cũ) sẽ được bôi đỏ.
           </Alert>
         </Grid>
 
         {/* CỘT PHẢI: BẢNG REVIEW DATA */}
-        <Grid sx={{xs: 12, md: 8}}>
+        <Grid sx={{ xs: 12, md: 8 }}>
           <Paper sx={{ height: 500, width: '100%', position: 'relative' }}>
             {isProcessing && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} />}
-            
+
             {importedData.length > 0 ? (
               <>
                 <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f5f5f5' }}>
                   <Typography variant="subtitle1">
                     Dữ liệu đọc được: <b>{importedData.length}</b> dòng
                   </Typography>
-                  <Button 
-                    variant="contained" 
+                  <Button
+                    variant="contained"
                     color="primary"
                     startIcon={<SaveIcon />}
                     onClick={handleSaveData}

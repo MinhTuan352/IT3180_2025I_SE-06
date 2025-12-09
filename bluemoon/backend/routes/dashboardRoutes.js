@@ -11,4 +11,7 @@ router.get('/bod', checkAuth, dashboardController.getBODStats);
 // Accountant Dashboard stats
 router.get('/accountant', checkAuth, dashboardController.getAccountantStats);
 
+// Resident Dashboard stats
+router.get('/resident', checkAuth, dashboardController.getResidentStats);
+
 module.exports = router;

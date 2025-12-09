@@ -55,6 +55,7 @@ import ResidentAssetList from '../pages/Resident/Asset/ResidentAssetList';
 import ResidentServiceList from '../pages/Resident/Service/ResidentServiceList';
 import ResidentServiceDetail from '../pages/Resident/Service/ResidentServiceDetail';
 import ResidentApartmentInfo from '../pages/Resident/Apartment/ResidentApartmentInfo';
+import ResidentDashboard from '../pages/Resident/Dashboard/ResidentDashboard';
 
 // --- Import trang Account Chung (Mới) ---
 import AccountInfo from '../pages/Account/AccountInfo.tsx';
@@ -155,6 +156,8 @@ export default function AppRoutes() {
 
           {/* === RESIDENT Routes (THÊM MỚI) === */}
           <Route element={<ProtectedRoutes allowedRoles={['resident']} />}>
+            {/* Dashboard */}
+            <Route path="resident/dashboard" element={<ResidentDashboard />} />
             {/* Account */}
             <Route path="resident/account_info" element={<ResidentAccountInfo />} />
             {/* Profile (Redirect handled by menu, directly use edit) */}

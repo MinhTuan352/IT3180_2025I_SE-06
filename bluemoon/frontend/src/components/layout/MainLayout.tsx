@@ -91,6 +91,7 @@ const accountantMenuItems = [
 
 // --- THÊM MỚI: Resident Menu ---
 const residentMenuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/resident/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Thông tin Cá nhân', icon: <AccountCircleIcon />, path: '/resident/profile/edit' },
   { text: 'Căn hộ', icon: <HomeIcon />, path: '/resident/apartment' },

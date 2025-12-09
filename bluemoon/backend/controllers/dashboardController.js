@@ -300,6 +300,171 @@ const dashboardController = {
             console.error('[DashboardController] getAccountantStats error:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
+
+    /**
+     * Lấy thống kê cho Cư dân
+     * GET /api/dashboard/resident
+     */
+    getResidentStats: async (req, res) => {
+        try {
+            const userId = req.user?.id;
+
+            if (!userId) {
+                return res.status(401).json({ message: 'Không xác định được người dùng.' });
+            }
+
+            // Tìm resident từ user_id
+            let residentId = null;
+            let apartmentId = null;
+            let apartmentInfo = null;
+
+            try {
+                const [residents] = await db.execute(
+                    'SELECT id, apartment_id FROM residents WHERE user_id = ?',
+                    [userId]
+                );
+                if (residents.length > 0) {
+                    residentId = residents[0].id;
+                    apartmentId = residents[0].apartment_id;
+                }
+            } catch (e) { console.log('resident lookup error:', e.message); }
+
+            // Thông tin căn hộ
+            if (apartmentId) {
+                try {
+                    const [apartments] = await db.execute(
+                        'SELECT apartment_code, building, floor, area, status FROM apartments WHERE id = ?',
+                        [apartmentId]
+                    );
+                    if (apartments.length > 0) {
+                        apartmentInfo = apartments[0];
+                    }
+
+                    // Đếm số thành viên trong căn hộ
+                    const [memberCount] = await db.execute(
+                        'SELECT COUNT(*) as count FROM residents WHERE apartment_id = ?',
+                        [apartmentId]
+                    );
+                    if (apartmentInfo) {
+                        apartmentInfo.memberCount = memberCount[0].count || 0;
+                    }
+                } catch (e) { console.log('apartment lookup error:', e.message); }
+            }
+
+            // Thống kê công nợ
+            let feeStats = { totalDebt: 0, unpaidInvoices: 0, overdueInvoices: 0, paidInvoices: 0 };
+            if (apartmentId) {
+                try {
+                    const [stats] = await db.execute(`
+                        SELECT 
+                            COALESCE(SUM(amount_remaining), 0) as total_debt,
+                            SUM(CASE WHEN status != 'Đã thanh toán' THEN 1 ELSE 0 END) as unpaid,
+                            SUM(CASE WHEN status != 'Đã thanh toán' AND due_date < CURDATE() THEN 1 ELSE 0 END) as overdue,
+                            SUM(CASE WHEN status = 'Đã thanh toán' THEN 1 ELSE 0 END) as paid
+                        FROM fees WHERE apartment_id = ?
+                    `, [apartmentId]);
+                    feeStats = {
+                        totalDebt: stats[0].total_debt || 0,
+                        unpaidInvoices: stats[0].unpaid || 0,
+                        overdueInvoices: stats[0].overdue || 0,
+                        paidInvoices: stats[0].paid || 0
+                    };
+                } catch (e) { console.log('fee stats error:', e.message); }
+            }
+
+            // Hóa đơn chưa thanh toán gần đây
+            let pendingInvoices = [];
+            if (apartmentId) {
+                try {
+                    const [invoices] = await db.execute(`
+                        SELECT f.id, ft.name as fee_type, f.total_amount, f.amount_remaining, f.due_date, f.status,
+                               DATEDIFF(CURDATE(), f.due_date) as days_overdue
+                        FROM fees f
+                        LEFT JOIN fee_types ft ON f.fee_type_id = ft.id
+                        WHERE f.apartment_id = ? AND f.status != 'Đã thanh toán'
+                        ORDER BY f.due_date ASC
+                        LIMIT 5
+                    `, [apartmentId]);
+                    pendingInvoices = invoices;
+                } catch (e) { console.log('pending invoices error:', e.message); }
+            }
+
+            // Yêu cầu dịch vụ gần đây
+            let recentServiceRequests = [];
+            if (apartmentId) {
+                try {
+                    const [services] = await db.execute(`
+                        SELECT sr.id, s.name as service_name, sr.status, sr.created_at
+                        FROM service_requests sr
+                        LEFT JOIN services s ON sr.service_id = s.id
+                        WHERE sr.apartment_id = ?
+                        ORDER BY sr.created_at DESC
+                        LIMIT 5
+                    `, [apartmentId]);
+                    recentServiceRequests = services;
+                } catch (e) { console.log('service requests error:', e.message); }
+            }
+
+            // Số yêu cầu dịch vụ đang xử lý
+            let pendingServiceCount = 0;
+            if (apartmentId) {
+                try {
+                    const [count] = await db.execute(`
+                        SELECT COUNT(*) as count FROM service_requests 
+                        WHERE apartment_id = ? AND status IN ('Chờ xử lý', 'Đang xử lý')
+                    `, [apartmentId]);
+                    pendingServiceCount = count[0].count || 0;
+                } catch (e) { console.log('pending service count error:', e.message); }
+            }
+
+            // Sự cố đã báo cáo gần đây
+            let recentIncidents = [];
+            if (apartmentId) {
+                try {
+                    const [incidents] = await db.execute(`
+                        SELECT id, title, status, priority, created_at
+                        FROM incidents
+                        WHERE apartment_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT 5
+                    `, [apartmentId]);
+                    recentIncidents = incidents;
+                } catch (e) { console.log('incidents error:', e.message); }
+            }
+
+            // Thông báo mới (7 ngày gần đây)
+            let newNotifications = 0;
+            try {
+                const [count] = await db.execute(`
+                    SELECT COUNT(*) as count FROM notifications 
+                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                `);
+                newNotifications = count[0].count || 0;
+            } catch (e) { console.log('notifications count error:', e.message); }
+
+            res.json({
+                success: true,
+                data: {
+                    apartment: apartmentInfo,
+                    stats: {
+                        totalDebt: feeStats.totalDebt,
+                        unpaidInvoices: feeStats.unpaidInvoices,
+                        overdueInvoices: feeStats.overdueInvoices,
+                        paidInvoices: feeStats.paidInvoices,
+                        pendingServiceRequests: pendingServiceCount,
+                        newNotifications
+                    },
+                    pendingInvoices,
+                    recentServiceRequests,
+                    recentIncidents
+                }
+            });
+
+        } catch (error) {
+            console.error('[DashboardController] getResidentStats error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
     }
 };
 

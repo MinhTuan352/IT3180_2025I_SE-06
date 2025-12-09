@@ -118,7 +118,64 @@ export const dashboardApi = {
     getAccountantStats: async (): Promise<AccountantDashboardData> => {
         const response = await axiosClient.get('/dashboard/accountant');
         return response.data.data;
+    },
+
+    getResidentStats: async (): Promise<ResidentDashboardData> => {
+        const response = await axiosClient.get('/dashboard/resident');
+        return response.data.data;
     }
 };
+
+// Resident Dashboard Types
+export interface ResidentApartmentInfo {
+    apartment_code: string;
+    building: string;
+    floor: number;
+    area: number;
+    status: string;
+    memberCount: number;
+}
+
+export interface ResidentStats {
+    totalDebt: number;
+    unpaidInvoices: number;
+    overdueInvoices: number;
+    paidInvoices: number;
+    pendingServiceRequests: number;
+    newNotifications: number;
+}
+
+export interface ResidentPendingInvoice {
+    id: number;
+    fee_type: string;
+    total_amount: number;
+    amount_remaining: number;
+    due_date: string;
+    status: string;
+    days_overdue: number;
+}
+
+export interface ResidentServiceRequest {
+    id: number;
+    service_name: string;
+    status: string;
+    created_at: string;
+}
+
+export interface ResidentIncident {
+    id: number;
+    title: string;
+    status: string;
+    priority: string;
+    created_at: string;
+}
+
+export interface ResidentDashboardData {
+    apartment: ResidentApartmentInfo | null;
+    stats: ResidentStats;
+    pendingInvoices: ResidentPendingInvoice[];
+    recentServiceRequests: ResidentServiceRequest[];
+    recentIncidents: ResidentIncident[];
+}
 
 export default dashboardApi;

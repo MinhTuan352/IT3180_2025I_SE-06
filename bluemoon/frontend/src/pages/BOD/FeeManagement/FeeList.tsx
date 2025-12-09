@@ -44,6 +44,8 @@ import PrintIcon from '@mui/icons-material/Print';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
 import feeApi, { type Fee, type FeeItem } from '../../../api/feeApi';
+import { apartmentApi } from '../../../api/apartmentApi';
+import { residentApi } from '../../../api/residentApi';
 import { format, parseISO } from 'date-fns';
 
 // Định nghĩa kiểu dữ liệu cho Trạng thái
@@ -78,7 +80,7 @@ export default function FeeList() {
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({
     open: false, message: '', severity: 'success'
   });
 
@@ -236,28 +238,175 @@ export default function FeeList() {
     XLSX.writeFile(wb, 'DanhSachCongNo.xlsx');
   };
 
+  // --- HELPERS FOR IMPORT ---
+  const parseDate = (dateStr: any): string | null => {
+    if (!dateStr) return null;
+    // Handle Excel date number
+    if (typeof dateStr === 'number') {
+      const date = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+      return date.toISOString().split('T')[0];
+    }
+    // Handle string "dd/MM/yyyy" or "yyyy-MM-dd"
+    if (typeof dateStr === 'string') {
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          // Check format dd/MM/yyyy
+          return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+      }
+      // Try standards
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) return date.toISOString().split('T')[0];
+    }
+    return null;
+  };
+
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    setIsLoading(true);
+    setSnackbar({ open: true, message: 'Đang xử lý file...', severity: 'info' });
+
+    // 1. Fetch Lookups
+    let apartments: any[] = [];
+    let residents: any[] = [];
+    const currentFeeTypes = feeTypes; // Use current state or fetch if needed
+
+    try {
+      const [aptRes, resRes] = await Promise.all([
+        apartmentApi.getAll(),
+        residentApi.getAll()
+      ]);
+      apartments = aptRes;
+      residents = resRes;
+    } catch (err) {
+      console.error('Error fetching lookups for import:', err);
+      setSnackbar({ open: true, message: 'Lỗi tải dữ liệu căn hộ/cư dân để import.', severity: 'error' });
+      setIsLoading(false);
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-        console.log('Dữ liệu Công nợ Import từ Excel:', json);
-        setSnackbar({ open: true, message: 'Đã đọc file Excel thành công! Xem Console (F12).', severity: 'success' });
+        console.log('Raw Excel Data:', json);
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors: string[] = [];
+
+        // 2. Process each row
+        const promises = json.map(async (row, index) => {
+          try {
+            // Map keys (Ensure Excel headers match these or use loose matching)
+            const aptCode = row['Căn hộ'] || row['căn hộ'] || row['Căn Hộ'];
+            const feeTypeName = row['Loại phí'] || row['loại phí'];
+            const description = row['Nội dung'] || row['nội dung'] || `Phí nhập từ Excel`;
+            const billingPeriod = row['Kỳ TT'] || row['kỳ tt']; // vd: "T12/2025" or "2025-12"
+            const rawDueDate = row['Hạn TT'] || row['hạn tt'];
+            const totalAmount = row['Tổng thu'] || row['tổng thu'];
+
+            if (!aptCode || !totalAmount) {
+              throw new Error(`Dòng ${index + 2}: Thiếu Căn hộ hoặc Tổng thu`);
+            }
+
+            // Find IDs
+            const apartment = apartments.find(a => a.apartment_code === aptCode || a.apartment_code === aptCode.toString().trim());
+            if (!apartment) throw new Error(`Dòng ${index + 2}: Không tìm thấy căn hộ ${aptCode}`);
+
+            // Find Owner
+            const owner = residents.find(r => r.apartment_id === apartment.id && (r.role === 'owner' || r.role === 'chủ hộ'));
+            // Fallback: first resident
+            const resident = owner || residents.find(r => r.apartment_id === apartment.id);
+
+            if (!resident) throw new Error(`Dòng ${index + 2}: Căn hộ ${aptCode} chưa có cư dân`);
+
+            // Find Fee Type
+            let feeTypeId = 1; // Default
+            if (feeTypeName) {
+              const safeFeeTypeName = String(feeTypeName).toLowerCase();
+              const ft = currentFeeTypes.find(t => t.name && String(t.name).toLowerCase() === safeFeeTypeName);
+              if (ft) feeTypeId = ft.id;
+            }
+
+            // Format Date
+            let dueDate = parseDate(rawDueDate);
+            if (!dueDate) {
+              // Default to 15th next month if not provided???
+              // For now, require it or use current date + 15 days
+              const d = new Date();
+              d.setDate(d.getDate() + 15);
+              dueDate = d.toISOString().split('T')[0];
+            }
+
+            // Clean Billing Period (assumed T12/2025 -> 2025-12)
+            let cleanBillingPeriod = billingPeriod;
+            if (billingPeriod && billingPeriod.toString().startsWith('T')) {
+              // T12/2025 -> 12/2025 -> 2025-12
+              const parts = billingPeriod.toString().substring(1).split('/');
+              if (parts.length === 2) cleanBillingPeriod = `${parts[1]}-${parts[0]}`;
+            }
+
+            // Call API
+            await feeApi.create({
+              apartment_id: apartment.id,
+              fee_type_id: feeTypeId,
+              description: description,
+              billing_period: cleanBillingPeriod || '2025-12', // Fallback? careful
+              due_date: dueDate,
+              total_amount: parseFloat(totalAmount),
+              resident_id: resident.id, // Explicitly pass resident for safety
+              // Adding item details for invoices
+              items: [{
+                item_name: description || feeTypeName || 'Phí khác',
+                unit: 'lần',
+                quantity: 1,
+                unit_price: parseFloat(totalAmount),
+                amount: parseFloat(totalAmount)
+              }]
+            });
+
+            successCount++;
+
+          } catch (err: any) {
+            console.error(err);
+            failCount++;
+            errors.push(err.message);
+          }
+        });
+
+        await Promise.all(promises);
+
+        setSnackbar({
+          open: true,
+          message: `Import xong: ${successCount} thành công, ${failCount} thất bại.`,
+          severity: failCount > 0 ? 'warning' : 'success'
+        });
+
+        if (failCount > 0) {
+          console.warn('Import Errors:', errors);
+          alert(`Lỗi: \n${errors.slice(0, 10).join('\n')}${errors.length > 10 ? '\n...' : ''}`);
+        }
+
+        fetchFees();
 
       } catch (error) {
         console.error("Lỗi khi đọc file Excel:", error);
         setSnackbar({ open: true, message: 'Đã xảy ra lỗi khi đọc file.', severity: 'error' });
+      } finally {
+        setIsLoading(false);
       }
     };
     reader.readAsArrayBuffer(file);

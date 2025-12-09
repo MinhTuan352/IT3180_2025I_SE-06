@@ -36,7 +36,7 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // Giới hạn 5MB/file
     fileFilter: fileFilter
@@ -59,16 +59,16 @@ router.get('/:id', incidentController.getIncidentDetail);
 
 // 3. Tạo báo cáo sự cố (Chỉ dành cho Cư dân)
 // upload.array('images', 3) => Cho phép upload tối đa 3 ảnh với key là 'images'
-router.post('/', 
-    checkRole(['resident']), 
-    upload.array('images', 3), 
+router.post('/',
+    checkRole(['resident', 'bod']),
+    upload.array('images', 3),
     incidentController.createIncident
 );
 
 // 4. Cập nhật thông tin sự cố (Dùng chung cho cả 2 vai trò)
 // - Admin (bod): Cập nhật trạng thái, phân công, phản hồi.
 // - Cư dân (resident): Đánh giá (rating), gửi feedback (chỉ khi đã hoàn thành).
-router.put('/:id', 
+router.put('/:id',
     checkRole(['bod', 'resident']), // [QUAN TRỌNG] Cho phép cả resident gọi vào
     incidentController.updateIncident
 );

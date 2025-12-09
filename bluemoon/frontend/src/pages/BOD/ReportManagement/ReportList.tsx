@@ -7,14 +7,24 @@ import {
   Tooltip,
   Chip,
   Grid,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Alert
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 // Icons
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -31,6 +41,17 @@ export default function ReportList() {
 
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<Incident[]>([]);
+
+  // Modal State
+  const [openDialog, setOpenDialog] = useState(false);
+  const [newIncident, setNewIncident] = useState({
+    title: '',
+    description: '',
+    location: '',
+    priority: 'Trung bình',
+    images: [] as File[]
+  });
+  const [activeError, setActiveError] = useState<string | null>(null);
 
   const dynamicPaperWidth = windowWidth
     - (isSidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_OPEN)
@@ -65,16 +86,67 @@ export default function ReportList() {
     if (window.confirm("Bạn có chắc muốn đánh dấu sự cố này là Hoàn thành?")) {
       try {
         await incidentApi.update(id, { status: "Hoàn thành" });
-        alert("Đã cập nhật thành công!");
+        toast.success("Đã cập nhật thành công!");
         fetchReports(); // reload
       } catch (err) {
-        alert("Lỗi khi cập nhật");
+        toast.error("Lỗi khi cập nhật");
       }
     }
   };
 
+  // --- CREATE INCIDENT LOGIC ---
+  const handleOpenAdd = () => {
+    setNewIncident({
+      title: '',
+      description: '',
+      location: '',
+      priority: 'Trung bình',
+      images: []
+    });
+    setOpenDialog(true);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewIncident({ ...newIncident, [e.target.name]: e.target.value });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setNewIncident({ ...newIncident, images: Array.from(e.target.files) });
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newIncident.title || !newIncident.description) {
+      setActiveError("Vui lòng nhập tiêu đề và mô tả");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('title', newIncident.title);
+      formData.append('description', newIncident.description);
+      formData.append('location', newIncident.location);
+      formData.append('priority', newIncident.priority);
+
+      if (newIncident.images) {
+        newIncident.images.forEach((file) => {
+          formData.append('images', file);
+        });
+      }
+
+      await incidentApi.create(formData);
+      toast.success("Tạo sự cố thành công!");
+      setOpenDialog(false);
+      fetchReports();
+    } catch (err: any) {
+      console.error(err);
+      setActiveError(err.response?.data?.message || "Lỗi khi tạo sự cố");
+    }
+  };
+
   const columns: GridColDef[] = [
-    { field: 'id', headerName: 'Mả SC', width: 90 },
+    { field: 'id', headerName: 'Mã SC', width: 90 },
     {
       field: 'status',
       headerName: 'Trạng thái',
@@ -135,19 +207,23 @@ export default function ReportList() {
   return (
     <>
       <Grid container spacing={2}>
-        <Grid sx={{
-          xs: 12,
+        <Grid size={{ xs: 12 }} sx={{
           width: '100%',
           display: 'flex',
           flexDirection: 'row',
           justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 2
         }}>
           <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
             DANH SÁCH SỰ CỐ
           </Typography>
+          <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={handleOpenAdd}>
+            Thêm sự cố
+          </Button>
         </Grid>
 
-        <Grid sx={{ xs: 12 }}>
+        <Grid size={{ xs: 12 }}>
           <Paper sx={{
             height: '100%',
             width: dynamicPaperWidth >= 0 ? dynamicPaperWidth : '100%',
@@ -179,8 +255,88 @@ export default function ReportList() {
             />
           </Paper>
         </Grid>
-
       </Grid>
+
+      {/* MODAL THÊM SỰ CỐ */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Báo cáo Sự cố mới</DialogTitle>
+        <DialogContent dividers>
+          {activeError && <Alert severity="error" sx={{ mb: 2 }}>{activeError}</Alert>}
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                label="Tiêu đề sự cố"
+                name="title"
+                fullWidth
+                required
+                value={newIncident.title}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                label="Vị trí / Khu vực"
+                name="location"
+                fullWidth
+                value={newIncident.location}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                select
+                label="Mức độ ưu tiên"
+                name="priority"
+                fullWidth
+                value={newIncident.priority}
+                onChange={handleChange}
+              >
+                <MenuItem value="Thấp">Thấp</MenuItem>
+                <MenuItem value="Trung bình">Trung bình</MenuItem>
+                <MenuItem value="Cao">Cao</MenuItem>
+                <MenuItem value="Khẩn cấp">Khẩn cấp</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                label="Mô tả chi tiết"
+                name="description"
+                fullWidth
+                multiline
+                rows={3}
+                required
+                value={newIncident.description}
+                onChange={handleChange}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+              >
+                Tải ảnh lên (Tối đa 3)
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+              </Button>
+              {newIncident.images.length > 0 && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Đã chọn {newIncident.images.length} file
+                </Typography>
+              )}
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>Hủy</Button>
+          <Button variant="contained" onClick={handleCreate}>Gửi Báo Cáo</Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

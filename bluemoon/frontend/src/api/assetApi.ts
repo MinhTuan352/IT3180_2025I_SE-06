@@ -1,37 +1,44 @@
+
 import axiosClient from './axiosClient';
 
 export interface Asset {
-    id: number;
+    id?: number;
     asset_code: string;
     name: string;
     description?: string;
     location?: string;
+    status: string;
+    next_maintenance?: string | null;
+    last_maintenance?: string | null;
     purchase_date?: string;
     price?: number;
-    status: 'Hoạt động' | 'Đang bảo trì' | 'Hỏng';
-    created_at?: string;
-    updated_at?: string;
-    last_maintenance?: string;
-    next_maintenance?: string;
-    // For UI display (mapped from status)
-    type?: string;
     image?: string;
 }
 
-export interface AssetFilters {
-    status?: string;
-    keyword?: string;
-}
-
 const assetApi = {
-    // Get all assets for resident (read-only)
-    getAll: (params?: AssetFilters) => {
-        return axiosClient.get('/assets/resident', { params });
+    // Get all assets (for BOD/Accountant)
+    getAll: () => {
+        return axiosClient.get('/assets');
     },
 
     // Get asset detail by ID
     getDetail: (id: number) => {
         return axiosClient.get(`/assets/${id}`);
+    },
+
+    // Create new asset
+    create: (data: Asset) => {
+        return axiosClient.post('/assets', data);
+    },
+
+    // Update asset
+    update: (id: number, data: Asset) => {
+        return axiosClient.put(`/assets/${id}`, data);
+    },
+
+    // Delete asset
+    delete: (id: number) => {
+        return axiosClient.delete(`/assets/${id}`);
     }
 };
 

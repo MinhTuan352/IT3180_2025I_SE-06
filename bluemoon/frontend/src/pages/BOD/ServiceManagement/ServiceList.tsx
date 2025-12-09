@@ -6,9 +6,13 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+
 import axiosClient from '../../../api/axiosClient';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -81,20 +85,32 @@ export default function ServiceList() {
     setOpenEdit(true);
   };
 
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Bạn có chắc muốn xóa dịch vụ này?")) {
+      try {
+        await axiosClient.delete(`/services/${id}`);
+        toast.success("Đã xóa dịch vụ!");
+        fetchServices();
+      } catch (err: any) {
+        toast.error("Lỗi khi xóa: " + (err.response?.data?.message || err.message));
+      }
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (isNew) {
         await axiosClient.post('/services', editingService);
-        alert("Thêm dịch vụ thành công!");
+        toast.success("Thêm dịch vụ thành công!");
       } else {
         await axiosClient.put(`/services/${editingService.id}`, editingService);
-        alert("Cập nhật dịch vụ thành công!");
+        toast.success("Cập nhật dịch vụ thành công!");
       }
       setOpenEdit(false);
       fetchServices(); // Reload data
     } catch (err: any) {
       console.error(err);
-      alert("Lỗi khi lưu: " + (err.response?.data?.message || err.message));
+      toast.error("Lỗi khi lưu: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -126,13 +142,20 @@ export default function ServiceList() {
       )
     },
     {
-      field: 'actions', headerName: 'Thao tác', width: 100,
+      field: 'actions', headerName: 'Thao tác', width: 120,
       renderCell: (params) => (
-        <Tooltip title="Chỉnh sửa thông tin">
-          <IconButton onClick={() => handleEditClick(params.row)} color="primary">
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
+        <Box>
+          <Tooltip title="Chỉnh sửa thông tin">
+            <IconButton onClick={() => handleEditClick(params.row)} color="primary" size="small">
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Xóa dịch vụ">
+            <IconButton onClick={() => handleDelete(params.row.id)} color="error" size="small">
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       )
     }
   ];
@@ -169,38 +192,38 @@ export default function ServiceList() {
         <DialogContent dividers>
           {editingService && (
             <Grid container spacing={2}>
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Tên dịch vụ" name="name" fullWidth value={editingService.name || ''} onChange={handleChange} />
               </Grid>
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Danh mục" name="category" fullWidth value={editingService.category || ''} onChange={handleChange} placeholder="VD: Sức khỏe & Làm đẹp" />
               </Grid>
 
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField type="number" label="Đơn giá cơ bản (VNĐ)" name="base_price" fullWidth value={editingService.base_price || 0} onChange={handleChange} />
               </Grid>
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Đơn vị tính" name="unit" fullWidth value={editingService.unit || ''} onChange={handleChange} placeholder="VD: Giờ, Lần, Tháng" />
               </Grid>
 
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Vị trí" name="location" fullWidth value={editingService.location || ''} onChange={handleChange} placeholder="VD: Tầng 3 - Tòa A" />
               </Grid>
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Giờ mở cửa" name="open_hours" fullWidth value={editingService.open_hours || ''} onChange={handleChange} placeholder="VD: 08:00 - 22:00" />
               </Grid>
 
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField label="Hotline liên hệ" name="contact_phone" fullWidth value={editingService.contact_phone || ''} onChange={handleChange} placeholder="VD: 0901.234.567" />
               </Grid>
-              <Grid sx={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField select label="Trạng thái" name="is_active" fullWidth value={editingService.is_active ?? 1} onChange={handleChange}>
                   <MenuItem value={1}>Đang hoạt động</MenuItem>
                   <MenuItem value={0}>Tạm dừng</MenuItem>
                 </TextField>
               </Grid>
 
-              <Grid sx={{ xs: 12 }}>
+              <Grid size={{ xs: 12 }}>
                 <TextField label="Mô tả chi tiết" name="description" fullWidth multiline rows={3} value={editingService.description || ''} onChange={handleChange} />
               </Grid>
             </Grid>

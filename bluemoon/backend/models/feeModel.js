@@ -110,14 +110,14 @@ const Fee = {
     createInvoice: async (invoiceData, itemsData) => {
         // Lấy một kết nối riêng từ pool để thực hiện Transaction
         const connection = await db.getConnection();
-        
+
         try {
             // Bắt đầu giao dịch
             await connection.beginTransaction();
 
-            const { 
-                id, apartment_id, resident_id, fee_type_id, 
-                description, billing_period, due_date, total_amount, created_by 
+            const {
+                id, apartment_id, resident_id, fee_type_id,
+                description, billing_period, due_date, total_amount, created_by
             } = invoiceData;
 
             // 1. Insert vào bảng FEES
@@ -128,7 +128,7 @@ const Fee = {
             `;
             // Mới tạo thì amount_remaining = total_amount
             await connection.execute(queryFee, [
-                id, apartment_id, resident_id, fee_type_id, 
+                id, apartment_id, resident_id, fee_type_id,
                 description, billing_period, due_date, total_amount, total_amount, created_by
             ]);
 
@@ -174,11 +174,11 @@ const Fee = {
             // 1. Lấy thông tin hóa đơn hiện tại
             const [rows] = await connection.execute('SELECT * FROM fees WHERE id = ? FOR UPDATE', [id]);
             if (rows.length === 0) throw new Error('Hóa đơn không tồn tại');
-            
+
             const fee = rows[0];
             const newPaid = parseFloat(fee.amount_paid) + parseFloat(amountPaid);
             const newRemaining = parseFloat(fee.total_amount) - newPaid;
-            
+
             let newStatus = 'Thanh toán một phần';
             if (newRemaining <= 0) newStatus = 'Đã thanh toán';
 
@@ -212,7 +212,7 @@ const Fee = {
     updateFeeType: async (id, data) => {
         try {
             const { fee_name, fee_code, default_price, unit } = data;
-            
+
             // Chỉ cập nhật những trường được gửi lên
             // Tuy nhiên với loại phí, thường người ta sửa hết, nên update full cho đơn giản
             const query = `
@@ -220,7 +220,7 @@ const Fee = {
                 SET fee_name = ?, fee_code = ?, default_price = ?, unit = ?
                 WHERE id = ?
             `;
-            
+
             await db.execute(query, [fee_name, fee_code, default_price, unit, id]);
             return { id, ...data };
         } catch (error) {

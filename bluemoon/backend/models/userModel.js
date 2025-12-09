@@ -189,9 +189,14 @@ const User = {
     getAllUsers: async () => {
         try {
             const query = `
-                SELECT u.id, u.username, u.email, u.phone, u.is_active, u.created_at, r.role_name, r.role_code
+                SELECT 
+                    u.id, u.username, u.email, u.phone, u.is_active, u.created_at, 
+                    r.role_name, r.role_code,
+                    COALESCE(a.full_name, res.full_name) as full_name
                 FROM users u
                 JOIN roles r ON u.role_id = r.id
+                LEFT JOIN admins a ON u.id = a.user_id
+                LEFT JOIN residents res ON u.id = res.user_id
                 ORDER BY u.created_at DESC
             `;
             const [rows] = await db.execute(query);

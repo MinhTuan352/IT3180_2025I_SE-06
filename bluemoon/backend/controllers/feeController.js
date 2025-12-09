@@ -197,7 +197,7 @@ const feeController = {
     updateFeeType: async (req, res) => {
         try {
             const { id } = req.params;
-            const { fee_name, fee_code, default_price, unit } = req.body;
+            const { fee_name, fee_code, default_price, unit, transfer_syntax } = req.body;
 
             // Validate cơ bản
             if (!fee_name || !fee_code) {
@@ -205,7 +205,7 @@ const feeController = {
             }
 
             // Gọi Model update
-            await Fee.updateFeeType(id, req.body);
+            await Fee.updateFeeType(id, { ...req.body, transfer_syntax });
 
             res.json({
                 success: true,

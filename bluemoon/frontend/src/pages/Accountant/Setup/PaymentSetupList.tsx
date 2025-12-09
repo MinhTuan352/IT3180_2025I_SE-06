@@ -5,186 +5,250 @@ import {
   Grid,
   Card,
   CardContent,
-  CardActions,
   Button,
   Paper,
   Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Stack, // <-- Để sắp xếp nội dung trong Modal
+  TextField,
+  Stack,
+  Alert,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit'; // <-- Icon cho nút Sửa
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 
-// --- Mock Data (Thay bằng API call) ---
-const mockPaymentInfos = [
-  {
-    id: 'TT-PQL',
-    feeId: 'PQL', // ID của Loại phí tương ứng
-    feeName: 'Phí Quản lý',
-    bankName: 'Vietcombank',
-    accountNumber: '123456789012',
-    accountName: 'BQL CHUNG CU BLUEMOON',
-    transferContent: '[MaCanHo] - [Ten] - PQL T[Thang]',
-    qrCodeUrl: '/path/to/qr-code-pql.png', // Đường dẫn tới ảnh QR (để trống nếu chưa có)
-  },
-  {
-    id: 'TT-XEOTO',
-    feeId: 'PXE-OTO',
-    feeName: 'Phí Gửi xe Ô tô',
-    bankName: 'Techcombank',
-    accountNumber: '987654321098',
-    accountName: 'BQL XE BLUEMOON',
-    transferContent: '[MaCanHo] - [BienSoXe] - PhiGuiXe T[Thang]',
-    qrCodeUrl: null, // Chưa có QR
-  },
-   {
-    id: 'TT-NUOC',
-    feeId: 'PNUOC',
-    feeName: 'Phí Nước Sinh Hoạt',
-    bankName: 'Vietcombank',
-    accountNumber: '123456789012', // Có thể dùng chung STK
-    accountName: 'BQL CHUNG CU BLUEMOON',
-    transferContent: '[MaCanHo] - TienNuoc T[Thang]',
-    qrCodeUrl: '/path/to/qr-code-pql.png',
-  },
+// --- Mock Data: Shared Bank Info ---
+const mockSharedBankInfo = {
+  bankName: 'Vietcombank',
+  accountNumber: '123456789012',
+  accountName: 'BQL CHUNG CU BLUEMOON',
+  qrCodeUrl: '/shared-qr.png',
+};
+
+// --- Mock Data: Fee Syntax Configuration ---
+const mockFeeSyntaxes = [
+  { id: 'TT-PQL', feeName: 'Phí Quản lý', syntax: '[MaCanHo] PQL T[Thang]/[Nam]' },
+  { id: 'TT-XEOTO', feeName: 'Phí Gửi xe Ô tô', syntax: '[MaCanHo] XEOTO [BienSo] T[Thang]' },
+  { id: 'TT-XEMAY', feeName: 'Phí Gửi xe Máy', syntax: '[MaCanHo] XEMAY [BienSo] T[Thang]' },
+  { id: 'TT-NUOC', feeName: 'Phí Nước', syntax: '[MaCanHo] NUOC T[Thang]' },
+  { id: 'TT-DIEN', feeName: 'Phí Điện', syntax: '[MaCanHo] DIEN T[Thang]' },
+  { id: 'TT-KHAC', feeName: 'Phí Khác', syntax: '[MaCanHo] KHAC [NoiDung]' },
 ];
 
 export default function PaymentSetupList() {
-  const navigate = useNavigate();
-  const [openDetailModal, setOpenDetailModal] = useState(false);
-  // State để lưu thông tin chi tiết sẽ hiển thị trong Modal
-  const [selectedPaymentInfo, setSelectedPaymentInfo] = useState<any>(null);
+  // State for Shared Info
+  const [bankInfo, setBankInfo] = useState(mockSharedBankInfo);
+  const [openBankModal, setOpenBankModal] = useState(false);
+  const [tempBankInfo, setTempBankInfo] = useState(mockSharedBankInfo);
 
-  // --- Handlers cho Modal ---
-  const handleOpenDetail = (info: any) => {
-    setSelectedPaymentInfo(info); // Lưu thông tin của thẻ được click
-    setOpenDetailModal(true);
+  // State for Syntaxes
+  const [syntaxes, setSyntaxes] = useState(mockFeeSyntaxes);
+  const [editingSyntaxId, setEditingSyntaxId] = useState<string | null>(null);
+  const [tempSyntax, setTempSyntax] = useState('');
+
+  // --- Handlers: Bank Info ---
+  const handleEditBankInfo = () => {
+    setTempBankInfo({ ...bankInfo });
+    setOpenBankModal(true);
   };
 
-  const handleCloseDetail = () => {
-    setOpenDetailModal(false);
-    setSelectedPaymentInfo(null); // Reset khi đóng
+  const handleSaveBankInfo = () => {
+    setBankInfo({ ...tempBankInfo });
+    setOpenBankModal(false);
+    // TODO: Call API to save shared settings
   };
 
-  const handleNavigateToEdit = () => {
-    if (selectedPaymentInfo) {
-      navigate(`/accountance/fee/setup/paymentSetup/edit/${selectedPaymentInfo.id}`);
-      handleCloseDetail(); // Đóng modal sau khi chuyển trang
-    }
+  // --- Handlers: Syntax ---
+  const handleEditSyntax = (id: string, currentSyntax: string) => {
+    setEditingSyntaxId(id);
+    setTempSyntax(currentSyntax);
+  };
+
+  const handleSaveSyntax = (id: string) => {
+    setSyntaxes(prev => prev.map(item =>
+      item.id === id ? { ...item, syntax: tempSyntax } : item
+    ));
+    setEditingSyntaxId(null);
+    // TODO: Call API to save syntax config
+  };
+
+  const handleCancelEditSyntax = () => {
+    setEditingSyntaxId(null);
   };
 
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
-      {/* --- Hàng Tiêu đề và Nút Thêm --- */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-          Thiết lập Thông tin Thanh toán
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate('/accountance/fee/setup/paymentSetup/create')}
-        >
-          Thêm thông tin TT
-        </Button>
-      </Box>
+      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
+        Thiết lập Thông tin Thanh toán & Cú pháp
+      </Typography>
 
-      <Divider sx={{ mb: 3 }} />
-
-      {/* --- Danh sách Thẻ Thông tin TT --- */}
       <Grid container spacing={3}>
-        {mockPaymentInfos.map((info) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={info.id}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography variant="h6" gutterBottom>
-                  {info.feeName}
+        {/* --- SECTION 1: SHARED BANK INFO --- */}
+        <Grid sx={{ xs: 12, md: 5 }}>
+          <Card sx={{ height: '100%', bgcolor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+                  <AccountBalanceIcon color="primary" sx={{ mr: 1 }} />
+                  Tài khoản Nhận tiền (Chung)
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  ID Cấu hình: {info.id}
-                </Typography>
-                <Typography sx={{ my: 1 }}>
-                  <strong>Ngân hàng:</strong> {info.bankName}
-                </Typography>
-                <Typography>
-                  <strong>STK:</strong> {info.accountNumber}
-                </Typography>
-              </CardContent>
-              <CardActions sx={{ justifyContent: 'flex-end' }}>
-                {/* Nút mở Modal */}
-                <Button size="small" onClick={() => handleOpenDetail(info)}>
-                  Chi tiết
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<EditIcon />}
+                  onClick={handleEditBankInfo}
+                >
+                  Chỉnh sửa
                 </Button>
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
+              </Box>
+
+              <Divider sx={{ mb: 2 }} />
+
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Ngân hàng</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold">{bankInfo.bankName}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Số tài khoản</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ fontFamily: 'monospace', fontSize: '1.2rem' }}>
+                    {bankInfo.accountNumber}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">Chủ tài khoản</Typography>
+                  <Typography variant="subtitle1" fontWeight="bold">{bankInfo.accountName}</Typography>
+                </Box>
+
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Mã QR Mặc định</Typography>
+                  <Box sx={{ p: 1, bgcolor: 'white', borderRadius: 2, border: '1px solid #eee', display: 'flex', justifyContent: 'center' }}>
+                    <img
+                      src={bankInfo.qrCodeUrl}
+                      alt="QR Code"
+                      style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                    />
+                  </Box>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* --- SECTION 2: SYNTAX TABLE --- */}
+        <Grid sx={{ xs: 12, md: 7 }}>
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                Cấu hình Cú pháp Chuyển khoản
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2, fontSize: '0.875rem' }}>
+                Hệ thống sẽ tự động tạo nội dung chuyển khoản dựa trên cú pháp này khi cư dân thanh toán.
+                <br />
+                Các biến hỗ trợ: <strong>[MaCanHo], [Thang], [Nam], [BienSo], [NoiDung]</strong>
+              </Alert>
+
+              <TableContainer sx={{ border: '1px solid #eee', borderRadius: 1 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#f1f1f1' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Loại phí</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Cú pháp (Template)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold', width: 100 }}>Thao tác</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {syntaxes.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{row.feeName}</TableCell>
+                        <TableCell>
+                          {editingSyntaxId === row.id ? (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              value={tempSyntax}
+                              onChange={(e) => setTempSyntax(e.target.value)}
+                              sx={{ bgcolor: 'white' }}
+                            />
+                          ) : (
+                            <Typography sx={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'primary.main' }}>
+                              {row.syntax}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          {editingSyntaxId === row.id ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                              <IconButton size="small" color="success" onClick={() => handleSaveSyntax(row.id)}>
+                                <SaveIcon fontSize="small" />
+                              </IconButton>
+                              <Button size="small" color="inherit" onClick={handleCancelEditSyntax} sx={{ minWidth: 30 }}>
+                                X
+                              </Button>
+                            </Box>
+                          ) : (
+                            <Tooltip title="Chỉnh sửa cú pháp">
+                              <IconButton size="small" onClick={() => handleEditSyntax(row.id, row.syntax)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
-      {/* --- Modal Chi tiết Thông tin Thanh toán (Req 4.2) --- */}
-      <Dialog open={openDetailModal} onClose={handleCloseDetail} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
-          Chi tiết Thông tin Thanh toán
-        </DialogTitle>
-        <DialogContent dividers> {/* Thêm dividers để ngăn cách */}
-          {selectedPaymentInfo && ( // Chỉ render nội dung khi có data
-            <Grid container spacing={2}>
-              {/* Cột trái: QR Code */}
-              <Grid size={{ xs: 12, sm: 5 }} sx={{ textAlign: 'center' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>
-                  Mã QR Thanh toán
-                </Typography>
-                {selectedPaymentInfo.qrCodeUrl ? (
-                  <img
-                    src={selectedPaymentInfo.qrCodeUrl}
-                    alt={`QR Code for ${selectedPaymentInfo.feeName}`}
-                    style={{ width: '100%', maxWidth: '250px', border: '1px solid #eee' }}
-                  />
-                ) : (
-                  <Box sx={{ width: '100%', maxWidth: '250px', height: '250px', bgcolor: 'grey.200', margin: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Typography color="text.secondary">Chưa có mã QR</Typography>
-                  </Box>
-                )}
-              </Grid>
-
-              {/* Cột phải: Thông tin chi tiết */}
-              <Grid size={{ xs: 12, sm: 7 }}>
-                <Stack spacing={1.5}> {/* Dùng Stack để dễ căn chỉnh */}
-                  <Typography variant="h6">{selectedPaymentInfo.feeName}</Typography>
-                  <Divider />
-                  <Typography><strong>ID Cấu hình:</strong> {selectedPaymentInfo.id}</Typography>
-                  <Typography><strong>Ngân hàng:</strong> {selectedPaymentInfo.bankName}</Typography>
-                  <Typography><strong>Số tài khoản:</strong> {selectedPaymentInfo.accountNumber}</Typography>
-                  <Typography><strong>Chủ tài khoản:</strong> {selectedPaymentInfo.accountName}</Typography>
-                  <Divider />
-                  <Typography><strong>Nội dung chuyển khoản (Gợi ý):</strong></Typography>
-                  <Typography sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-                    {selectedPaymentInfo.transferContent}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Hướng dẫn cư dân sử dụng đúng nội dung để dễ đối soát. Các biến trong ngoặc vuông [] sẽ được thay thế tự động (nếu hệ thống hỗ trợ).
-                  </Typography>
-                </Stack>
-              </Grid>
-            </Grid>
-          )}
+      {/* --- Modal Edit Bank Info --- */}
+      <Dialog open={openBankModal} onClose={() => setOpenBankModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Cập nhật Thông tin Tài khoản</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Tên Ngân hàng"
+              fullWidth
+              value={tempBankInfo.bankName}
+              onChange={(e) => setTempBankInfo({ ...tempBankInfo, bankName: e.target.value })}
+            />
+            <TextField
+              label="Số tài khoản"
+              fullWidth
+              value={tempBankInfo.accountNumber}
+              onChange={(e) => setTempBankInfo({ ...tempBankInfo, accountNumber: e.target.value })}
+            />
+            <TextField
+              label="Chủ tài khoản"
+              fullWidth
+              value={tempBankInfo.accountName}
+              onChange={(e) => setTempBankInfo({ ...tempBankInfo, accountName: e.target.value })}
+            />
+            <Button variant="outlined" component="label" startIcon={<QrCode2Icon />}>
+              Tải lên QR Code mới
+              <input type="file" hidden accept="image/*" />
+            </Button>
+          </Stack>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}> {/* Căn chỉnh nút */}
-          <Button onClick={handleCloseDetail}>
-            Đóng
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={handleNavigateToEdit} // <-- Nút chỉnh sửa (Req 4.2)
-          >
-            Chỉnh sửa
-          </Button>
+        <DialogActions>
+          <Button onClick={() => setOpenBankModal(false)}>Hủy</Button>
+          <Button variant="contained" onClick={handleSaveBankInfo}>Lưu thay đổi</Button>
         </DialogActions>
       </Dialog>
     </Paper>

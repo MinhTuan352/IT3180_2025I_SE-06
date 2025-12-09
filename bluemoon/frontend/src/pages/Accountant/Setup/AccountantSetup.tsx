@@ -15,7 +15,7 @@ export default function AccountantSetup() {
       </Typography>
       <Grid container spacing={3}>
         {/* Thẻ 1: Thiết lập phí */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <SettingsIcon color="primary" sx={{ mr: 1 }} />
@@ -25,8 +25,8 @@ export default function AccountantSetup() {
               </Typography>
             </CardContent>
             <CardActions>
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 onClick={() => navigate('/accountance/fee/setup/feeSetup')}
               >
                 Xem chi tiết
@@ -34,9 +34,9 @@ export default function AccountantSetup() {
             </CardActions>
           </Card>
         </Grid>
-        
+
         {/* Thẻ 2: Thiết lập TT Thanh toán */}
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <PaymentIcon color="primary" sx={{ mr: 1 }} />
@@ -46,8 +46,8 @@ export default function AccountantSetup() {
               </Typography>
             </CardContent>
             <CardActions>
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 onClick={() => navigate('/accountance/fee/setup/paymentSetup')}
               >
                 Xem chi tiết
@@ -57,7 +57,7 @@ export default function AccountantSetup() {
         </Grid>
 
         {/* --- THẺ 3 (MỚI): IMPORT CHỈ SỐ --- */}
-        <Grid sx={{xs: 12, md: 4}}>
+        <Grid size={{ xs: 12 }}>
           <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#e3f2fd' }}>
             <CardContent sx={{ flexGrow: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -69,9 +69,9 @@ export default function AccountantSetup() {
               </Typography>
             </CardContent>
             <CardActions>
-              <Button 
-                variant="contained" 
-                size="small" 
+              <Button
+                variant="contained"
+                size="small"
                 onClick={() => navigate('/accountance/fee/setup/import-measure')}
               >
                 Bắt đầu Import
@@ -79,7 +79,7 @@ export default function AccountantSetup() {
             </CardActions>
           </Card>
         </Grid>
-        
+
       </Grid>
     </Box>
   );

@@ -73,6 +73,17 @@ export default function ResidentProfile() {
     setUserData({ ...userData, [field]: e.target.value });
   };
 
+  // Helper formatting Date for Input (YYYY-MM-DD)
+  const formatDateForInput = (isoDate?: string) => {
+    if (!isoDate) return '';
+    try {
+      const date = new Date(isoDate);
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      return '';
+    }
+  };
+
   const handleUpdateResident = async () => {
     if (!id || !userData) return;
 
@@ -154,7 +165,10 @@ export default function ResidentProfile() {
             <Avatar sx={{ width: 120, height: 120, mb: 2, bgcolor: 'primary.main', fontSize: '2rem' }}>
               {userData.full_name?.charAt(0) || '?'}
             </Avatar>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+              {userData.full_name}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
               {id}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -197,7 +211,7 @@ export default function ResidentProfile() {
                   type="date"
                   fullWidth
                   InputLabelProps={{ shrink: true }}
-                  value={userData.dob || ''}
+                  value={formatDateForInput(userData.dob)}
                   onChange={handleChange('dob')}
                 />
               </Grid>

@@ -38,23 +38,19 @@ export interface FeeFilters {
     resident_id?: string;
 }
 
+export interface FeeType {
+    id: number;
+    fee_code: string;
+    fee_name: string;
+    default_price: number;
+    unit: string;
+}
+
 const feeApi = {
     getAll: (params?: FeeFilters) => {
         return axiosClient.get('/fees', { params });
     },
-
-    getDetail: (id: string) => {
-        return axiosClient.get('/fees/' + id);
-    },
-
-    create: (data: any) => {
-        return axiosClient.post('/fees', data);
-    },
-
-    pay: (id: string, data: { amount_paid: number, payment_method: string }) => {
-        return axiosClient.post('/fees/' + id + '/pay', data);
-    },
-
+    // ... other methods ...
     getTypes: () => {
         return axiosClient.get('/fees/types');
     },

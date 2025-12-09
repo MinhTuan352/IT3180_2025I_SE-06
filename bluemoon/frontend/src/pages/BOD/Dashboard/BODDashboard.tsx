@@ -18,7 +18,8 @@ import {
     Stack,
     Divider,
     CircularProgress,
-    Alert
+    Alert,
+    Button
 } from '@mui/material';
 import {
     HomeWork as ApartmentIcon,
@@ -28,9 +29,129 @@ import {
     TrendingUp as TrendingUpIcon,
     Assignment as TaskIcon,
     PieChart as PieChartIcon,
-    BarChart as BarChartIcon
+    BarChart as BarChartIcon,
+    Cloud as CloudIcon,
+    Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { dashboardApi, type BODDashboardData } from '../../../api/dashboardApi';
+import { useAuth } from '../../../contexts/AuthContext';
+
+// Helper function to get time-based greeting
+const getTimeGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Chào buổi sáng';
+    if (hour >= 12 && hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+};
+
+// Helper function to get role display name
+const getRoleDisplayName = (role?: string): string => {
+    switch (role) {
+        case 'bod': return 'Quản trị viên';
+        case 'accountance': return 'Kế toán';
+        case 'resident': return 'Cư dân';
+        case 'cqcn': return 'Cơ quan chức năng';
+        default: return 'Người dùng';
+    }
+};
+
+// Greeting Banner Component
+interface GreetingBannerProps {
+    userName: string;
+    userRole?: string;
+    pendingTasks: number;
+}
+
+function GreetingBanner({ userName, userRole, pendingTasks }: GreetingBannerProps) {
+    const greeting = getTimeGreeting();
+    const roleDisplay = getRoleDisplayName(userRole);
+    const displayName = userName || roleDisplay;
+
+    return (
+        <Card
+            sx={{
+                background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3d7ab3 100%)',
+                borderRadius: 4,
+                overflow: 'hidden',
+                position: 'relative',
+                color: 'white',
+                mb: 3,
+                minHeight: 180,
+            }}
+        >
+            {/* City skyline decorative background */}
+            <Box
+                sx={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: 0,
+                    width: '50%',
+                    height: '100%',
+                    opacity: 0.3,
+                    background: `
+                        linear-gradient(to right, transparent 0%, rgba(30, 58, 95, 0.8) 100%),
+                        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Crect x='20' y='80' width='40' height='120' fill='%23fff'/%3E%3Crect x='70' y='50' width='50' height='150' fill='%23fff'/%3E%3Crect x='130' y='100' width='35' height='100' fill='%23fff'/%3E%3Crect x='175' y='30' width='45' height='170' fill='%23fff'/%3E%3Crect x='230' y='70' width='55' height='130' fill='%23fff'/%3E%3Crect x='295' y='90' width='40' height='110' fill='%23fff'/%3E%3Crect x='345' y='60' width='50' height='140' fill='%23fff'/%3E%3C/svg%3E")
+                    `,
+                    backgroundPosition: 'right bottom',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: 'cover',
+                }}
+            />
+
+            <CardContent sx={{ position: 'relative', zIndex: 1, p: 4 }}>
+                {/* Weather info badge */}
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                    <Chip
+                        icon={<CloudIcon sx={{ color: 'white !important', fontSize: 18 }} />}
+                        label="Hà Nội: 28°C • Có mây"
+                        sx={{
+                            bgcolor: 'rgba(255,255,255,0.2)',
+                            color: 'white',
+                            fontWeight: 500,
+                            '& .MuiChip-icon': { color: 'white' }
+                        }}
+                    />
+                </Stack>
+
+                {/* Main greeting */}
+                <Typography variant="h3" fontWeight="bold" sx={{ mb: 1, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                    {greeting}, {displayName}!
+                </Typography>
+
+                {/* Subtext with pending tasks */}
+                <Typography variant="body1" sx={{ opacity: 0.9, mb: 3 }}>
+                    Hệ thống đã tự động sắp xếp ưu tiên cho bạn. Bạn có{' '}
+                    <Box component="span" sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>
+                        {pendingTasks} công việc
+                    </Box>{' '}
+                    cần duyệt hôm nay.
+                </Typography>
+
+                {/* Action button */}
+                <Button
+                    variant="contained"
+                    startIcon={<NotificationsIcon />}
+                    sx={{
+                        bgcolor: 'rgba(255,255,255,0.15)',
+                        color: 'white',
+                        borderRadius: 3,
+                        px: 3,
+                        py: 1,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        '&:hover': {
+                            bgcolor: 'rgba(255,255,255,0.25)',
+                        }
+                    }}
+                >
+                    Báo cáo thông minh
+                </Button>
+            </CardContent>
+        </Card>
+    );
+}
 
 // Stat Card Component
 interface StatCardProps {
@@ -48,7 +169,7 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
                 height: '100%',
                 background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
                 border: `1px solid ${color}30`,
-                borderRadius: 3,
+                borderRadius: { xs: 2, sm: 3 },
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': {
                     transform: 'translateY(-4px)',
@@ -56,22 +177,43 @@ function StatCard({ title, value, subtitle, icon, color }: StatCardProps) {
                 }
             }}
         >
-            <CardContent sx={{ p: 3 }}>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mb: 0.5, fontSize: { xs: '0.7rem', sm: '0.8rem', md: '0.875rem' } }}
+                            noWrap
+                        >
                             {title}
                         </Typography>
-                        <Typography variant="h4" fontWeight="bold" color={color}>
+                        <Typography
+                            variant="h4"
+                            fontWeight="bold"
+                            color={color}
+                            sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2rem' } }}
+                        >
                             {value}
                         </Typography>
                         {subtitle && (
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ fontSize: { xs: '0.65rem', sm: '0.7rem' } }}
+                            >
                                 {subtitle}
                             </Typography>
                         )}
                     </Box>
-                    <Avatar sx={{ bgcolor: `${color}20`, color: color, width: 56, height: 56 }}>
+                    <Avatar sx={{
+                        bgcolor: `${color}20`,
+                        color: color,
+                        width: { xs: 36, sm: 44, md: 56 },
+                        height: { xs: 36, sm: 44, md: 56 },
+                        ml: 1,
+                        flexShrink: 0
+                    }}>
                         {icon}
                     </Avatar>
                 </Stack>
@@ -409,6 +551,7 @@ function SimpleBarChart({ data }: SimpleBarChartProps) {
 
 // Main Dashboard Component
 export default function BODDashboard() {
+    const { user } = useAuth();
     const [data, setData] = useState<BODDashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -475,15 +618,17 @@ export default function BODDashboard() {
     }));
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" fontWeight="bold" sx={{ mb: 1 }}>Dashboard</Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Tổng quan hệ thống quản lý chung cư BlueMoon
-            </Typography>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
+            {/* Greeting Banner */}
+            <GreetingBanner
+                userName={user?.username || 'Người dùng'}
+                userRole={user?.role}
+                pendingTasks={stats.pendingServiceRequests + stats.pendingIncidents}
+            />
 
             {/* Stats Cards Row */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid sx={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid size={{ xs: 6, sm: 6, md: 3 }}>
                     <StatCard
                         title="Tổng số căn hộ"
                         value={stats.totalApartments}
@@ -491,7 +636,7 @@ export default function BODDashboard() {
                         color="#1976d2"
                     />
                 </Grid>
-                <Grid sx={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid size={{ xs: 6, sm: 6, md: 3 }}>
                     <StatCard
                         title="Tổng số cư dân"
                         value={stats.totalResidents}
@@ -499,7 +644,7 @@ export default function BODDashboard() {
                         color="#9c27b0"
                     />
                 </Grid>
-                <Grid sx={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid size={{ xs: 6, sm: 6, md: 3 }}>
                     <StatCard
                         title="Đơn dịch vụ chờ"
                         value={stats.pendingServiceRequests}
@@ -508,7 +653,7 @@ export default function BODDashboard() {
                         color="#ff9800"
                     />
                 </Grid>
-                <Grid sx={{ xs: 12, sm: 6, md: 3 }}>
+                <Grid size={{ xs: 6, sm: 6, md: 3 }}>
                     <StatCard
                         title="Sự cố mới"
                         value={stats.pendingIncidents}
@@ -521,7 +666,7 @@ export default function BODDashboard() {
 
             {/* Row 2: Payment Progress + Pie Chart */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <PaymentProgressCard
                         rate={stats.paymentRate}
                         paid={stats.paidInvoices}
@@ -529,31 +674,31 @@ export default function BODDashboard() {
                         collected={stats.totalCollected}
                     />
                 </Grid>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <SimplePieChart title="Tỷ lệ thanh toán" data={paymentPieData} />
                 </Grid>
             </Grid>
 
             {/* Row 3: Bar Charts */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <SimpleBarChart data={charts.monthlyRevenue} />
                 </Grid>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <HorizontalBarChart title="Thống kê tổng quan" data={overviewBarData} />
                 </Grid>
             </Grid>
 
             {/* Row 4: Recent Tables */}
             <Grid container spacing={2}>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <RecentTable
                         title="Sự cố gần đây"
                         icon={<IncidentIcon color="error" />}
                         data={incidentTableData}
                     />
                 </Grid>
-                <Grid sx={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <RecentTable
                         title="Yêu cầu dịch vụ gần đây"
                         icon={<TaskIcon color="primary" />}

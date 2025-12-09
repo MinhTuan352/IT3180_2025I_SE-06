@@ -19,6 +19,12 @@ import PeopleIcon from '@mui/icons-material/People';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axiosClient from '../../../api/axiosClient';
+import { useWindowWidth } from '../../../hooks/useWindowWidth';
+import { useLayout } from '../../../contexts/LayoutContext';
+
+const SIDEBAR_WIDTH_OPEN = 240;
+const SIDEBAR_WIDTH_COLLAPSED = 72;
+const PAGE_PADDING = 48;
 
 // Interface cho Login Log (Khớp với dữ liệu trả về từ API)
 interface LoginLog {
@@ -36,6 +42,10 @@ interface LoginLog {
 }
 
 export default function LoginManagement() {
+  const windowWidth = useWindowWidth();
+  const { isSidebarCollapsed } = useLayout();
+  const dynamicPaperWidth = windowWidth - (isSidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_OPEN) - PAGE_PADDING;
+
   const [viewMode, setViewMode] = useState<'admin' | 'resident'>('admin');
   const [searchText, setSearchText] = useState('');
 
@@ -267,7 +277,13 @@ export default function LoginManagement() {
       )}
 
       {/* Data Grid */}
-      <Paper sx={{ height: 600, width: '100%', borderRadius: 3, p: 0, overflow: 'hidden' }}>
+      <Paper sx={{
+        height: 600,
+        width: dynamicPaperWidth,
+        borderRadius: 3,
+        p: 0,
+        overflow: 'auto'
+      }}>
         <DataGrid
           loading={loading}
           rows={filteredRows}

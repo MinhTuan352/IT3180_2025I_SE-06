@@ -162,7 +162,7 @@ export default function AssetList() {
         </Alert>
       )}
 
-      <Paper sx={{ height: 600, width: dynamicPaperWidth, borderRadius: 3 }}>
+      <Paper sx={{ height: 600, width: dynamicPaperWidth, borderRadius: 3, overflow: 'auto' }}>
         <DataGrid
           loading={loading}
           rows={assets}

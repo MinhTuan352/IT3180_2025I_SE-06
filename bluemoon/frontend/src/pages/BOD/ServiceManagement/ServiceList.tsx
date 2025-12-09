@@ -10,6 +10,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import axiosClient from '../../../api/axiosClient';
+import { useWindowWidth } from '../../../hooks/useWindowWidth';
+import { useLayout } from '../../../contexts/LayoutContext';
+
+const SIDEBAR_WIDTH_OPEN = 240;
+const SIDEBAR_WIDTH_COLLAPSED = 72;
+const PAGE_PADDING = 48;
 
 interface ServiceType {
   id: number;
@@ -25,6 +31,10 @@ interface ServiceType {
 }
 
 export default function ServiceList() {
+  const windowWidth = useWindowWidth();
+  const { isSidebarCollapsed } = useLayout();
+  const dynamicPaperWidth = windowWidth - (isSidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_OPEN) - PAGE_PADDING;
+
   const [services, setServices] = useState<ServiceType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +151,7 @@ export default function ServiceList() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Paper sx={{ height: 600, width: '100%', borderRadius: 2 }}>
+      <Paper sx={{ height: 600, width: dynamicPaperWidth, borderRadius: 3, overflow: 'auto' }}>
         <DataGrid
           loading={loading}
           rows={services}

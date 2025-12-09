@@ -18,8 +18,7 @@ import {
     Stack,
     Divider,
     CircularProgress,
-    Alert,
-    Button
+    Alert
 } from '@mui/material';
 import {
     HomeWork as ApartmentIcon,
@@ -29,129 +28,12 @@ import {
     TrendingUp as TrendingUpIcon,
     Assignment as TaskIcon,
     PieChart as PieChartIcon,
-    BarChart as BarChartIcon,
-    Cloud as CloudIcon,
-    Notifications as NotificationsIcon
+    BarChart as BarChartIcon
 } from '@mui/icons-material';
 import { dashboardApi, type BODDashboardData } from '../../../api/dashboardApi';
 import { useAuth } from '../../../contexts/AuthContext';
+import DashboardBanner, { type SmartInsight } from '../../../components/dashboard/DashboardBanner';
 
-// Helper function to get time-based greeting
-const getTimeGreeting = (): string => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return 'Chào buổi sáng';
-    if (hour >= 12 && hour < 18) return 'Chào buổi chiều';
-    return 'Chào buổi tối';
-};
-
-// Helper function to get role display name
-const getRoleDisplayName = (role?: string): string => {
-    switch (role) {
-        case 'bod': return 'Quản trị viên';
-        case 'accountance': return 'Kế toán';
-        case 'resident': return 'Cư dân';
-        case 'cqcn': return 'Cơ quan chức năng';
-        default: return 'Người dùng';
-    }
-};
-
-// Greeting Banner Component
-interface GreetingBannerProps {
-    userName: string;
-    userRole?: string;
-    pendingTasks: number;
-}
-
-function GreetingBanner({ userName, userRole, pendingTasks }: GreetingBannerProps) {
-    const greeting = getTimeGreeting();
-    const roleDisplay = getRoleDisplayName(userRole);
-    const displayName = userName || roleDisplay;
-
-    return (
-        <Card
-            sx={{
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3d7ab3 100%)',
-                borderRadius: 4,
-                overflow: 'hidden',
-                position: 'relative',
-                color: 'white',
-                mb: 3,
-                minHeight: 180,
-            }}
-        >
-            {/* City skyline decorative background */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    width: '50%',
-                    height: '100%',
-                    opacity: 0.3,
-                    background: `
-                        linear-gradient(to right, transparent 0%, rgba(30, 58, 95, 0.8) 100%),
-                        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Crect x='20' y='80' width='40' height='120' fill='%23fff'/%3E%3Crect x='70' y='50' width='50' height='150' fill='%23fff'/%3E%3Crect x='130' y='100' width='35' height='100' fill='%23fff'/%3E%3Crect x='175' y='30' width='45' height='170' fill='%23fff'/%3E%3Crect x='230' y='70' width='55' height='130' fill='%23fff'/%3E%3Crect x='295' y='90' width='40' height='110' fill='%23fff'/%3E%3Crect x='345' y='60' width='50' height='140' fill='%23fff'/%3E%3C/svg%3E")
-                    `,
-                    backgroundPosition: 'right bottom',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: 'cover',
-                }}
-            />
-
-            <CardContent sx={{ position: 'relative', zIndex: 1, p: 4 }}>
-                {/* Weather info badge */}
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                    <Chip
-                        icon={<CloudIcon sx={{ color: 'white !important', fontSize: 18 }} />}
-                        label="Hà Nội: 28°C • Có mây"
-                        sx={{
-                            bgcolor: 'rgba(255,255,255,0.2)',
-                            color: 'white',
-                            fontWeight: 500,
-                            '& .MuiChip-icon': { color: 'white' }
-                        }}
-                    />
-                </Stack>
-
-                {/* Main greeting */}
-                <Typography variant="h3" fontWeight="bold" sx={{ mb: 1, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-                    {greeting}, {displayName}!
-                </Typography>
-
-                {/* Subtext with pending tasks */}
-                <Typography variant="body1" sx={{ opacity: 0.9, mb: 3 }}>
-                    Hệ thống đã tự động sắp xếp ưu tiên cho bạn. Bạn có{' '}
-                    <Box component="span" sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>
-                        {pendingTasks} công việc
-                    </Box>{' '}
-                    cần duyệt hôm nay.
-                </Typography>
-
-                {/* Action button */}
-                <Button
-                    variant="contained"
-                    startIcon={<NotificationsIcon />}
-                    sx={{
-                        bgcolor: 'rgba(255,255,255,0.15)',
-                        color: 'white',
-                        borderRadius: 3,
-                        px: 3,
-                        py: 1,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        backdropFilter: 'blur(10px)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        '&:hover': {
-                            bgcolor: 'rgba(255,255,255,0.25)',
-                        }
-                    }}
-                >
-                    Báo cáo thông minh
-                </Button>
-            </CardContent>
-        </Card>
-    );
-}
 
 // Stat Card Component
 interface StatCardProps {
@@ -617,13 +499,67 @@ export default function BODDashboard() {
         time: item.created_at
     }));
 
+    // Generate Smart Insights for the report
+    const smartInsights: SmartInsight[] = [];
+
+    if (stats.pendingIncidents > 5) {
+        smartInsights.push({
+            id: 'inc-high',
+            type: 'warning',
+            title: 'Nhiều sự cố chưa xử lý',
+            description: `Có ${stats.pendingIncidents} sự cố đang chờ xử lý. Cần ưu tiên giải quyết để đảm bảo chất lượng dịch vụ.`
+        });
+    }
+
+    if (stats.pendingServiceRequests > 10) {
+        smartInsights.push({
+            id: 'srv-high',
+            type: 'warning',
+            title: 'Yêu cầu dịch vụ tích tụ',
+            description: `Có ${stats.pendingServiceRequests} yêu cầu dịch vụ đang chờ. Nên tăng cường nhân sự xử lý.`
+        });
+    }
+
+    if (stats.paymentRate < 70) {
+        smartInsights.push({
+            id: 'pay-low',
+            type: 'warning',
+            title: 'Tỷ lệ thanh toán thấp',
+            description: `Tỷ lệ thanh toán hiện tại là ${stats.paymentRate}%. Cần gửi nhắc nhở cho các căn hộ chưa thanh toán.`
+        });
+    } else if (stats.paymentRate >= 90) {
+        smartInsights.push({
+            id: 'pay-high',
+            type: 'success',
+            title: 'Tỷ lệ thanh toán tốt',
+            description: `Tỷ lệ thanh toán đạt ${stats.paymentRate}%. Hệ thống thu phí hoạt động hiệu quả.`
+        });
+    }
+
+    if (stats.pendingIncidents === 0 && stats.pendingServiceRequests === 0) {
+        smartInsights.push({
+            id: 'all-clear',
+            type: 'success',
+            title: 'Hệ thống hoạt động ổn định',
+            description: 'Không có sự cố và yêu cầu dịch vụ cần xử lý. Tiếp tục duy trì chất lượng dịch vụ!'
+        });
+    }
+
+    smartInsights.push({
+        id: 'tip-overview',
+        type: 'tip',
+        title: 'Mẹo: Theo dõi định kỳ',
+        description: 'Kiểm tra Dashboard mỗi ngày để nắm bắt tình hình tòa nhà kịp thời.'
+    });
+
     return (
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            {/* Greeting Banner */}
-            <GreetingBanner
+            {/* Greeting Banner with Smart Report */}
+            <DashboardBanner
                 userName={user?.username || 'Người dùng'}
                 userRole={user?.role}
                 pendingTasks={stats.pendingServiceRequests + stats.pendingIncidents}
+                insights={smartInsights}
             />
 
             {/* Stats Cards Row */}

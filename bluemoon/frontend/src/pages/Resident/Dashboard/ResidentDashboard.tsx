@@ -28,7 +28,6 @@ import {
     Build as ServiceIcon,
     Notifications as NotificationsIcon,
     ReportProblem as IncidentIcon,
-    Cloud as CloudIcon,
     Payment as PaymentIcon,
     SquareFoot as SquareFootIcon,
     People as PeopleIcon,
@@ -37,14 +36,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { dashboardApi, type ResidentDashboardData } from '../../../api/dashboardApi';
 import { useAuth } from '../../../contexts/AuthContext';
-
-// Helper function to get time-based greeting
-const getTimeGreeting = (): string => {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return 'Chào buổi sáng';
-    if (hour >= 12 && hour < 18) return 'Chào buổi chiều';
-    return 'Chào buổi tối';
-};
+import DashboardBanner, { type SmartInsight } from '../../../components/dashboard/DashboardBanner';
 
 // Format currency
 const formatCurrency = (value: number): string => {
@@ -54,135 +46,6 @@ const formatCurrency = (value: number): string => {
     return value.toLocaleString('vi-VN');
 };
 
-// Greeting Banner Component for Resident
-interface GreetingBannerProps {
-    userName: string;
-    apartmentCode?: string;
-    unpaidInvoices: number;
-    overdueInvoices: number;
-}
-
-function GreetingBanner({ userName, apartmentCode, unpaidInvoices, overdueInvoices }: GreetingBannerProps) {
-    const greeting = getTimeGreeting();
-    const navigate = useNavigate();
-
-    return (
-        <Card
-            sx={{
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #3d7ab3 100%)',
-                borderRadius: 4,
-                overflow: 'hidden',
-                position: 'relative',
-                color: 'white',
-                mb: 3,
-                minHeight: { xs: 160, sm: 180 },
-            }}
-        >
-            {/* City skyline decorative background */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    width: '50%',
-                    height: '100%',
-                    opacity: 0.3,
-                    background: `
-                        linear-gradient(to right, transparent 0%, rgba(30, 58, 95, 0.8) 100%),
-                        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 200'%3E%3Crect x='20' y='80' width='40' height='120' fill='%23fff'/%3E%3Crect x='70' y='50' width='50' height='150' fill='%23fff'/%3E%3Crect x='130' y='100' width='35' height='100' fill='%23fff'/%3E%3Crect x='175' y='30' width='45' height='170' fill='%23fff'/%3E%3Crect x='230' y='70' width='55' height='130' fill='%23fff'/%3E%3Crect x='295' y='90' width='40' height='110' fill='%23fff'/%3E%3Crect x='345' y='60' width='50' height='140' fill='%23fff'/%3E%3C/svg%3E")
-                    `,
-                    backgroundPosition: 'right bottom',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: 'cover',
-                    display: { xs: 'none', md: 'block' }
-                }}
-            />
-
-            <CardContent sx={{ position: 'relative', zIndex: 1, p: { xs: 2, sm: 3, md: 4 } }}>
-                {/* Weather info badge */}
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                    <Chip
-                        icon={<CloudIcon sx={{ color: 'white !important', fontSize: 18 }} />}
-                        label="Hà Nội: 28°C • Có mây"
-                        sx={{
-                            bgcolor: 'rgba(255,255,255,0.2)',
-                            color: 'white',
-                            fontWeight: 500,
-                            fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                            '& .MuiChip-icon': { color: 'white' }
-                        }}
-                    />
-                    {apartmentCode && (
-                        <Chip
-                            icon={<HomeIcon sx={{ color: 'white !important', fontSize: 18 }} />}
-                            label={`Căn hộ ${apartmentCode}`}
-                            sx={{
-                                bgcolor: 'rgba(255,255,255,0.2)',
-                                color: 'white',
-                                fontWeight: 500,
-                                fontSize: { xs: '0.7rem', sm: '0.8rem' },
-                                '& .MuiChip-icon': { color: 'white' }
-                            }}
-                        />
-                    )}
-                </Stack>
-
-                {/* Main greeting */}
-                <Typography
-                    variant="h3"
-                    fontWeight="bold"
-                    sx={{
-                        mb: 1,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                        fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' }
-                    }}
-                >
-                    {greeting}, {userName || 'Cư dân'}!
-                </Typography>
-
-                {/* Subtext with pending tasks */}
-                <Typography variant="body1" sx={{ opacity: 0.9, mb: 3, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
-                    {unpaidInvoices > 0 ? (
-                        <>
-                            Bạn có{' '}
-                            <Box component="span" sx={{ fontWeight: 'bold', textDecoration: 'underline' }}>
-                                {unpaidInvoices} hóa đơn chưa thanh toán
-                            </Box>
-                            {overdueInvoices > 0 && ` (${overdueInvoices} hóa đơn quá hạn)`}.
-                        </>
-                    ) : (
-                        'Tất cả hóa đơn của bạn đã được thanh toán đầy đủ!'
-                    )}
-                </Typography>
-
-                {/* Action button */}
-                {unpaidInvoices > 0 && (
-                    <Button
-                        variant="contained"
-                        startIcon={<PaymentIcon />}
-                        onClick={() => navigate('/resident/fee/list')}
-                        sx={{
-                            bgcolor: 'rgba(255,255,255,0.15)',
-                            color: 'white',
-                            borderRadius: 3,
-                            px: 3,
-                            py: 1,
-                            textTransform: 'none',
-                            fontWeight: 600,
-                            backdropFilter: 'blur(10px)',
-                            border: '1px solid rgba(255,255,255,0.3)',
-                            '&:hover': {
-                                bgcolor: 'rgba(255,255,255,0.25)',
-                            }
-                        }}
-                    >
-                        Thanh toán ngay
-                    </Button>
-                )}
-            </CardContent>
-        </Card>
-    );
-}
 
 // Stat Card Component
 interface StatCardProps {
@@ -544,14 +407,89 @@ export default function ResidentDashboard() {
         priority: item.priority
     }));
 
+    // Generate Smart Insights for residents
+    const smartInsights: SmartInsight[] = [];
+
+    if (stats.overdueInvoices > 0) {
+        smartInsights.push({
+            id: 'overdue',
+            type: 'warning',
+            title: 'Hóa đơn quá hạn',
+            description: `Bạn có ${stats.overdueInvoices} hóa đơn quá hạn thanh toán. Vui lòng thanh toán sớm để tránh phí trễ.`
+        });
+    }
+
+    if (stats.unpaidInvoices === 0) {
+        smartInsights.push({
+            id: 'all-paid',
+            type: 'success',
+            title: 'Thanh toán đầy đủ',
+            description: 'Tất cả hóa đơn đã được thanh toán. Cảm ơn bạn!'
+        });
+    }
+
+    if (stats.pendingServiceRequests > 0) {
+        smartInsights.push({
+            id: 'service',
+            type: 'info',
+            title: 'Yêu cầu dịch vụ đang xử lý',
+            description: `Có ${stats.pendingServiceRequests} yêu cầu dịch vụ đang được xử lý.`
+        });
+    }
+
+    if (stats.newNotifications > 0) {
+        smartInsights.push({
+            id: 'notif',
+            type: 'info',
+            title: 'Thông báo mới',
+            description: `Có ${stats.newNotifications} thông báo mới trong 7 ngày qua. Nhớ kiểm tra!`
+        });
+    }
+
+    smartInsights.push({
+        id: 'tip',
+        type: 'tip',
+        title: 'Mẹo: Thanh toán online',
+        description: 'Sử dụng QR Code để thanh toán nhanh chóng và tiện lợi qua ngân hàng.'
+    });
+
+    // Custom action button for payment
+    const paymentButton = stats.unpaidInvoices > 0 ? (
+        <Button
+            variant="contained"
+            startIcon={<PaymentIcon />}
+            onClick={() => navigate('/resident/fee/list')}
+            sx={{
+                bgcolor: 'rgba(255,255,255,0.15)',
+                color: 'white',
+                borderRadius: 3,
+                px: { xs: 2, sm: 3 },
+                py: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.25)',
+                }
+            }}
+        >
+            Thanh toán ngay
+        </Button>
+    ) : undefined;
+
     return (
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            {/* Greeting Banner */}
-            <GreetingBanner
+            {/* Greeting Banner with Smart Report */}
+            <DashboardBanner
                 userName={user?.username || 'Cư dân'}
+                userRole="resident"
                 apartmentCode={apartment?.apartment_code}
                 unpaidInvoices={stats.unpaidInvoices}
-                overdueInvoices={stats.overdueInvoices}
+                overdueCount={stats.overdueInvoices}
+                insights={smartInsights}
+                actionButton={paymentButton}
             />
 
             {/* Row 1: Stats Cards */}

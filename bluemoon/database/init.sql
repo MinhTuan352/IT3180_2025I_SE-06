@@ -361,6 +361,23 @@ CREATE TABLE audit_logs (
     INDEX idx_entity (entity_name, entity_id)
 ) ENGINE=InnoDB;
 
+-- 25. ACCESS_LOGS (LỊCH SỬ RA VÀO - Quản lý xe cộ ra vào)
+CREATE TABLE access_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    plate_number VARCHAR(20) NOT NULL,
+    vehicle_type ENUM('Ô tô', 'Xe máy') NOT NULL,
+    direction ENUM('In', 'Out') NOT NULL COMMENT 'In=Vào, Out=Ra',
+    gate VARCHAR(50) NOT NULL COMMENT 'Cổng A, Cổng B, Hầm B1',
+    status ENUM('Normal', 'Warning', 'Alert') DEFAULT 'Normal',
+    resident_id VARCHAR(20) NULL COMMENT 'NULL nếu xe lạ',
+    note TEXT,
+    image_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE SET NULL,
+    INDEX idx_plate (plate_number),
+    INDEX idx_created (created_at)
+) ENGINE=InnoDB;
+
 
 -- ===================================
 -- 3. INSERT DATA (DỮ LIỆU MẪU)
@@ -506,3 +523,13 @@ INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date,
 INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, old_values, new_values, ip_address, user_agent) VALUES 
 ('ID0001', 'UPDATE', 'fees', 'HD0003', '{"total_amount": 1000000}', '{"total_amount": 1500000}', '192.168.1.10', 'Chrome/119.0.0.0'),
 ('ID0002', 'CREATE', 'assets', 'TS001', NULL, '{"asset_code": "TS001", "name": "Thang máy A1"}', '192.168.1.15', 'Firefox/100.0');
+
+-- Dữ liệu mẫu Lịch sử Ra Vào (Access Logs)
+INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, note, image_url, created_at) VALUES
+('29A-12345', 'Ô tô', 'In', 'Cổng A', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 3 HOUR),
+('29X1-23456', 'Xe máy', 'In', 'Cổng B', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 2 HOUR 30 MINUTE),
+('30G-98765', 'Ô tô', 'Out', 'Hầm B1', 'Normal', 'R0003', 'Cư dân B-205', NULL, NOW() - INTERVAL 2 HOUR),
+('29A-12345', 'Ô tô', 'Out', 'Cổng A', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 1 HOUR 30 MINUTE),
+('51G-99999', 'Ô tô', 'In', 'Cổng A', 'Warning', NULL, 'Xe lạ chưa đăng ký', NULL, NOW() - INTERVAL 1 HOUR),
+('BLACKLIST', 'Xe máy', 'In', 'Cổng B', 'Alert', NULL, 'Biển số trong danh sách đen!', NULL, NOW() - INTERVAL 30 MINUTE),
+('30G-98765', 'Ô tô', 'In', 'Cổng A', 'Normal', 'R0003', 'Cư dân B-205', NULL, NOW() - INTERVAL 15 MINUTE);

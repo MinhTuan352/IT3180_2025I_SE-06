@@ -63,12 +63,16 @@ import LoginHistory from '../pages/Account/LoginHistory.tsx';
 
 import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
 import AccessControl from '../pages/BOD/AccessControl/AccessControl';
+import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
 
 export default function AppRoutes() {
   return (
     <Routes>
       {/* Route công khai */}
       <Route path="/signin" element={<SignIn />} />
+
+      {/* Route ẩn - Mô phỏng Barrier (chỉ truy cập qua link trực tiếp) */}
+      <Route path="/barrier-sim-8x7k2m" element={<BarrierSimulator />} />
 
       {/* Bọc các route cần bảo vệ bằng ProtectedRoutes */}
       <Route element={<ProtectedRoutes />}>

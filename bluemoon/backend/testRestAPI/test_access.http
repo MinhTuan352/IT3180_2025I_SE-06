@@ -1,0 +1,59 @@
+# File: backend/testRestAPI/test_access.http
+# Test Access Control API
+
+### Lấy danh sách lịch sử ra vào
+GET http://localhost:3000/api/access/logs
+Content-Type: application/json
+
+### Lấy lịch sử với pagination
+GET http://localhost:3000/api/access/logs?page=1&limit=10
+Content-Type: application/json
+
+### Lấy bản ghi mới nhất (polling)
+GET http://localhost:3000/api/access/latest?lastId=0
+Content-Type: application/json
+
+### Lấy thống kê hôm nay
+GET http://localhost:3000/api/access/stats
+Content-Type: application/json
+
+### Lấy danh sách xe cho simulator
+GET http://localhost:3000/api/access/simulator-vehicles
+Content-Type: application/json
+
+### Mô phỏng xe đã đăng ký VÀO
+POST http://localhost:3000/api/access/simulate
+Content-Type: application/json
+
+{
+    "plate_number": "29A-12345",
+    "direction": "In"
+}
+
+### Mô phỏng xe đã đăng ký RA
+POST http://localhost:3000/api/access/simulate
+Content-Type: application/json
+
+{
+    "plate_number": "29A-12345",
+    "direction": "Out",
+    "gate": "Hầm B1"
+}
+
+### Mô phỏng xe lạ VÀO (sẽ hiển thị Warning)
+POST http://localhost:3000/api/access/simulate
+Content-Type: application/json
+
+{
+    "plate_number": "99X-88888",
+    "direction": "In"
+}
+
+### Mô phỏng xe blacklist VÀO (sẽ hiển thị Alert)
+POST http://localhost:3000/api/access/simulate
+Content-Type: application/json
+
+{
+    "plate_number": "BLACKLIST-001",
+    "direction": "In"
+}

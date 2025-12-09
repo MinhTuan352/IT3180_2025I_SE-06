@@ -9,11 +9,11 @@ import {
   Chip,
   Stack,
   Button,
-  //Avatar,
   Divider,
+  CircularProgress,
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
 
 // Icons
@@ -26,65 +26,80 @@ import HistoryIcon from '@mui/icons-material/History';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 
+// API
+import { getAccessLogs, getLatestAccess, getAccessStats, type AccessLog, type AccessStats } from '../../../api/accessApi';
+
 // --- TYPE DEFINITIONS ---
 type SecurityStatus = 'Normal' | 'Warning' | 'Alert';
-type Direction = 'In' | 'Out';
-type VehicleType = 'Oto' | 'Xemay';
-
-interface AccessLog {
-  id: number;
-  plate_number: string;
-  time: Date;
-  gate: string;
-  direction: Direction;
-  vehicle_type: VehicleType;
-  status: SecurityStatus;
-  image_url: string; // URL ảnh chụp từ camera
-  resident_name?: string; // Có nếu là cư dân
-  note?: string;
-}
-
-// --- MOCK DATA GENERATOR (Để test UI real-time) ---
-const generateRandomLog = (id: number): AccessLog => {
-  const statuses: SecurityStatus[] = ['Normal', 'Normal', 'Normal', 'Warning', 'Alert'];
-  const directions: Direction[] = ['In', 'Out'];
-  const gates = ['Cổng A', 'Cổng B', 'Hầm B1'];
-  const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-  
-  return {
-    id: id,
-    plate_number: randomStatus === 'Normal' ? `30A-${Math.floor(Math.random()*99999)}` : 'UNKNOWN',
-    time: new Date(),
-    gate: gates[Math.floor(Math.random() * gates.length)],
-    direction: directions[Math.floor(Math.random() * directions.length)],
-    vehicle_type: Math.random() > 0.5 ? 'Oto' : 'Xemay',
-    status: randomStatus,
-    image_url: 'https://via.placeholder.com/300x200?text=Camera+Capture', // Ảnh giả
-    resident_name: randomStatus === 'Normal' ? 'Nguyễn Văn A' : undefined,
-    note: randomStatus === 'Alert' ? 'Biển số trong danh sách đen!' : (randomStatus === 'Warning' ? 'Xe lạ chưa đăng ký' : 'Cư dân A101'),
-  };
-};
 
 export default function AccessControl() {
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [isLive, setIsLive] = useState(true); // Trạng thái nhận dữ liệu real-time
   const [latestLog, setLatestLog] = useState<AccessLog | null>(null);
-  
-  // Ref để giả lập ID tăng dần
-  const idCounter = useRef(1);
+  const [stats, setStats] = useState<AccessStats>({ totalToday: 0, warningCount: 0 });
+  const [loading, setLoading] = useState(true);
 
-  // --- SIMULATE REAL-TIME SOCKET (Giả lập) ---
-  useEffect(() => {
-    let interval: any;
-    if (isLive) {
-      interval = setInterval(() => {
-        const newLog = generateRandomLog(idCounter.current++);
-        setLatestLog(newLog); // Cập nhật bảng Live Feed bên trái
-        
-        // Cập nhật bảng lịch sử (Thêm vào đầu mảng)
-        setLogs((prevLogs) => [newLog, ...prevLogs].slice(0, 50)); // Chỉ giữ 50 logs gần nhất trên UI
-      }, 3000); // 3 giây có 1 xe qua
+  // Ref để tracking ID mới nhất đã xem
+  const lastIdRef = useRef(0);
+
+  // --- LOAD INITIAL DATA ---
+  const loadInitialData = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Load logs
+      const logsResponse = await getAccessLogs(1, 50);
+      setLogs(logsResponse.data);
+
+      // Set latest log
+      if (logsResponse.data.length > 0) {
+        setLatestLog(logsResponse.data[0]);
+        lastIdRef.current = logsResponse.data[0].id;
+      }
+
+      // Load stats
+      const statsData = await getAccessStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading access data:', error);
+    } finally {
+      setLoading(false);
     }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // --- POLLING FOR NEW DATA ---
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (isLive) {
+      interval = setInterval(async () => {
+        try {
+          // Check for new logs
+          const response = await getLatestAccess(lastIdRef.current);
+
+          if (response.hasNew && response.data.length > 0) {
+            // Update latest log (show newest)
+            setLatestLog(response.data[0]);
+            lastIdRef.current = response.data[0].id;
+
+            // Add new logs to the list
+            setLogs((prevLogs) => [...response.data, ...prevLogs].slice(0, 50));
+
+            // Refresh stats
+            const statsData = await getAccessStats();
+            setStats(statsData);
+          }
+        } catch (error) {
+          console.error('Error polling for new data:', error);
+        }
+      }, 3000); // Poll every 3 seconds
+    }
+
     return () => clearInterval(interval);
   }, [isLive]);
 
@@ -104,32 +119,39 @@ export default function AccessControl() {
 
   // 2. Columns definition
   const columns: GridColDef[] = [
-    { 
-        field: 'time', 
-        headerName: 'Thời gian', 
-        width: 150, 
-        // Sửa: Nhận trực tiếp 'value' và ép kiểu 'any' hoặc 'Date' để tránh lỗi TypeScript
-        valueFormatter: (value: any) => value ? format(new Date(value), 'HH:mm:ss dd/MM') : '' 
+    {
+      field: 'created_at',
+      headerName: 'Thời gian',
+      width: 150,
+      valueFormatter: (value: string) => value ? format(new Date(value), 'HH:mm:ss dd/MM') : ''
     },
     { field: 'gate', headerName: 'Cổng', width: 100 },
-    { 
+    {
       field: 'direction', headerName: 'Hướng', width: 80,
       renderCell: (params: GridRenderCellParams) => (
         <Chip label={params.value === 'In' ? 'Vào' : 'Ra'} size="small" color={params.value === 'In' ? 'info' : 'default'} variant="outlined" />
       )
     },
     { field: 'plate_number', headerName: 'Biển số', width: 120, renderCell: (params) => <strong>{params.value}</strong> },
-    { 
+    {
       field: 'vehicle_type', headerName: 'Loại xe', width: 80,
-      renderCell: (params) => params.value === 'Oto' ? <DirectionsCarIcon color="action"/> : <TwoWheelerIcon color="action"/>
+      renderCell: (params) => params.value === 'Ô tô' ? <DirectionsCarIcon color="action" /> : <TwoWheelerIcon color="action" />
     },
     { field: 'resident_name', headerName: 'Chủ xe', width: 150, valueFormatter: (v) => v || '---' },
-    { 
+    {
       field: 'status', headerName: 'An ninh', width: 140,
       renderCell: (params: GridRenderCellParams) => getStatusChip(params.value)
     },
     { field: 'note', headerName: 'Ghi chú', flex: 1, minWidth: 200 },
   ];
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 2 }}>
@@ -140,8 +162,8 @@ export default function AccessControl() {
           TRUNG TÂM KIỂM SOÁT RA VÀO (LIVE)
         </Typography>
         <Stack direction="row" spacing={2}>
-          <Button 
-            variant={isLive ? "contained" : "outlined"} 
+          <Button
+            variant={isLive ? "contained" : "outlined"}
             color={isLive ? "success" : "inherit"}
             startIcon={isLive ? <PauseCircleOutlineIcon /> : <PlayCircleOutlineIcon />}
             onClick={() => setIsLive(!isLive)}
@@ -153,41 +175,41 @@ export default function AccessControl() {
 
       <Grid container spacing={3}>
         {/* --- KHỐI 1: LIVE FEED (Cột Trái - 4 phần) --- */}
-        <Grid sx={{xs: 12, md: 4}}>
+        <Grid sx={{ xs: 12, md: 4 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-            <span className="live-indicator" style={{ height: 10, width: 10, backgroundColor: 'red', borderRadius: '50%', display: 'inline-block', marginRight: 8 }}></span>
+            <span className="live-indicator" style={{ height: 10, width: 10, backgroundColor: isLive ? 'red' : 'gray', borderRadius: '50%', display: 'inline-block', marginRight: 8 }}></span>
             Camera Nhận diện
           </Typography>
-          
+
           {latestLog ? (
-            <Card sx={{ 
+            <Card sx={{
               border: latestLog.status === 'Alert' ? '3px solid red' : (latestLog.status === 'Warning' ? '3px solid orange' : '1px solid #ccc'),
               animation: latestLog.status === 'Alert' ? 'flash 1s infinite' : 'none'
             }}>
               <CardContent>
                 <Box sx={{ position: 'relative' }}>
-                  <img 
-                    src={latestLog.image_url} 
-                    alt="Vehicle" 
-                    style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 16 }} 
+                  <img
+                    src={latestLog.image_url || 'https://via.placeholder.com/300x200?text=Camera+Capture'}
+                    alt="Vehicle"
+                    style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 16 }}
                   />
-                  <Chip 
-                    label={latestLog.plate_number} 
+                  <Chip
+                    label={latestLog.plate_number}
                     sx={{ position: 'absolute', bottom: 24, left: 8, bgcolor: 'white', fontWeight: 'bold', fontSize: '1.2rem' }}
                   />
                 </Box>
-                
+
                 <Stack spacing={2}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h4" fontWeight="bold">{format(latestLog.time, 'HH:mm:ss')}</Typography>
+                    <Typography variant="h4" fontWeight="bold">{format(new Date(latestLog.created_at), 'HH:mm:ss')}</Typography>
                     {getStatusChip(latestLog.status)}
                   </Box>
                   <Divider />
                   <Grid container>
-                    <Grid sx={{xs: 6}}><Typography color="text.secondary">Cổng:</Typography> <strong>{latestLog.gate}</strong></Grid>
-                    <Grid sx={{xs: 6}}><Typography color="text.secondary">Hướng:</Typography> <strong>{latestLog.direction === 'In' ? 'VÀO' : 'RA'}</strong></Grid>
-                    <Grid sx={{xs: 6}}><Typography color="text.secondary">Loại xe:</Typography> <strong>{latestLog.vehicle_type}</strong></Grid>
-                    <Grid sx={{xs: 6}}><Typography color="text.secondary">Chủ hộ:</Typography> <strong>{latestLog.resident_name || 'Khách'}</strong></Grid>
+                    <Grid sx={{ xs: 6 }}><Typography color="text.secondary">Cổng:</Typography> <strong>{latestLog.gate}</strong></Grid>
+                    <Grid sx={{ xs: 6 }}><Typography color="text.secondary">Hướng:</Typography> <strong>{latestLog.direction === 'In' ? 'VÀO' : 'RA'}</strong></Grid>
+                    <Grid sx={{ xs: 6 }}><Typography color="text.secondary">Loại xe:</Typography> <strong>{latestLog.vehicle_type}</strong></Grid>
+                    <Grid sx={{ xs: 6 }}><Typography color="text.secondary">Chủ hộ:</Typography> <strong>{latestLog.resident_name || 'Khách'}</strong></Grid>
                   </Grid>
                   {latestLog.status !== 'Normal' && (
                     <Paper sx={{ p: 1, bgcolor: latestLog.status === 'Alert' ? '#ffebee' : '#fff3e0' }}>
@@ -207,25 +229,25 @@ export default function AccessControl() {
 
           {/* Quick Stats (Thống kê nhanh) */}
           <Box sx={{ mt: 3 }}>
-             <Grid container spacing={2}>
-                <Grid sx={{xs: 6}}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#e3f2fd' }}>
-                        <Typography variant="h4" color="primary.main">1,205</Typography>
-                        <Typography variant="body2">Lượt vào/ra hôm nay</Typography>
-                    </Paper>
-                </Grid>
-                <Grid sx={{xs: 6}}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#ffebee' }}>
-                        <Typography variant="h4" color="error.main">3</Typography>
-                        <Typography variant="body2">Cảnh báo an ninh</Typography>
-                    </Paper>
-                </Grid>
-             </Grid>
+            <Grid container spacing={2}>
+              <Grid sx={{ xs: 6 }}>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#e3f2fd' }}>
+                  <Typography variant="h4" color="primary.main">{stats.totalToday.toLocaleString()}</Typography>
+                  <Typography variant="body2">Lượt vào/ra hôm nay</Typography>
+                </Paper>
+              </Grid>
+              <Grid sx={{ xs: 6 }}>
+                <Paper sx={{ p: 2, textAlign: 'center', bgcolor: '#ffebee' }}>
+                  <Typography variant="h4" color="error.main">{stats.warningCount}</Typography>
+                  <Typography variant="body2">Cảnh báo an ninh</Typography>
+                </Paper>
+              </Grid>
+            </Grid>
           </Box>
         </Grid>
 
         {/* --- KHỐI 2: LỊCH SỬ RA VÀO (Cột Phải - 8 phần) --- */}
-        <Grid sx={{xs: 12, md: 8}}>
+        <Grid sx={{ xs: 12, md: 8 }}>
           <Typography variant="h6" gutterBottom>
             <HistoryIcon sx={{ mr: 1, verticalAlign: 'bottom' }} />
             Nhật ký Hoạt động
@@ -245,7 +267,7 @@ export default function AccessControl() {
           </Paper>
         </Grid>
       </Grid>
-      
+
       {/* CSS Animation cho Alert */}
       <style>
         {`

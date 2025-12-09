@@ -105,7 +105,11 @@ const residentMenuItems = [
 
 // --- THÊM MỚI: CQCN Menu (Cơ quan chức năng) ---
 const cqcnMenuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/cqcn/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
+  { text: 'Cư dân', icon: <PeopleIcon />, path: '/cqcn/resident' },
+  { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/cqcn/login-management' },
+  { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/cqcn/access-control' },
 ];
 
 export default function MainLayout() {

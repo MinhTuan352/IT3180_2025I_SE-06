@@ -1,11 +1,15 @@
 // src/pages/BOD/ResidentManagement/ResidentManagementLanding.tsx
 import { Box, Typography, Grid, Card, CardContent, CardActionArea } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 
 export default function ResidentManagementLanding() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Lấy base path từ current URL (vd: /bod/resident -> /bod, /cqcn/resident -> /cqcn)
+  const basePath = location.pathname.replace('/resident', '');
 
   return (
     <Box sx={{ mt: 5, px: 5 }}>
@@ -18,11 +22,11 @@ export default function ResidentManagementLanding() {
 
       <Grid container spacing={4} justifyContent="center">
         {/* Thẻ 1: Danh sách tổng hợp */}
-        <Grid sx={{xs: 12, md: 5}}>
+        <Grid sx={{ xs: 12, md: 5 }}>
           <Card sx={{ height: '100%', borderRadius: 4, transition: '0.3s', '&:hover': { transform: 'translateY(-5px)', boxShadow: 6 } }}>
-            <CardActionArea 
+            <CardActionArea
               sx={{ height: '100%', p: 4, textAlign: 'center' }}
-              onClick={() => navigate('/bod/resident/list')}
+              onClick={() => navigate(`${basePath}/resident/list`)}
             >
               <ListAltIcon sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
               <CardContent>
@@ -38,11 +42,11 @@ export default function ResidentManagementLanding() {
         </Grid>
 
         {/* Thẻ 2: Theo căn hộ */}
-        <Grid sx={{xs: 12, md: 5}}>
+        <Grid sx={{ xs: 12, md: 5 }}>
           <Card sx={{ height: '100%', borderRadius: 4, transition: '0.3s', '&:hover': { transform: 'translateY(-5px)', boxShadow: 6 } }}>
-            <CardActionArea 
+            <CardActionArea
               sx={{ height: '100%', p: 4, textAlign: 'center' }}
-              onClick={() => navigate('/bod/resident/lookup')}
+              onClick={() => navigate(`${basePath}/resident/lookup`)}
             >
               <ApartmentIcon sx={{ fontSize: 80, color: 'secondary.main', mb: 2 }} />
               <CardContent>

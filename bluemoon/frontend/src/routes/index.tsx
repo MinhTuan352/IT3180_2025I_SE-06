@@ -65,6 +65,7 @@ import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
 import AccessControl from '../pages/BOD/AccessControl/AccessControl';
 import AccessReport from '../pages/BOD/AccessControl/AccessReport';
 import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
+import CQCNDashboard from '../pages/CQCN/Dashboard/CQCNDashboard';
 
 export default function AppRoutes() {
   return (
@@ -193,8 +194,15 @@ export default function AppRoutes() {
 
           {/* === CQCN Routes (Cơ quan chức năng) === */}
           <Route element={<ProtectedRoutes allowedRoles={['cqcn']} />}>
-            {/* Tạm thời chỉ có trang Thông tin */}
-            {/* Routes sẽ được mở rộng thêm sau */}
+            <Route path="cqcn/dashboard" element={<CQCNDashboard />} />
+            <Route path="cqcn/resident" element={<ResidentManagementLanding />} />
+            <Route path="cqcn/resident/list" element={<ResidentList />} />
+            <Route path="cqcn/resident/lookup" element={<ResidentApartmentLookup />} />
+            <Route path="cqcn/resident/apartment/:id" element={<ResidentApartmentDetail />} />
+            <Route path="cqcn/resident/profile/:id" element={<ResidentProfile />} />
+            <Route path="cqcn/login-management" element={<LoginManagement />} />
+            <Route path="cqcn/access-control" element={<AccessControl />} />
+            <Route path="cqcn/access-report" element={<AccessReport />} />
           </Route>
 
           {/* ... các route cho Kế toán và Cư dân ... */}

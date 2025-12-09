@@ -10,15 +10,15 @@ const checkRole = require('../middleware/checkRole');
 router.use(checkAuth);
 
 // 1. Lấy danh sách căn hộ (Cho trang Tra cứu sơ đồ)
-// Chỉ BOD và Kế toán được xem sơ đồ tổng quát
-router.get('/', 
-    checkRole(['bod', 'accountance']), 
+// BOD, Kế toán, CQCN được xem sơ đồ tổng quát
+router.get('/',
+    checkRole(['bod', 'accountance', 'cqcn']),
     apartmentController.getAllApartments
 );
 
 // 2. Lấy chi tiết căn hộ
-router.get('/:id', 
-    checkRole(['bod', 'accountance']), 
+router.get('/:id',
+    checkRole(['bod', 'accountance', 'cqcn']),
     apartmentController.getApartmentDetail
 );
 

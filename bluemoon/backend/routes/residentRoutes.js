@@ -28,16 +28,16 @@ router.get('/my-apartment', residentController.getMyApartment);
 // ROUTE CHO BOD/ACCOUNTANT QUẢN LÝ CƯ DÂN
 // ========================================================
 
-// 1. Xem danh sách (Admin & Kế toán)
+// 1. Xem danh sách (Admin, Kế toán, CQCN)
 router.get('/',
-    checkRole(['bod', 'accountance']),
+    checkRole(['bod', 'accountance', 'cqcn']),
     residentController.getAllResidents
 );
 
-// 2. Xem chi tiết (Admin & Kế toán)
+// 2. Xem chi tiết (Admin, Kế toán, CQCN)
 // (Mở rộng: Cư dân cũng có thể xem profile của chính mình - logic này sẽ xử lý sau)
 router.get('/:id',
-    checkRole(['bod', 'accountance']),
+    checkRole(['bod', 'accountance', 'cqcn']),
     residentController.getResidentDetail
 );
 

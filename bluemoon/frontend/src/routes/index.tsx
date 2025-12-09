@@ -63,6 +63,7 @@ import LoginHistory from '../pages/Account/LoginHistory.tsx';
 
 import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
 import AccessControl from '../pages/BOD/AccessControl/AccessControl';
+import AccessReport from '../pages/BOD/AccessControl/AccessReport';
 import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
 
 export default function AppRoutes() {
@@ -114,6 +115,7 @@ export default function AppRoutes() {
 
             <Route path="bod/login-management" element={<LoginManagement />} />
             <Route path="bod/access-control" element={<AccessControl />} />
+            <Route path="bod/access-report" element={<AccessReport />} />
 
             <Route path="bod/fee/list" element={<FeeList />} />
 

@@ -19,4 +19,10 @@ router.post('/simulate', accessController.simulateAccess);
 // Lấy danh sách xe cho simulator
 router.get('/simulator-vehicles', accessController.getSimulatorVehicles);
 
+// Lấy dữ liệu báo cáo phân tích
+router.get('/report', accessController.getReportData);
+
+// Xuất báo cáo PDF
+router.get('/export-pdf', accessController.exportReportPDF);
+
 module.exports = router;

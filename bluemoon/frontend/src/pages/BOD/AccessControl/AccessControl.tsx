@@ -15,6 +15,7 @@ import {
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 // Icons
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
@@ -25,6 +26,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import HistoryIcon from '@mui/icons-material/History';
 import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 
 // API
 import { getAccessLogs, getLatestAccess, getAccessStats, type AccessLog, type AccessStats } from '../../../api/accessApi';
@@ -33,6 +35,7 @@ import { getAccessLogs, getLatestAccess, getAccessStats, type AccessLog, type Ac
 type SecurityStatus = 'Normal' | 'Warning' | 'Alert';
 
 export default function AccessControl() {
+  const navigate = useNavigate();
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [isLive, setIsLive] = useState(true); // Trạng thái nhận dữ liệu real-time
   const [latestLog, setLatestLog] = useState<AccessLog | null>(null);
@@ -162,6 +165,13 @@ export default function AccessControl() {
           TRUNG TÂM KIỂM SOÁT RA VÀO (LIVE)
         </Typography>
         <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<AssessmentIcon />}
+            onClick={() => navigate('/bod/access-report')}
+          >
+            Xem báo cáo
+          </Button>
           <Button
             variant={isLive ? "contained" : "outlined"}
             color={isLive ? "success" : "inherit"}

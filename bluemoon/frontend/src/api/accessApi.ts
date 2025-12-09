@@ -82,3 +82,45 @@ export const getSimulatorVehicles = async (): Promise<SimulatorVehicle[]> => {
     const response = await axios.get(`${API_BASE}/access/simulator-vehicles`);
     return response.data.data;
 };
+
+// Report Types
+export interface ReportStats {
+    total: number;
+    normalCount: number;
+    warningCount: number;
+    alertCount: number;
+    inCount: number;
+    outCount: number;
+}
+
+export interface DailyStats {
+    date: string;
+    total: number;
+    normal: number;
+    abnormal: number;
+}
+
+export interface ReportData {
+    stats: ReportStats;
+    anomalies: AccessLog[];
+    dailyStats: DailyStats[];
+    period: { startDate: string; endDate: string };
+}
+
+/**
+ * Lấy dữ liệu báo cáo phân tích
+ */
+export const getReportData = async (startDate: string, endDate: string): Promise<ReportData> => {
+    const response = await axios.get(`${API_BASE}/access/report`, {
+        params: { startDate, endDate }
+    });
+    return response.data.data;
+};
+
+/**
+ * Xuất báo cáo PDF - mở trong tab mới
+ */
+export const exportReportPDF = (startDate: string, endDate: string): void => {
+    const url = `${API_BASE}/access/export-pdf?startDate=${startDate}&endDate=${endDate}`;
+    window.open(url, '_blank');
+};

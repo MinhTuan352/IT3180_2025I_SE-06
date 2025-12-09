@@ -243,3 +243,261 @@ exports.getSimulatorVehicles = async (req, res) => {
         res.status(500).json({ success: false, message: 'Lỗi server khi lấy danh sách xe' });
     }
 };
+
+/**
+ * GET /api/access/report
+ * Lấy dữ liệu báo cáo phân tích ra vào
+ */
+exports.getReportData = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        // Validate dates
+        if (!startDate || !endDate) {
+            return res.status(400).json({ success: false, message: 'Thiếu ngày bắt đầu hoặc kết thúc' });
+        }
+
+        // Thống kê tổng quan
+        const [[stats]] = await db.query(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'Normal' THEN 1 ELSE 0 END) as normalCount,
+                SUM(CASE WHEN status = 'Warning' THEN 1 ELSE 0 END) as warningCount,
+                SUM(CASE WHEN status = 'Alert' THEN 1 ELSE 0 END) as alertCount,
+                SUM(CASE WHEN direction = 'In' THEN 1 ELSE 0 END) as inCount,
+                SUM(CASE WHEN direction = 'Out' THEN 1 ELSE 0 END) as outCount
+            FROM access_logs
+            WHERE DATE(created_at) BETWEEN ? AND ?
+        `, [startDate, endDate]);
+
+        // Danh sách các trường hợp bất thường
+        const [anomalies] = await db.query(`
+            SELECT 
+                al.id,
+                al.plate_number,
+                al.vehicle_type,
+                al.direction,
+                al.gate,
+                al.status,
+                al.note,
+                al.created_at,
+                r.full_name as resident_name,
+                a.apartment_code
+            FROM access_logs al
+            LEFT JOIN residents r ON al.resident_id = r.id
+            LEFT JOIN apartments a ON r.apartment_id = a.id
+            WHERE DATE(al.created_at) BETWEEN ? AND ?
+            AND al.status IN ('Warning', 'Alert')
+            ORDER BY al.created_at DESC
+        `, [startDate, endDate]);
+
+        // Thống kê theo ngày (để vẽ biểu đồ)
+        const [dailyStats] = await db.query(`
+            SELECT 
+                DATE(created_at) as date,
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'Normal' THEN 1 ELSE 0 END) as normal,
+                SUM(CASE WHEN status IN ('Warning', 'Alert') THEN 1 ELSE 0 END) as abnormal
+            FROM access_logs
+            WHERE DATE(created_at) BETWEEN ? AND ?
+            GROUP BY DATE(created_at)
+            ORDER BY date
+        `, [startDate, endDate]);
+
+        res.json({
+            success: true,
+            data: {
+                stats,
+                anomalies,
+                dailyStats,
+                period: { startDate, endDate }
+            }
+        });
+    } catch (error) {
+        console.error('Error getting report data:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi lấy dữ liệu báo cáo' });
+    }
+};
+
+/**
+ * GET /api/access/export-pdf
+ * Xuất báo cáo PDF
+ */
+exports.exportReportPDF = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ success: false, message: 'Thiếu ngày bắt đầu hoặc kết thúc' });
+        }
+
+        // Lấy dữ liệu thống kê
+        const [[stats]] = await db.query(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'Normal' THEN 1 ELSE 0 END) as normalCount,
+                SUM(CASE WHEN status = 'Warning' THEN 1 ELSE 0 END) as warningCount,
+                SUM(CASE WHEN status = 'Alert' THEN 1 ELSE 0 END) as alertCount
+            FROM access_logs
+            WHERE DATE(created_at) BETWEEN ? AND ?
+        `, [startDate, endDate]);
+
+        // Lấy danh sách bất thường
+        const [anomalies] = await db.query(`
+            SELECT 
+                al.plate_number,
+                al.vehicle_type,
+                al.direction,
+                al.gate,
+                al.status,
+                al.note,
+                al.created_at
+            FROM access_logs al
+            WHERE DATE(al.created_at) BETWEEN ? AND ?
+            AND al.status IN ('Warning', 'Alert')
+            ORDER BY al.created_at DESC
+        `, [startDate, endDate]);
+
+        // Tạo nội dung HTML cho báo cáo
+        const formatDate = (dateStr) => {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('vi-VN');
+        };
+
+        const formatDateTime = (dateStr) => {
+            const d = new Date(dateStr);
+            return d.toLocaleString('vi-VN');
+        };
+
+        let anomalyRows = anomalies.map((a, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td>${formatDateTime(a.created_at)}</td>
+                <td><strong>${a.plate_number}</strong></td>
+                <td>${a.vehicle_type}</td>
+                <td>${a.gate}</td>
+                <td>${a.direction === 'In' ? 'Vào' : 'Ra'}</td>
+                <td style="color: ${a.status === 'Alert' ? 'red' : 'orange'}; font-weight: bold;">
+                    ${a.status === 'Alert' ? '🚨 BÁO ĐỘNG' : '⚠️ Cảnh báo'}
+                </td>
+                <td>${a.note || ''}</td>
+            </tr>
+        `).join('');
+
+        const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Báo cáo Ra Vào - BlueMoon</title>
+            <style>
+                body { font-family: 'Times New Roman', serif; margin: 40px; font-size: 14px; }
+                .header { text-align: center; margin-bottom: 30px; }
+                .header h1 { margin: 0; color: #1a237e; }
+                .header h2 { margin: 10px 0; }
+                .info { margin-bottom: 20px; }
+                .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+                .stat-box { text-align: center; padding: 15px; border: 1px solid #ccc; border-radius: 8px; min-width: 120px; }
+                .stat-box h3 { margin: 0; font-size: 28px; }
+                .stat-box.warning { background: #fff3e0; color: #e65100; }
+                .stat-box.alert { background: #ffebee; color: #c62828; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background: #1a237e; color: white; }
+                tr:nth-child(even) { background: #f9f9f9; }
+                .footer { margin-top: 40px; text-align: right; }
+                .signature { margin-top: 60px; display: flex; justify-content: space-between; }
+                .signature div { text-align: center; width: 200px; }
+                @media print { body { margin: 20px; } }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🏢 CHUNG CƯ BLUEMOON</h1>
+                <h2>BÁO CÁO TÌNH HÌNH RA VÀO</h2>
+                <p>Từ ngày ${formatDate(startDate)} đến ngày ${formatDate(endDate)}</p>
+            </div>
+
+            <div class="info">
+                <p><strong>Ngày lập báo cáo:</strong> ${new Date().toLocaleString('vi-VN')}</p>
+            </div>
+
+            <h3>I. THỐNG KÊ TỔNG QUAN</h3>
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>${stats.total}</h3>
+                    <p>Tổng lượt</p>
+                </div>
+                <div class="stat-box">
+                    <h3>${stats.normalCount}</h3>
+                    <p>Bình thường</p>
+                </div>
+                <div class="stat-box warning">
+                    <h3>${stats.warningCount}</h3>
+                    <p>Cảnh báo</p>
+                </div>
+                <div class="stat-box alert">
+                    <h3>${stats.alertCount}</h3>
+                    <p>Báo động</p>
+                </div>
+            </div>
+
+            <h3>II. CHI TIẾT CÁC TRƯỜNG HỢP BẤT THƯỜNG</h3>
+            ${anomalies.length > 0 ? `
+            <table>
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Thời gian</th>
+                        <th>Biển số</th>
+                        <th>Loại xe</th>
+                        <th>Cổng</th>
+                        <th>Hướng</th>
+                        <th>Trạng thái</th>
+                        <th>Ghi chú</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${anomalyRows}
+                </tbody>
+            </table>
+            ` : '<p><em>Không có trường hợp bất thường trong khoảng thời gian này.</em></p>'}
+
+            <div class="signature">
+                <div>
+                    <p><strong>Người lập báo cáo</strong></p>
+                    <br><br><br>
+                    <p>___________________</p>
+                </div>
+                <div>
+                    <p><strong>Ban Quản Trị</strong></p>
+                    <br><br><br>
+                    <p>___________________</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p><em>Báo cáo được xuất từ hệ thống BlueMoon Apartment Management</em></p>
+            </div>
+
+            <script>
+                // Tự động mở hộp thoại in khi trang load
+                window.onload = function() {
+                    setTimeout(function() {
+                        window.print();
+                    }, 500);
+                };
+            </script>
+        </body>
+        </html>
+        `;
+
+        // Trả về HTML (client sẽ dùng để print/save as PDF)
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(htmlContent);
+
+    } catch (error) {
+        console.error('Error exporting PDF:', error);
+        res.status(500).json({ success: false, message: 'Lỗi server khi xuất báo cáo' });
+    }
+};

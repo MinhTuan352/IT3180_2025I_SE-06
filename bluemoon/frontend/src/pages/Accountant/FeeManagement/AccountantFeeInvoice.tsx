@@ -65,11 +65,14 @@ export default function AccountantFeeInvoice() {
       setLoading(true);
       const res: any = await feeApi.getDetail(feeId);
       // Safety check
-      const data = (res as any).data || res;
-      if (data) {
-        setInvoice(data);
+      const resData = (res as any).data || res;
+      // Handle response structure: { success: true, data: Fee } OR direct Fee
+      const finalData = resData.data ? resData.data : resData;
+
+      if (finalData) {
+        setInvoice(finalData);
         // Default pay amount to remaining if not set
-        setPayAmount(data.amount_remaining);
+        setPayAmount(finalData.amount_remaining || 0);
       }
     } catch (err) {
       console.error(err);
@@ -158,7 +161,7 @@ export default function AccountantFeeInvoice() {
             <Grid sx={{ textAlign: 'right' }}>
               <Typography variant="body2">Mẫu số: 01GTKT0/001</Typography>
               <Typography variant="body2">Ký hiệu: BM/23E</Typography>
-              <Typography variant="body2">Số: {invoice.id.slice(-7)}</Typography>
+              <Typography variant="body2">Số: {invoice.id ? String(invoice.id).slice(-7) : '...'}</Typography>
               <Typography variant="h5" sx={{ fontWeight: 'bold', mt: 1 }}>HÓA ĐƠN DỊCH VỤ</Typography>
               <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
                 Ngày {new Date(invoice.created_at || Date.now()).getDate()} tháng {new Date(invoice.created_at || Date.now()).getMonth() + 1} năm {new Date(invoice.created_at || Date.now()).getFullYear()}

@@ -2,7 +2,9 @@
 import {
     Box, Typography, Paper, Grid, Avatar, Chip, Divider,
     List, ListItem, ListItemAvatar, ListItemText,
-    CircularProgress, Alert, Button
+    CircularProgress, Alert, Button,
+    Dialog, DialogContent, DialogActions,
+    IconButton, Stack
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import ApartmentIcon from '@mui/icons-material/Apartment';
@@ -12,6 +14,10 @@ import EmailIcon from '@mui/icons-material/Email';
 import SquareFootIcon from '@mui/icons-material/SquareFoot';
 import LayersIcon from '@mui/icons-material/Layers';
 import HomeIcon from '@mui/icons-material/Home';
+import CloseIcon from '@mui/icons-material/Close';
+import CakeIcon from '@mui/icons-material/Cake';
+import WcIcon from '@mui/icons-material/Wc';
+import BadgeIcon from '@mui/icons-material/Badge';
 import { apartmentApi } from '../../../api/apartmentApi';
 
 interface Member {
@@ -35,10 +41,184 @@ interface ApartmentWithMembers {
     members: Member[];
 }
 
+// Member Detail Modal Component
+interface MemberDetailModalProps {
+    open: boolean;
+    onClose: () => void;
+    member: Member | null;
+}
+
+function MemberDetailModal({ open, onClose, member }: MemberDetailModalProps) {
+    if (!member) return null;
+
+    const formatDate = (dateString?: string) => {
+        if (!dateString) return 'Chưa cập nhật';
+        try {
+            return new Date(dateString).toLocaleDateString('vi-VN');
+        } catch {
+            return dateString;
+        }
+    };
+
+    const getGenderText = (gender?: string) => {
+        if (!gender) return 'Chưa cập nhật';
+        switch (gender.toLowerCase()) {
+            case 'male':
+            case 'nam':
+                return 'Nam';
+            case 'female':
+            case 'nữ':
+            case 'nu':
+                return 'Nữ';
+            default:
+                return gender;
+        }
+    };
+
+    const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', py: 1.5, borderBottom: '1px solid', borderColor: 'grey.100' }}>
+            <Box sx={{ color: 'primary.main', mr: 2, display: 'flex', alignItems: 'center' }}>
+                {icon}
+            </Box>
+            <Box sx={{ flex: 1 }}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                    {label}
+                </Typography>
+                <Typography variant="body1" fontWeight={500}>
+                    {value}
+                </Typography>
+            </Box>
+        </Box>
+    );
+
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="xs"
+            fullWidth
+            PaperProps={{
+                sx: { borderRadius: 3, overflow: 'hidden' }
+            }}
+        >
+            {/* Header with gradient background */}
+            <Box
+                sx={{
+                    background: member.role === 'owner'
+                        ? 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)'
+                        : 'linear-gradient(135deg, #546e7a 0%, #90a4ae 100%)',
+                    color: 'white',
+                    pt: 3,
+                    pb: 5,
+                    px: 3,
+                    position: 'relative'
+                }}
+            >
+                <IconButton
+                    onClick={onClose}
+                    sx={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        color: 'white',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+                    }}
+                >
+                    <CloseIcon />
+                </IconButton>
+                <Typography variant="h6" fontWeight="bold" textAlign="center">
+                    Thông tin cá nhân
+                </Typography>
+            </Box>
+
+            {/* Avatar centered overlapping header and content */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: -4, mb: 2 }}>
+                <Avatar
+                    sx={{
+                        width: 80,
+                        height: 80,
+                        bgcolor: member.role === 'owner' ? 'primary.main' : 'grey.500',
+                        fontSize: '2rem',
+                        fontWeight: 'bold',
+                        border: '4px solid white',
+                        boxShadow: 3
+                    }}
+                >
+                    {member.full_name?.charAt(0) || 'U'}
+                </Avatar>
+            </Box>
+
+            <DialogContent sx={{ pt: 0 }}>
+                {/* Name and Role */}
+                <Stack alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold" textAlign="center">
+                        {member.full_name}
+                    </Typography>
+                    <Chip
+                        label={member.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}
+                        color={member.role === 'owner' ? 'primary' : 'default'}
+                        size="small"
+                    />
+                    {member.status && (
+                        <Chip
+                            label={member.status}
+                            color="success"
+                            size="small"
+                            variant="outlined"
+                        />
+                    )}
+                </Stack>
+
+                {/* Info Rows */}
+                <Box sx={{ bgcolor: 'grey.50', borderRadius: 2, px: 2 }}>
+                    <InfoRow
+                        icon={<PhoneIcon />}
+                        label="Số điện thoại"
+                        value={member.phone || 'Chưa cập nhật'}
+                    />
+                    <InfoRow
+                        icon={<EmailIcon />}
+                        label="Email"
+                        value={member.email || 'Chưa cập nhật'}
+                    />
+                    <InfoRow
+                        icon={<WcIcon />}
+                        label="Giới tính"
+                        value={getGenderText(member.gender)}
+                    />
+                    <InfoRow
+                        icon={<CakeIcon />}
+                        label="Ngày sinh"
+                        value={formatDate(member.dob)}
+                    />
+                    <InfoRow
+                        icon={<BadgeIcon />}
+                        label="Vai trò"
+                        value={member.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}
+                    />
+                </Box>
+            </DialogContent>
+
+            <DialogActions sx={{ p: 2, pt: 0 }}>
+                <Button
+                    onClick={onClose}
+                    variant="contained"
+                    fullWidth
+                    sx={{ borderRadius: 2 }}
+                >
+                    Đóng
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+}
+
 export default function ResidentApartmentInfo() {
     const [apartment, setApartment] = useState<ApartmentWithMembers | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+    const [memberModalOpen, setMemberModalOpen] = useState(false);
 
     useEffect(() => {
         fetchApartment();
@@ -56,6 +236,16 @@ export default function ResidentApartmentInfo() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleMemberClick = (member: Member) => {
+        setSelectedMember(member);
+        setMemberModalOpen(true);
+    };
+
+    const handleCloseMemberModal = () => {
+        setMemberModalOpen(false);
+        setSelectedMember(null);
     };
 
     // Loading state
@@ -184,6 +374,9 @@ export default function ResidentApartmentInfo() {
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
                     Danh sách Thành viên
                 </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Nhấn vào thành viên để xem thông tin chi tiết
+                </Typography>
                 <Divider sx={{ mb: 2 }} />
 
                 {apartment.members && apartment.members.length > 0 ? (
@@ -192,16 +385,28 @@ export default function ResidentApartmentInfo() {
                             <Box key={member.id}>
                                 <ListItem
                                     alignItems="flex-start"
+                                    onClick={() => handleMemberClick(member)}
                                     sx={{
                                         px: 1,
-                                        py: 2
+                                        py: 2,
+                                        cursor: 'pointer',
+                                        borderRadius: 2,
+                                        transition: 'background-color 0.2s',
+                                        '&:hover': {
+                                            bgcolor: 'primary.50',
+                                            '& .MuiAvatar-root': {
+                                                transform: 'scale(1.05)',
+                                                boxShadow: 2
+                                            }
+                                        }
                                     }}
                                 >
                                     <ListItemAvatar>
                                         <Avatar sx={{
                                             bgcolor: member.role === 'owner' ? 'primary.main' : 'grey.400',
                                             width: 48,
-                                            height: 48
+                                            height: 48,
+                                            transition: 'transform 0.2s, box-shadow 0.2s'
                                         }}>
                                             {member.full_name?.charAt(0) || 'U'}
                                         </Avatar>
@@ -256,6 +461,14 @@ export default function ResidentApartmentInfo() {
                     </Typography>
                 )}
             </Paper>
+
+            {/* Member Detail Modal */}
+            <MemberDetailModal
+                open={memberModalOpen}
+                onClose={handleCloseMemberModal}
+                member={selectedMember}
+            />
         </Box>
     );
 }
+

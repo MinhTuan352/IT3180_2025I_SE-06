@@ -50,7 +50,17 @@ const feeApi = {
     getAll: (params?: FeeFilters) => {
         return axiosClient.get('/fees', { params });
     },
-    // ... other methods ...
+
+    // Tạo hóa đơn mới
+    create: (data: any) => {
+        return axiosClient.post('/fees', data);
+    },
+
+    // Lấy chi tiết hóa đơn
+    getDetail: (id: string) => {
+        return axiosClient.get(`/fees/${id}`);
+    },
+
     getTypes: () => {
         return axiosClient.get('/fees/types');
     },

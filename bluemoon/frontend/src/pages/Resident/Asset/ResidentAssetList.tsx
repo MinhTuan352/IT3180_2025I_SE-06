@@ -68,7 +68,7 @@ export default function ResidentAssetList() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await assetApi.getAll();
+      const response = await assetApi.getForResident();
       // Backend returns { success: true, count: X, data: [...] }
       const data = (response.data as any).data || response.data || [];
       setAssets(data);

@@ -21,6 +21,11 @@ const assetApi = {
         return axiosClient.get('/assets');
     },
 
+    // Get assets for Resident (Read-only)
+    getForResident: () => {
+        return axiosClient.get('/assets/resident');
+    },
+
     // Get asset detail by ID
     getDetail: (id: number) => {
         return axiosClient.get(`/assets/${id}`);

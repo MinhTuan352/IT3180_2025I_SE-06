@@ -10,166 +10,190 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Tooltip,
-  InputAdornment, // <-- Để thêm icon vào TextField
-  Divider,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useState, useRef, type ChangeEvent } from 'react'; // <-- Thêm state, ref
-import InfoIcon from '@mui/icons-material/Info';
-import UploadFileIcon from '@mui/icons-material/UploadFile'; // <-- Icon Upload
-
-// --- Mock Data Loại Phí (Thay bằng API call) ---
-const mockFeeTypesForSelect = [
-  { id: 'PQL', name: 'Phí Quản lý' },
-  { id: 'PXE-OTO', name: 'Phí Gửi xe Ô tô' },
-  { id: 'PXE-MAY', name: 'Phí Gửi xe Máy' },
-  { id: 'PNUOC', name: 'Phí Nước Sinh Hoạt' },
-  { id: 'PSC', name: 'Phí Sửa chữa Chung' },
-];
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import SaveIcon from '@mui/icons-material/Save';
+import toast from 'react-hot-toast';
+import feeApi, { type FeeType } from '../../../api/feeApi';
 
 export default function PaymentSetupCreate() {
   const navigate = useNavigate();
-  const [selectedFeeId, setSelectedFeeId] = useState('');
-  const [qrCodeFile, setQrCodeFile] = useState<File | null>(null);
-  const qrInputRef = useRef<HTMLInputElement>(null);
+  const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleCreate = () => {
-    // Logic gọi API tạo TT Thanh toán mới
-    alert('Đã tạo Thông tin Thanh toán mới (Giả lập)');
-    navigate('/accountance/fee/setup/paymentSetup');
+  const [formData, setFormData] = useState({
+    fee_type_id: '',
+    syntax_template: '',
+    description: '',
+  });
+
+  // Fetch fee types on mount
+  useEffect(() => {
+    const fetchFeeTypes = async () => {
+      try {
+        setLoading(true);
+        const response = await feeApi.getTypes();
+        const data = response.data?.data || response.data || [];
+        setFeeTypes(data);
+      } catch (err: any) {
+        console.error('Error fetching fee types:', err);
+        setError('Không thể tải danh sách loại phí.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeeTypes();
+  }, []);
+
+  const handleChange = (field: string) => (e: any) => {
+    setFormData({ ...formData, [field]: e.target.value });
+    setError(null);
   };
 
-  // --- Handlers cho Upload QR ---
-  const handleQrUploadClick = () => {
-    qrInputRef.current?.click();
-  };
+  // Auto-generate syntax when fee type is selected
+  const handleFeeTypeChange = (e: any) => {
+    const feeTypeId = e.target.value;
+    setFormData({ ...formData, fee_type_id: feeTypeId });
 
-  const handleQrFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setQrCodeFile(e.target.files[0]);
+    // Find selected fee type and generate default syntax
+    const selectedFee = feeTypes.find(f => f.id === Number(feeTypeId));
+    if (selectedFee) {
+      const code = selectedFee.fee_code.toUpperCase();
+      let defaultSyntax = `[MaCanHo] ${code} T[Thang]`;
+
+      if (code.includes('PQL') || code.includes('QUANLY')) {
+        defaultSyntax = '[MaCanHo] PQL T[Thang]/[Nam]';
+      } else if (code.includes('NUOC')) {
+        defaultSyntax = '[MaCanHo] NUOC T[Thang]';
+      } else if (code.includes('DIEN')) {
+        defaultSyntax = '[MaCanHo] DIEN T[Thang]';
+      } else if (code.includes('XE')) {
+        defaultSyntax = '[MaCanHo] GUIXE [BienSo] T[Thang]';
+      }
+
+      setFormData(prev => ({ ...prev, fee_type_id: feeTypeId, syntax_template: defaultSyntax }));
     }
-     e.target.value = ''; // Reset để có thể chọn lại
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.fee_type_id || !formData.syntax_template) {
+      setError('Vui lòng chọn loại phí và nhập cú pháp.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Update the fee type with syntax template
+      await feeApi.updateType(formData.fee_type_id, {
+        syntax_template: formData.syntax_template,
+      });
+
+      toast.success('Đã lưu cấu hình thanh toán!');
+      navigate('/accountant/setup/payment');
+    } catch (err: any) {
+      console.error('Error saving:', err);
+      toast.error(err.response?.data?.message || 'Có lỗi xảy ra khi lưu.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Paper sx={{ p: 3, maxWidth: 700, margin: 'auto', borderRadius: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3, textAlign: 'center' }}>
-        Thêm Thông tin Thanh toán Mới
-      </Typography>
-
-      {/* Input file ẩn cho QR */}
-      <input
-        type="file"
-        ref={qrInputRef}
-        onChange={handleQrFileSelected}
-        style={{ display: 'none' }}
-        accept="image/png, image/jpeg" // Chỉ chấp nhận ảnh
-      />
-
-      <Grid container spacing={3}>
-        {/* ID Cấu hình (Tự tạo hoặc nhập tay) */}
-        <Grid size={12}>
-          <TextField
-            label="Mã Cấu hình TT (Viết liền, không dấu)"
-            fullWidth
-            required
-            helperText="Ví dụ: TT-PQL, TT-XEOTO. Dùng để liên kết và quản lý."
-             InputProps={{
-              endAdornment: (
-                <Tooltip title="Mã này giúp phân biệt các cấu hình thanh toán khác nhau.">
-                  <InfoIcon color="action" sx={{ cursor: 'help' }} />
-                </Tooltip>
-              )
-            }}
-          />
-        </Grid>
-
-        {/* Áp dụng cho Loại phí */}
-        <Grid size={12}>
-          <FormControl fullWidth required>
-            <InputLabel>Áp dụng cho Loại phí</InputLabel>
-            <Select
-              label="Áp dụng cho Loại phí"
-              value={selectedFeeId}
-              onChange={(e) => setSelectedFeeId(e.target.value)}
-            >
-              {mockFeeTypesForSelect.map(fee => (
-                <MenuItem key={fee.id} value={fee.id}>{fee.name} ({fee.id})</MenuItem>
-              ))}
-            </Select>
-            <Typography variant="caption" sx={{ mt: 0.5, ml: 1.5, color: 'text.secondary' }}>
-              Chọn loại phí mà thông tin thanh toán này sẽ được sử dụng.
-            </Typography>
-          </FormControl>
-        </Grid>
-
-        <Grid size={12}> <Divider sx={{ my: 1 }} /> </Grid>
-
-        {/* Thông tin Ngân hàng */}
-        <Grid size={12}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>Thông tin Ngân hàng</Typography>
-        </Grid>
-        <Grid size={12}>
-          <TextField label="Tên Ngân hàng" fullWidth required />
-        </Grid>
-        <Grid size={6}>
-          <TextField label="Số tài khoản" fullWidth required />
-        </Grid>
-        <Grid size={6}>
-          <TextField label="Tên Chủ tài khoản" fullWidth required />
-        </Grid>
-
-        <Grid size={12}> <Divider sx={{ my: 1 }} /> </Grid>
-
-        {/* Nội dung và QR */}
-         <Grid size={12}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 'medium', mb: 1 }}>Nội dung chuyển khoản & Mã QR</Typography>
-        </Grid>
-        <Grid size={12}>
-          <TextField
-            label="Nội dung chuyển khoản (Gợi ý cho Cư dân)"
-            fullWidth
-            required
-            helperText="Sử dụng [MaCanHo], [Ten], [Thang], [Nam], [MaHD] để tạo mẫu nội dung."
-            placeholder="Ví dụ: [MaCanHo] - [Ten] - PQL T[Thang]/[Nam]"
-          />
-        </Grid>
-        <Grid size={12}>
-          <TextField
-            label="Mã QR Thanh toán"
-            fullWidth
-            value={qrCodeFile ? qrCodeFile.name : 'Chưa chọn ảnh'} // Hiển thị tên file đã chọn
-            InputProps={{
-              readOnly: true, // Không cho nhập tay
-              endAdornment: (
-                <InputAdornment position="end">
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<UploadFileIcon />}
-                    onClick={handleQrUploadClick}
-                  >
-                    {qrCodeFile ? 'Đổi ảnh' : 'Chọn ảnh'}
-                  </Button>
-                </InputAdornment>
-              ),
-            }}
-            helperText="Tải lên ảnh mã QR đã tạo từ ứng dụng ngân hàng."
-          />
-        </Grid>
-
-      </Grid>
-
-      {/* Nút Tạo và Hủy */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 4 }}>
-        <Button onClick={() => navigate('/accountance/fee/setup/paymentSetup')}>
-          Hủy
+    <Paper sx={{ p: 3, borderRadius: 3 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/accountant/setup/payment')}
+          sx={{ mr: 2 }}
+        >
+          Quay lại
         </Button>
-        <Button variant="contained" onClick={handleCreate}>
-          Tạo Thông tin TT
-        </Button>
+        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+          Thêm Cấu hình Thanh toán
+        </Typography>
       </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Thiết lập cú pháp nội dung chuyển khoản cho từng loại phí. Cú pháp này sẽ được sử dụng khi tạo hóa đơn cho cư dân.
+        <br />
+        <strong>Các biến hỗ trợ:</strong> [MaCanHo], [Thang], [Nam], [BienSo], [NoiDung]
+      </Alert>
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <FormControl fullWidth>
+              <InputLabel>Chọn Loại phí</InputLabel>
+              <Select
+                label="Chọn Loại phí"
+                value={formData.fee_type_id}
+                onChange={handleFeeTypeChange}
+              >
+                {feeTypes.map(fee => (
+                  <MenuItem key={fee.id} value={fee.id}>
+                    {fee.fee_name} ({fee.fee_code})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              label="Cú pháp Nội dung Chuyển khoản"
+              fullWidth
+              value={formData.syntax_template}
+              onChange={handleChange('syntax_template')}
+              placeholder="Ví dụ: [MaCanHo] - [Ten] - PQL T[Thang]/[Nam]"
+              helperText="Nội dung này sẽ xuất hiện trên hóa đơn và khi chuyển khoản"
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              label="Ghi chú (Tùy chọn)"
+              fullWidth
+              multiline
+              rows={2}
+              value={formData.description}
+              onChange={handleChange('description')}
+              placeholder="Mô tả thêm về cấu hình này..."
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/accountant/setup/payment')}
+                disabled={saving}
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                onClick={handleSubmit}
+                disabled={saving}
+              >
+                {saving ? 'Đang lưu...' : 'Lưu Cấu hình'}
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
+      )}
     </Paper>
   );
 }

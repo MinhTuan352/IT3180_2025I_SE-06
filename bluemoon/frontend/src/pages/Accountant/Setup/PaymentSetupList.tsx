@@ -23,41 +23,77 @@ import {
   TextField,
   Stack,
   Alert,
+  CircularProgress,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import toast from 'react-hot-toast';
+import feeApi, { type FeeType } from '../../../api/feeApi';
 
-// --- Mock Data: Shared Bank Info ---
-const mockSharedBankInfo = {
-  bankName: 'Vietcombank',
-  accountNumber: '123456789012',
-  accountName: 'BQL CHUNG CU BLUEMOON',
-  qrCodeUrl: '/shared-qr.png',
+// Default bank info (can be made configurable later)
+const DEFAULT_BANK_INFO = {
+  bankName: 'MB Bank',
+  accountNumber: '016785366886',
+  accountName: 'LE HOANG PHUONG LINH',
+  qrCodeUrl: '/qr-mbbank.png',
 };
-
-// --- Mock Data: Fee Syntax Configuration ---
-const mockFeeSyntaxes = [
-  { id: 'TT-PQL', feeName: 'Phí Quản lý', syntax: '[MaCanHo] PQL T[Thang]/[Nam]' },
-  { id: 'TT-XEOTO', feeName: 'Phí Gửi xe Ô tô', syntax: '[MaCanHo] XEOTO [BienSo] T[Thang]' },
-  { id: 'TT-XEMAY', feeName: 'Phí Gửi xe Máy', syntax: '[MaCanHo] XEMAY [BienSo] T[Thang]' },
-  { id: 'TT-NUOC', feeName: 'Phí Nước', syntax: '[MaCanHo] NUOC T[Thang]' },
-  { id: 'TT-DIEN', feeName: 'Phí Điện', syntax: '[MaCanHo] DIEN T[Thang]' },
-  { id: 'TT-KHAC', feeName: 'Phí Khác', syntax: '[MaCanHo] KHAC [NoiDung]' },
-];
 
 export default function PaymentSetupList() {
   // State for Shared Info
-  const [bankInfo, setBankInfo] = useState(mockSharedBankInfo);
+  const [bankInfo, setBankInfo] = useState(DEFAULT_BANK_INFO);
   const [openBankModal, setOpenBankModal] = useState(false);
-  const [tempBankInfo, setTempBankInfo] = useState(mockSharedBankInfo);
+  const [tempBankInfo, setTempBankInfo] = useState(DEFAULT_BANK_INFO);
 
-  // State for Syntaxes
-  const [syntaxes, setSyntaxes] = useState(mockFeeSyntaxes);
-  const [editingSyntaxId, setEditingSyntaxId] = useState<string | null>(null);
+  // State for Fee Types (as syntax config)
+  const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Editing state
+  const [editingSyntaxId, setEditingSyntaxId] = useState<number | null>(null);
   const [tempSyntax, setTempSyntax] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Fetch fee types on mount
+  useEffect(() => {
+    fetchFeeTypes();
+  }, []);
+
+  const fetchFeeTypes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await feeApi.getTypes();
+      const data = response.data?.data || response.data || [];
+      setFeeTypes(data);
+    } catch (err: any) {
+      console.error('Error fetching fee types:', err);
+      setError('Không thể tải danh sách loại phí.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate default syntax based on fee code
+  const getDefaultSyntax = (feeCode: string) => {
+    const code = feeCode.toUpperCase();
+    if (code.includes('PQL') || code.includes('QUANLY')) {
+      return '[MaCanHo] PQL T[Thang]/[Nam]';
+    }
+    if (code.includes('NUOC') || code.includes('WATER')) {
+      return '[MaCanHo] NUOC T[Thang]';
+    }
+    if (code.includes('DIEN') || code.includes('ELECTRIC')) {
+      return '[MaCanHo] DIEN T[Thang]';
+    }
+    if (code.includes('XE') || code.includes('PARK')) {
+      return '[MaCanHo] GUIXE [BienSo] T[Thang]';
+    }
+    return `[MaCanHo] ${code} T[Thang]`;
+  };
 
   // --- Handlers: Bank Info ---
   const handleEditBankInfo = () => {
@@ -68,21 +104,34 @@ export default function PaymentSetupList() {
   const handleSaveBankInfo = () => {
     setBankInfo({ ...tempBankInfo });
     setOpenBankModal(false);
-    // TODO: Call API to save shared settings
+    toast.success('Đã lưu thông tin tài khoản!');
+    // Note: In future, save to backend API
   };
 
   // --- Handlers: Syntax ---
-  const handleEditSyntax = (id: string, currentSyntax: string) => {
+  const handleEditSyntax = (id: number, currentSyntax: string) => {
     setEditingSyntaxId(id);
     setTempSyntax(currentSyntax);
   };
 
-  const handleSaveSyntax = (id: string) => {
-    setSyntaxes(prev => prev.map(item =>
-      item.id === id ? { ...item, syntax: tempSyntax } : item
-    ));
-    setEditingSyntaxId(null);
-    // TODO: Call API to save syntax config
+  const handleSaveSyntax = async (id: number) => {
+    setSaving(true);
+    try {
+      // Update via API
+      await feeApi.updateType(String(id), { syntax_template: tempSyntax });
+
+      // Update local state
+      setFeeTypes(prev => prev.map(item =>
+        item.id === id ? { ...item, syntax_template: tempSyntax } as any : item
+      ));
+      setEditingSyntaxId(null);
+      toast.success('Đã lưu cú pháp!');
+    } catch (err: any) {
+      console.error('Error saving syntax:', err);
+      toast.error('Không thể lưu cú pháp.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancelEditSyntax = () => {
@@ -95,9 +144,11 @@ export default function PaymentSetupList() {
         Thiết lập Thông tin Thanh toán & Cú pháp
       </Typography>
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
       <Grid container spacing={3}>
         {/* --- SECTION 1: SHARED BANK INFO --- */}
-        <Grid sx={{ xs: 12, md: 5 }}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Card sx={{ height: '100%', bgcolor: '#f8f9fa', border: '1px solid #e0e0e0' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -139,7 +190,7 @@ export default function PaymentSetupList() {
                     <img
                       src={bankInfo.qrCodeUrl}
                       alt="QR Code"
-                      style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+                      style={{ maxWidth: '100%', height: 'auto', display: 'block', maxHeight: 200 }}
                     />
                   </Box>
                 </Box>
@@ -149,7 +200,7 @@ export default function PaymentSetupList() {
         </Grid>
 
         {/* --- SECTION 2: SYNTAX TABLE --- */}
-        <Grid sx={{ xs: 12, md: 7 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
@@ -161,57 +212,78 @@ export default function PaymentSetupList() {
                 Các biến hỗ trợ: <strong>[MaCanHo], [Thang], [Nam], [BienSo], [NoiDung]</strong>
               </Alert>
 
-              <TableContainer sx={{ border: '1px solid #eee', borderRadius: 1 }}>
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: '#f1f1f1' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Loại phí</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Cú pháp (Template)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 'bold', width: 100 }}>Thao tác</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {syntaxes.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell>{row.feeName}</TableCell>
-                        <TableCell>
-                          {editingSyntaxId === row.id ? (
-                            <TextField
-                              fullWidth
-                              size="small"
-                              value={tempSyntax}
-                              onChange={(e) => setTempSyntax(e.target.value)}
-                              sx={{ bgcolor: 'white' }}
-                            />
-                          ) : (
-                            <Typography sx={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'primary.main' }}>
-                              {row.syntax}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          {editingSyntaxId === row.id ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <IconButton size="small" color="success" onClick={() => handleSaveSyntax(row.id)}>
-                                <SaveIcon fontSize="small" />
-                              </IconButton>
-                              <Button size="small" color="inherit" onClick={handleCancelEditSyntax} sx={{ minWidth: 30 }}>
-                                X
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Tooltip title="Chỉnh sửa cú pháp">
-                              <IconButton size="small" onClick={() => handleEditSyntax(row.id, row.syntax)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </TableCell>
+              {loading ? (
+                <Box display="flex" justifyContent="center" py={4}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <TableContainer sx={{ border: '1px solid #eee', borderRadius: 1 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: '#f1f1f1' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Loại phí</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Cú pháp (Template)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 'bold', width: 100 }}>Thao tác</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {feeTypes.map((row) => {
+                        const currentSyntax = (row as any).syntax_template || getDefaultSyntax(row.fee_code);
+                        return (
+                          <TableRow key={row.id}>
+                            <TableCell>{row.fee_name}</TableCell>
+                            <TableCell>
+                              {editingSyntaxId === row.id ? (
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  value={tempSyntax}
+                                  onChange={(e) => setTempSyntax(e.target.value)}
+                                  sx={{ bgcolor: 'white' }}
+                                />
+                              ) : (
+                                <Typography sx={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'primary.main' }}>
+                                  {currentSyntax}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell align="right">
+                              {editingSyntaxId === row.id ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                  <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={() => handleSaveSyntax(row.id)}
+                                    disabled={saving}
+                                  >
+                                    {saving ? <CircularProgress size={16} /> : <SaveIcon fontSize="small" />}
+                                  </IconButton>
+                                  <Button size="small" color="inherit" onClick={handleCancelEditSyntax} sx={{ minWidth: 30 }}>
+                                    X
+                                  </Button>
+                                </Box>
+                              ) : (
+                                <Tooltip title="Chỉnh sửa cú pháp">
+                                  <IconButton size="small" onClick={() => handleEditSyntax(row.id, currentSyntax)}>
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {feeTypes.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                            Chưa có loại phí nào. Vui lòng thêm loại phí trước.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>

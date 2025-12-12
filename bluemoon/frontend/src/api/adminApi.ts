@@ -153,5 +153,31 @@ export const adminApi = {
     return (response.data as any).data || response.data;
   },
 
-  // (Các hàm create, update, delete sẽ thêm sau)
+  // Tạo tài khoản admin mới
+  create: async (data: any): Promise<any> => {
+    const url = '/users/create-admin';
+    const response = await axiosClient.post(url, data);
+    return (response.data as any).data || response.data;
+  },
+
+  // Cập nhật thông tin admin
+  update: async (id: string, data: any): Promise<any> => {
+    const url = `/users/${id}`;
+    const response = await axiosClient.put(url, data);
+    return (response.data as any).data || response.data;
+  },
+
+  // Reset mật khẩu
+  resetPassword: async (id: string, newPassword: string): Promise<any> => {
+    const url = `/users/${id}/reset-password`;
+    const response = await axiosClient.post(url, { newPassword });
+    return response.data;
+  },
+
+  // Khóa/Mở khóa tài khoản
+  toggleStatus: async (id: string, is_active: boolean): Promise<any> => {
+    const url = `/users/${id}/status`;
+    const response = await axiosClient.put(url, { is_active });
+    return response.data;
+  },
 };

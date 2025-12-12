@@ -36,7 +36,7 @@ import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
 
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
-import feeApi, { type Fee } from '../../../api/feeApi';
+import feeApi, { type Fee, type FeeType } from '../../../api/feeApi';
 import toast, { Toaster } from 'react-hot-toast';
 
 import { apartmentApi } from '../../../api/apartmentApi';
@@ -45,11 +45,7 @@ import { format, parseISO } from 'date-fns';
 
 type FeeStatus = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn' | 'Đã hủy' | 'Thanh toán một phần';
 
-interface FeeType {
-  id: number;
-  name: string;
-  default_amount?: number;
-}
+
 
 const SIDEBAR_WIDTH_OPEN = 240;
 const SIDEBAR_WIDTH_COLLAPSED = 72;
@@ -407,7 +403,7 @@ export default function AccountantFeeList() {
             let feeTypeId = 1; // Default
             if (feeTypeName) {
               const safeFeeTypeName = String(feeTypeName).toLowerCase();
-              const ft = currentFeeTypes.find(t => t.name && String(t.name).toLowerCase() === safeFeeTypeName);
+              const ft = currentFeeTypes.find(t => t.fee_name && String(t.fee_name).toLowerCase() === safeFeeTypeName);
               if (ft) feeTypeId = ft.id;
             }
 
@@ -626,7 +622,7 @@ export default function AccountantFeeList() {
                   >
                     {feeTypes.map((type) => (
                       <MenuItem key={type.id} value={type.id}>
-                        {type.name}
+                        {type.fee_name}
                       </MenuItem>
                     ))}
                   </Select>

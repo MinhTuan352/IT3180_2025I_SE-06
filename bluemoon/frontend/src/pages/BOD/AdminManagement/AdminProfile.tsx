@@ -43,7 +43,7 @@ const mockData = {
 
 export default function AdminProfile() {
   // --- THÊM MỚI: Lấy ID từ URL ---
-  const { id } = useParams<{ id: string }>(); 
+  const { id } = useParams<{ id: string }>();
   const [userData, setUserData] = useState<any>(null);
 
   // --- THÊM MỚI: Giả lập việc fetch data ---
@@ -81,12 +81,12 @@ export default function AdminProfile() {
           xs: 12,
           md: 4
         }}>
-          <Card sx={{ 
-            p: 3, 
-            display: 'flex', 
-            flexDirection: 'column', 
+          <Card sx={{
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            textAlign: 'center' 
+            textAlign: 'center'
           }}>
             <Avatar
               sx={{
@@ -96,10 +96,10 @@ export default function AdminProfile() {
               }}
             />
             <Typography variant="h6" gutterBottom>
-              {id} {/* Hiển thị ID thật */}
+              {userData.fullName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {userData.username} {/* Hiển thị username */}
+              {userData.username}
             </Typography>
           </Card>
         </Grid>
@@ -159,13 +159,13 @@ export default function AdminProfile() {
               }}>
                 <TextField label="Email" type="email" fullWidth defaultValue={userData.email} />
               </Grid>
-              
+
               <Grid size={{
                 xs: 12
               }}>
-                 <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                   Thông tin tài khoản
-                 </Typography>
+                <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                  Thông tin tài khoản
+                </Typography>
               </Grid>
               <Grid size={{
                 xs: 12,
@@ -200,15 +200,15 @@ export default function AdminProfile() {
           </Card>
         </Grid>
       </Grid>
-      
+
       {/* Nút Cập nhật */}
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        mt: 3 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'flex-end',
+        mt: 3
       }}>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           size="large"
           onClick={handleUpdateAdmin}
         >

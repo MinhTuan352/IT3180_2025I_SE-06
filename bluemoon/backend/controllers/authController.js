@@ -85,7 +85,8 @@ const authController = {
                         username: user.username,
                         email: user.email,
                         role: user.role_code,
-                        role_name: user.role_name
+                        role_name: user.role_name,
+                        full_name: user.full_name
                     },
                     accessToken,
                     refreshToken

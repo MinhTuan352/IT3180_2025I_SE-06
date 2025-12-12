@@ -6,6 +6,7 @@ export interface User {
   id: string;
   username: string;
   role: 'bod' | 'accountance' | 'resident' | 'cqcn'; // Dựa trên cấu trúc của bạn
+  full_name?: string; // Tên thật của người dùng
 }
 
 // Định nghĩa những gì Context sẽ cung cấp

@@ -18,12 +18,12 @@ import HistoryIcon from '@mui/icons-material/History';
 export default function AccountInfo() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  // Dữ liệu giả lập để hiển thị
+
+  // Dữ liệu lấy từ AuthContext
   const [formData] = useState({
     username: user?.username || 'admin.bod',
     password: 'password123', // Giá trị giả để hiện dấu chấm
-    fullName: 'Nguyễn Văn Quản Trị',
+    fullName: user?.full_name || user?.username || 'Không xác định',
     role: user?.role?.toUpperCase() || 'BOD'
   });
 
@@ -42,19 +42,19 @@ export default function AccountInfo() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Card sx={{ textAlign: 'center', p: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-              <Avatar 
-                src="/static/images/avatar/2.jpg" 
-                sx={{ width: 150, height: 150, border: '4px solid #f0f0f0' }} 
+              <Avatar
+                src="/static/images/avatar/2.jpg"
+                sx={{ width: 150, height: 150, border: '4px solid #f0f0f0' }}
               />
             </Box>
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{formData.fullName}</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>{formData.role}</Typography>
-            
+
             <Divider sx={{ my: 2 }} />
-            
-            <Button 
-              variant="outlined" 
-              startIcon={<HistoryIcon />} 
+
+            <Button
+              variant="outlined"
+              startIcon={<HistoryIcon />}
               fullWidth
               onClick={handleNavigateToHistory}
             >

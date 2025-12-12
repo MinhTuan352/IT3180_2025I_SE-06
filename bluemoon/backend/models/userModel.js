@@ -25,9 +25,12 @@ const User = {
     findByUsername: async (username) => {
         try {
             const query = `
-                SELECT u.*, r.role_code, r.role_name 
+                SELECT u.*, r.role_code, r.role_name,
+                       COALESCE(a.full_name, res.full_name) as full_name
                 FROM users u
                 JOIN roles r ON u.role_id = r.id
+                LEFT JOIN admins a ON u.id = a.user_id
+                LEFT JOIN residents res ON u.id = res.user_id
                 WHERE u.username = ? AND u.is_active = TRUE
             `;
             const [rows] = await db.execute(query, [username]);

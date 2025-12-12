@@ -190,7 +190,7 @@ export default function ResidentApartmentDetail() {
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Avatar sx={{
-                          bgcolor: member.role === 'Chủ hộ' ? 'primary.main' : 'secondary.main',
+                          bgcolor: member.role === 'owner' ? 'primary.main' : 'secondary.main',
                           mr: 2
                         }}>
                           <PersonIcon />

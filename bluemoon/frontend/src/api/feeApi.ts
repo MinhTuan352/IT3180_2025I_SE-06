@@ -106,6 +106,11 @@ const feeApi = {
     // [MỚI] Gửi nhắc nợ hàng loạt
     sendBatchReminder: (data: { invoice_ids?: string[]; filter?: string }) => {
         return axiosClient.post('/fees/batch-remind', data);
+    },
+
+    // Xác nhận thanh toán (manual payment by Accountant)
+    pay: (id: string, data: { amount_paid: number; payment_method: string }) => {
+        return axiosClient.post(`/fees/${id}/pay`, data);
     }
 };
 

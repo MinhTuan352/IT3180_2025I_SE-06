@@ -133,7 +133,7 @@ export default function BuildingInfo() {
   const [tabValue, setTabValue] = useState(0);
   const [projectInfo, setProjectInfo] = useState<BuildingInfoType>(defaultProjectInfo);
   const [regulations, setRegulations] = useState<Regulation[]>(defaultRegulations);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   // Edit modals
   const [editProjectOpen, setEditProjectOpen] = useState(false);

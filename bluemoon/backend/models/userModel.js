@@ -235,6 +235,29 @@ const User = {
         }
     },
 
+    /**
+     * Lấy chi tiết admin theo user_id (Join cả users và admins)
+     * Dùng cho trang hồ sơ quản trị viên
+     */
+    getAdminById: async (userId) => {
+        try {
+            const query = `
+                SELECT 
+                    u.id, u.username, u.email, u.phone, u.is_active, u.role_id, u.created_at,
+                    r.role_code, r.role_name,
+                    a.full_name, a.dob, a.gender, a.cccd
+                FROM users u
+                JOIN roles r ON u.role_id = r.id
+                LEFT JOIN admins a ON u.id = a.user_id
+                WHERE u.id = ?
+            `;
+            const [rows] = await db.execute(query, [userId]);
+            return rows[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    },
+
     // ==========================================
     // 2. CÁC HÀM MỚI (SPRINT 2) - TRANSACTION CAO CẤP
     // ==========================================

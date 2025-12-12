@@ -148,9 +148,9 @@ export const adminApi = {
 
   // Lấy chi tiết (Dùng cho trang Profile sau này)
   getById: async (id: string): Promise<AdminData> => {
-    const url = `/admins/${id}`;
+    const url = `/users/${id}`;
     const response = await axiosClient.get(url);
-    return response.data;
+    return (response.data as any).data || response.data;
   },
 
   // (Các hàm create, update, delete sẽ thêm sau)

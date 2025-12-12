@@ -12,58 +12,84 @@ import {
   FormControl,
   InputLabel,
   Paper,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
-import { useParams } from 'react-router-dom'; // --- THÊM MỚI ---
-import { useState, useEffect } from 'react'; // --- THÊM MỚI ---
+import { useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { adminApi } from '../../../api/adminApi';
 
-// (Giả lập dữ liệu, sau này bạn sẽ thay bằng API call)
-const mockData = {
-  'ID0001': {
-    fullName: 'Nguyễn Văn A',
-    dob: '1990-01-01',
-    gender: 'Nam',
-    cccd: '012345678901',
-    phone: '0900000001',
-    email: 'admin.a@bluemoon.com',
-    role: 1, // ID của BQT
-    username: 'admin.a',
-  },
-  'ID0002': {
-    fullName: 'Nguyễn Văn B',
-    dob: '1992-05-10',
-    gender: 'Nam',
-    cccd: '012345678902',
-    phone: '0900000002',
-    email: 'ketoan.b@bluemoon.com',
-    role: 2, // ID của Kế toán
-    username: 'ketoan.b',
-  },
-  // ... (thêm data cho các ID khác)
-};
+// Định nghĩa interface cho dữ liệu admin
+interface AdminProfileData {
+  id: string;
+  username: string;
+  email: string;
+  phone: string;
+  is_active: boolean;
+  role_id: number;
+  role_code: string;
+  role_name: string;
+  full_name: string;
+  dob: string;
+  gender: string;
+  cccd: string;
+}
 
 export default function AdminProfile() {
-  // --- THÊM MỚI: Lấy ID từ URL ---
   const { id } = useParams<{ id: string }>();
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<AdminProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // --- THÊM MỚI: Giả lập việc fetch data ---
   useEffect(() => {
-    if (id && (mockData as any)[id]) {
-      setUserData((mockData as any)[id]);
-    }
-    // (Trong tương lai, bạn sẽ gọi API ở đây, ví dụ: adminApi.getById(id))
+    const fetchAdminData = async () => {
+      if (!id) {
+        setError('Không tìm thấy ID người dùng.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await adminApi.getById(id);
+        setUserData(data as unknown as AdminProfileData);
+      } catch (err: any) {
+        console.error('Error fetching admin data:', err);
+        setError(err.response?.data?.message || 'Không thể tải thông tin người dùng.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdminData();
   }, [id]);
 
   const handleUpdateAdmin = () => {
     alert('Logic cập nhật tài khoản sẽ được thêm vào đây!');
   };
 
+  if (loading) {
+    return (
+      <Paper sx={{ p: 3, borderRadius: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Đang tải thông tin...</Typography>
+      </Paper>
+    );
+  }
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Paper>
+    );
+  }
+
   if (!userData) {
     return (
       <Paper sx={{ p: 3, borderRadius: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
-          Đang tải thông tin...
-        </Typography>
+        <Alert severity="warning">Không tìm thấy thông tin người dùng.</Alert>
       </Paper>
     );
   }
@@ -96,7 +122,7 @@ export default function AdminProfile() {
               }}
             />
             <Typography variant="h6" gutterBottom>
-              {userData.fullName}
+              {userData.full_name}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {userData.username}
@@ -115,7 +141,7 @@ export default function AdminProfile() {
               <Grid size={{
                 xs: 12
               }}>
-                <TextField label="Họ và tên" fullWidth defaultValue={userData.fullName} />
+                <TextField label="Họ và tên" fullWidth defaultValue={userData.full_name} />
               </Grid>
               <Grid size={{
                 xs: 12,
@@ -173,9 +199,10 @@ export default function AdminProfile() {
               }}>
                 <FormControl fullWidth>
                   <InputLabel>Vai trò</InputLabel>
-                  <Select label="Vai trò" defaultValue={userData.role}>
+                  <Select label="Vai trò" defaultValue={userData.role_id}>
                     <MenuItem value={1}>BQT (Ban quản trị)</MenuItem>
                     <MenuItem value={2}>Kế toán</MenuItem>
+                    <MenuItem value={4}>Cơ quan chức năng</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

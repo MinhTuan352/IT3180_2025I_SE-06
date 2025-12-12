@@ -14,7 +14,7 @@ const checkRole = require('../middleware/checkRole');
 router.use(checkAuth);
 
 // 2. Chỉ Ban quản trị (BOD) mới được quyền quản lý User
-router.use(checkRole(['bod'])); 
+router.use(checkRole(['bod']));
 
 // ==========================================
 // CÁC ROUTE QUẢN LÝ (CŨ)
@@ -40,5 +40,8 @@ router.post('/create-admin', userController.createManagementAccount);
 // [POST] /api/users/create-resident
 // Tạo tài khoản cư dân (Kèm thông tin căn hộ)
 router.post('/create-resident', userController.createResidentAccount);
+
+// [GET] /api/users/:id - Lấy chi tiết một user (admin) theo ID
+router.get('/:id', userController.getAdminById);
 
 module.exports = router;

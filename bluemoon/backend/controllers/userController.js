@@ -4,7 +4,7 @@ const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 
 const userController = {
-    
+
     // ==========================================
     // 1. CÁC HÀM QUẢN LÝ CŨ (GIỮ NGUYÊN)
     // ==========================================
@@ -38,10 +38,10 @@ const userController = {
             }
 
             await User.updateStatus(id, is_active);
-            
-            res.json({ 
-                success: true, 
-                message: is_active ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.' 
+
+            res.json({
+                success: true,
+                message: is_active ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.'
             });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
@@ -123,10 +123,10 @@ const userController = {
      */
     createResidentAccount: async (req, res) => {
         try {
-            const { 
-                username, password, email, phone, 
-                full_name, gender, dob, cccd, 
-                apartment_id, role, hometown, occupation 
+            const {
+                username, password, email, phone,
+                full_name, gender, dob, cccd,
+                apartment_id, role, hometown, occupation
             } = req.body;
 
             // 1. Validate
@@ -162,6 +162,31 @@ const userController = {
                 return res.status(400).json({ message: 'Mã căn hộ không tồn tại.' });
             }
             res.status(500).json({ message: 'Lỗi server khi tạo tài khoản.', error: error.message });
+        }
+    },
+
+    /**
+     * [GET] /api/users/:id
+     * Lấy chi tiết admin theo ID
+     */
+    getAdminById: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const admin = await User.getAdminById(id);
+
+            if (!admin) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy người dùng.'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: admin
+            });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     }
 };

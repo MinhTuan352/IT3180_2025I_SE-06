@@ -553,9 +553,9 @@ INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, old_values
 -- Dữ liệu mẫu Lịch sử Ra Vào (Access Logs)
 INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, note, image_url, created_at) VALUES
 ('29A-12345', 'Ô tô', 'In', 'Cổng A', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 3 HOUR),
-('29X1-23456', 'Xe máy', 'In', 'Cổng B', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 2 HOUR 30 MINUTE),
+('29X1-23456', 'Xe máy', 'In', 'Cổng B', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL '2:30' HOUR_MINUTE),
 ('30G-98765', 'Ô tô', 'Out', 'Hầm B1', 'Normal', 'R0003', 'Cư dân B-205', NULL, NOW() - INTERVAL 2 HOUR),
-('29A-12345', 'Ô tô', 'Out', 'Cổng A', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL 1 HOUR 30 MINUTE),
+('29A-12345', 'Ô tô', 'Out', 'Cổng A', 'Normal', 'R0001', 'Cư dân A-101', NULL, NOW() - INTERVAL '1:30' HOUR_MINUTE),
 ('51G-99999', 'Ô tô', 'In', 'Cổng A', 'Warning', NULL, 'Xe lạ chưa đăng ký', NULL, NOW() - INTERVAL 1 HOUR),
 ('BLACKLIST', 'Xe máy', 'In', 'Cổng B', 'Alert', NULL, 'Biển số trong danh sách đen!', NULL, NOW() - INTERVAL 30 MINUTE),
 ('30G-98765', 'Ô tô', 'In', 'Cổng A', 'Normal', 'R0003', 'Cư dân B-205', NULL, NOW() - INTERVAL 15 MINUTE);

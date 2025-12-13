@@ -301,6 +301,17 @@ export default function AssetList() {
                 onChange={handleChange}
               />
             </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Lịch bảo trì tiếp theo"
+                name="next_maintenance"
+                type="date"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={currentAsset.next_maintenance ? new Date(currentAsset.next_maintenance).toISOString().split('T')[0] : ''}
+                onChange={handleChange}
+              />
+            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>

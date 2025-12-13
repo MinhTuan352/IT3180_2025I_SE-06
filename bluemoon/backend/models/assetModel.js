@@ -103,7 +103,7 @@ const Asset = {
      */
     update: async (id, data) => {
         try {
-            const { name, description, location, purchase_date, price, status } = data;
+            const { name, description, location, purchase_date, price, status, next_maintenance } = data;
 
             // Lưu ý: Không cho phép cập nhật asset_code (Mã tài sản thường cố định)
             const query = `
@@ -122,8 +122,30 @@ const Asset = {
                 id
             ]);
 
+            // Cập nhật lịch bảo trì nếu có next_maintenance
+            if (next_maintenance) {
+                // Kiểm tra xem đã có lịch bảo trì "Lên lịch" nào chưa
+                const checkQuery = `SELECT id FROM maintenance_schedules WHERE asset_id = ? AND status = 'Lên lịch'`;
+                const [existing] = await db.execute(checkQuery, [id]);
+
+                if (existing.length > 0) {
+                    // Update existing
+                    await db.execute(
+                        `UPDATE maintenance_schedules SET scheduled_date = ? WHERE id = ?`,
+                        [next_maintenance, existing[0].id]
+                    );
+                } else {
+                    // Create new
+                    await db.execute(
+                        `INSERT INTO maintenance_schedules (asset_id, title, scheduled_date, status) VALUES (?, ?, ?, 'Lên lịch')`,
+                        [id, `Bảo trì định kỳ tài sản ${name}`, next_maintenance]
+                    );
+                }
+            }
+
             return { id, ...data };
         } catch (error) {
+            console.error("Error updating asset:", error);
             throw error;
         }
     },

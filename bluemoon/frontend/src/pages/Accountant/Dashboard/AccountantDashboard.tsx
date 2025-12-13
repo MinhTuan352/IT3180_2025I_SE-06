@@ -1,4 +1,5 @@
 // File: frontend/src/pages/Accountant/Dashboard/AccountantDashboard.tsx
+import * as XLSX from 'xlsx';
 
 import { useState, useEffect } from 'react';
 import {
@@ -33,6 +34,7 @@ import {
     AccessTime as AccessTimeIcon
 } from '@mui/icons-material';
 import { dashboardApi, type AccountantDashboardData } from '../../../api/dashboardApi';
+import feeApi, { type Fee } from '../../../api/feeApi';
 import { useAuth } from '../../../contexts/AuthContext';
 import DashboardBanner, { type SmartInsight } from '../../../components/dashboard/DashboardBanner';
 
@@ -442,12 +444,18 @@ function OverdueTable({ data }: OverdueTableProps) {
     );
 }
 
+// Helper: Format full currency for export
+const formatCurrencyFull = (value: number): string => {
+    return value ? value.toLocaleString('vi-VN') + ' đ' : '0 đ';
+};
+
 // Main Dashboard Component
 export default function AccountantDashboard() {
     const { user } = useAuth();
     const [data, setData] = useState<AccountantDashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [fees, setFees] = useState<Fee[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -462,8 +470,130 @@ export default function AccountantDashboard() {
                 setLoading(false);
             }
         };
+        const fetchFees = async () => {
+            try {
+                const res: any = await feeApi.getAll();
+                const dataList = res.data || res;
+                if (Array.isArray(dataList)) {
+                    setFees(dataList);
+                } else if (dataList.data && Array.isArray(dataList.data)) {
+                    setFees(dataList.data);
+                }
+            } catch (err) {
+                console.error('Error fetching fees:', err);
+            }
+        };
         fetchData();
+        fetchFees();
     }, []);
+
+    // Export Financial Report as Excel with 4 sheets
+    const handleExportFinanceReport = () => {
+        const now = new Date();
+        const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const fileName = `BaoCaoTaiChinh_${dateStr}.xlsx`;
+
+        // Current dashboard data
+        const currentStats = data?.stats;
+
+        // === Sheet 1: Tổng quan (Overview) ===
+        const overviewData = [
+            ['BÁO CÁO TÀI CHÍNH'],
+            [`Ngày xuất: ${now.toLocaleDateString('vi-VN')} ${now.toLocaleTimeString('vi-VN')}`],
+            [],
+            ['THỐNG KÊ TỔNG QUAN'],
+            ['Chỉ số', 'Giá trị'],
+            ['Tổng số hóa đơn', currentStats?.totalInvoices || 0],
+            ['Tổng thu dự kiến', formatCurrencyFull(currentStats?.totalRevenue || 0)],
+            ['Đã thu', formatCurrencyFull((currentStats?.totalRevenue || 0) - (currentStats?.totalDebt || 0))],
+            ['Dư nợ', formatCurrencyFull(currentStats?.totalDebt || 0)],
+            ['Tỷ lệ thu', `${currentStats?.collectionRate || 0}%`],
+            [],
+            ['THỐNG KÊ THEO TRẠNG THÁI'],
+            ['Trạng thái', 'Số lượng'],
+            ['Đã thanh toán', currentStats?.paidInvoices || 0],
+            ['Chưa thanh toán', currentStats?.unpaidInvoices || 0],
+            ['Quá hạn', currentStats?.overdueInvoices || 0],
+            ['Thanh toán một phần', fees.filter(f => f.status === 'Thanh toán một phần').length],
+        ];
+        const wsOverview = XLSX.utils.aoa_to_sheet(overviewData);
+
+        // === Sheet 2: Theo loại phí (By Fee Type) ===
+        const feeTypeData = [
+            ['THỐNG KÊ THEO LOẠI PHÍ'],
+            ['Tên loại phí', 'Số lượng hóa đơn', 'Tổng thu', 'Đã thu', 'Dư nợ', 'Tỷ lệ thu (%)'],
+        ];
+        // Group fees by fee type
+        const feeByType: { [key: string]: { count: number; total: number; paid: number; remaining: number } } = {};
+        fees.forEach(fee => {
+            const typeName = fee.fee_name || 'Khác';
+            if (!feeByType[typeName]) {
+                feeByType[typeName] = { count: 0, total: 0, paid: 0, remaining: 0 };
+            }
+            feeByType[typeName].count++;
+            feeByType[typeName].total += Number(fee.total_amount) || 0;
+            feeByType[typeName].paid += Number(fee.amount_paid) || 0;
+            feeByType[typeName].remaining += Number(fee.amount_remaining) || 0;
+        });
+        Object.entries(feeByType).forEach(([typeName, data]) => {
+            const rate = data.total > 0 ? ((data.paid / data.total) * 100).toFixed(1) : '0';
+            feeTypeData.push([
+                typeName,
+                data.count as any,
+                formatCurrencyFull(data.total) as any,
+                formatCurrencyFull(data.paid) as any,
+                formatCurrencyFull(data.remaining) as any,
+                `${rate}%` as any
+            ]);
+        });
+        const wsFeeType = XLSX.utils.aoa_to_sheet(feeTypeData);
+
+        // === Sheet 3: Theo trạng thái (By Status) ===
+        const statusData = [
+            ['THỐNG KÊ THEO TRẠNG THÁI'],
+            ['Trạng thái', 'Số lượng', 'Tổng dư nợ'],
+        ];
+        const statuses = ['Đã thanh toán', 'Chưa thanh toán', 'Quá hạn', 'Thanh toán một phần', 'Đã hủy'];
+        statuses.forEach(status => {
+            const filtered = fees.filter(f => f.status === status);
+            const totalRemaining = filtered.reduce((sum, f) => sum + (Number(f.amount_remaining) || 0), 0);
+            statusData.push([status, filtered.length as any, formatCurrencyFull(totalRemaining) as any]);
+        });
+        const wsStatus = XLSX.utils.aoa_to_sheet(statusData);
+
+        // === Sheet 4: Chi tiết hóa đơn (Invoice Details) ===
+        const invoiceDetailData = [
+            ['CHI TIẾT HÓA ĐƠN'],
+            ['Mã HĐ', 'Căn hộ', 'Người thanh toán', 'Loại phí', 'Nội dung', 'Kỳ thanh toán', 'Hạn thanh toán', 'Tổng thu', 'Đã thu', 'Dư nợ', 'Trạng thái', 'Ngày thanh toán'],
+        ];
+        fees.forEach(fee => {
+            invoiceDetailData.push([
+                fee.id as any,
+                (fee.apartment_code || fee.apartment_id) as any,
+                (fee.resident_name || '') as any,
+                (fee.fee_name || '') as any,
+                (fee.description || '') as any,
+                (fee.billing_period || '') as any,
+                fee.due_date ? new Date(fee.due_date).toLocaleDateString('vi-VN') : '' as any,
+                formatCurrencyFull(Number(fee.total_amount) || 0) as any,
+                formatCurrencyFull(Number(fee.amount_paid) || 0) as any,
+                formatCurrencyFull(Number(fee.amount_remaining) || 0) as any,
+                fee.status as any,
+                fee.payment_date ? new Date(fee.payment_date).toLocaleDateString('vi-VN') : '' as any,
+            ]);
+        });
+        const wsInvoiceDetail = XLSX.utils.aoa_to_sheet(invoiceDetailData);
+
+        // Create workbook and add sheets
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, wsOverview, 'Tổng quan');
+        XLSX.utils.book_append_sheet(wb, wsFeeType, 'Theo loại phí');
+        XLSX.utils.book_append_sheet(wb, wsStatus, 'Theo trạng thái');
+        XLSX.utils.book_append_sheet(wb, wsInvoiceDetail, 'Chi tiết hóa đơn');
+
+        // Export
+        XLSX.writeFile(wb, fileName);
+    };
 
     if (loading) {
         return (
@@ -549,6 +679,7 @@ export default function AccountantDashboard() {
                 unpaidInvoices={stats.unpaidInvoices}
                 overdueCount={overdueInvoices.length}
                 insights={smartInsights}
+                onExportFinanceReport={handleExportFinanceReport}
             />
 
             {/* Row 1: Stats Cards */}

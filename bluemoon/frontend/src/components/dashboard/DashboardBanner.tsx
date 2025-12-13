@@ -34,6 +34,7 @@ import {
     Info as InfoIcon,
     Schedule as ScheduleIcon,
     Lightbulb as LightbulbIcon,
+    FileDownload as FileDownloadIcon,
 } from '@mui/icons-material';
 
 // Weather data interface
@@ -63,6 +64,7 @@ export interface DashboardBannerProps {
     customSubtext?: React.ReactNode;
     actionButton?: React.ReactNode;
     insights?: SmartInsight[];
+    onExportFinanceReport?: () => void;
 }
 
 // Format time to Vietnamese
@@ -313,7 +315,8 @@ export default function DashboardBanner({
     apartmentCode,
     customSubtext,
     actionButton,
-    insights = []
+    insights = [],
+    onExportFinanceReport
 }: DashboardBannerProps) {
     const currentTime = useRealTimeClock();
     const { weather, loading: weatherLoading } = useWeather();
@@ -533,6 +536,32 @@ export default function DashboardBanner({
                                 </Box>
                             )}
                         </Button>
+
+                        {/* Export Finance Report Button (for Accountant) */}
+                        {onExportFinanceReport && (
+                            <Button
+                                variant="contained"
+                                startIcon={<FileDownloadIcon />}
+                                onClick={onExportFinanceReport}
+                                sx={{
+                                    bgcolor: 'rgba(255,255,255,0.15)',
+                                    color: 'white',
+                                    borderRadius: 3,
+                                    px: { xs: 2, sm: 3 },
+                                    py: 1,
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(255,255,255,0.3)',
+                                    fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                                    '&:hover': {
+                                        bgcolor: 'rgba(255,255,255,0.25)',
+                                    }
+                                }}
+                            >
+                                Xuất báo cáo tài chính
+                            </Button>
+                        )}
 
                         {/* Custom action button (optional) */}
                         {actionButton}

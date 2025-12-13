@@ -31,7 +31,8 @@ import {
     Payment as PaymentIcon,
     SquareFoot as SquareFootIcon,
     People as PeopleIcon,
-    Layers as LayersIcon
+    Layers as LayersIcon,
+    RateReview as RateReviewIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { dashboardApi, type ResidentDashboardData } from '../../../api/dashboardApi';
@@ -453,31 +454,57 @@ export default function ResidentDashboard() {
         description: 'Sử dụng QR Code để thanh toán nhanh chóng và tiện lợi qua ngân hàng.'
     });
 
-    // Custom action button for payment
-    const paymentButton = stats.unpaidInvoices > 0 ? (
-        <Button
-            variant="contained"
-            startIcon={<PaymentIcon />}
-            onClick={() => navigate('/resident/fee/list')}
-            sx={{
-                bgcolor: 'rgba(255,255,255,0.15)',
-                color: 'white',
-                borderRadius: 3,
-                px: { xs: 2, sm: 3 },
-                py: 1,
-                textTransform: 'none',
-                fontWeight: 600,
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255,255,255,0.3)',
-                fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.25)',
-                }
-            }}
-        >
-            Thanh toán ngay
-        </Button>
-    ) : undefined;
+    // Custom action button for payment & review
+    const actionButtons = (
+        <Stack direction="row" spacing={1}>
+            {stats.unpaidInvoices > 0 && (
+                <Button
+                    variant="contained"
+                    startIcon={<PaymentIcon />}
+                    onClick={() => navigate('/resident/fee/list')}
+                    sx={{
+                        bgcolor: 'rgba(255,255,255,0.15)',
+                        color: 'white',
+                        borderRadius: 3,
+                        px: { xs: 2, sm: 3 },
+                        py: 1,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                        '&:hover': {
+                            bgcolor: 'rgba(255,255,255,0.25)',
+                        }
+                    }}
+                >
+                    Thanh toán ngay
+                </Button>
+            )}
+            <Button
+                variant="contained"
+                startIcon={<RateReviewIcon />}
+                onClick={() => navigate('/resident/review')}
+                sx={{
+                    bgcolor: 'rgba(255,255,255,0.15)',
+                    color: 'white',
+                    borderRadius: 3,
+                    px: { xs: 2, sm: 3 },
+                    py: 1,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                    '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.25)',
+                    }
+                }}
+            >
+                Đánh giá
+            </Button>
+        </Stack>
+    );
 
     return (
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -489,7 +516,7 @@ export default function ResidentDashboard() {
                 unpaidInvoices={stats.unpaidInvoices}
                 overdueCount={stats.overdueInvoices}
                 insights={smartInsights}
-                actionButton={paymentButton}
+                actionButton={actionButtons}
             />
 
             {/* Row 1: Stats Cards */}

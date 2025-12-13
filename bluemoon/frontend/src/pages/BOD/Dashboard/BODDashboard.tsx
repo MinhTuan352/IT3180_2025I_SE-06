@@ -18,7 +18,8 @@ import {
     Stack,
     Divider,
     CircularProgress,
-    Alert
+    Alert,
+    Button
 } from '@mui/material';
 import {
     HomeWork as ApartmentIcon,
@@ -28,7 +29,8 @@ import {
     TrendingUp as TrendingUpIcon,
     Assignment as TaskIcon,
     PieChart as PieChartIcon,
-    BarChart as BarChartIcon
+    BarChart as BarChartIcon,
+    RateReview as RateReviewIcon
 } from '@mui/icons-material';
 import { dashboardApi, type BODDashboardData } from '../../../api/dashboardApi';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -560,6 +562,30 @@ export default function BODDashboard() {
                 userRole={user?.role}
                 pendingTasks={Number(stats.pendingServiceRequests) + Number(stats.pendingIncidents)}
                 insights={smartInsights}
+                actionButton={
+                    <Button
+                        variant="contained"
+                        startIcon={<RateReviewIcon />}
+                        onClick={() => window.location.href = '/bod/reviews'} // Using href for simplicity or navigate if hook available
+                        sx={{
+                            bgcolor: 'rgba(255,255,255,0.15)',
+                            color: 'white',
+                            borderRadius: 3,
+                            px: { xs: 2, sm: 3 },
+                            py: 1,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                            '&:hover': {
+                                bgcolor: 'rgba(255,255,255,0.25)',
+                            }
+                        }}
+                    >
+                        Xem đánh giá
+                    </Button>
+                }
             />
 
             {/* Stats Cards Row */}

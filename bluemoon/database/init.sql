@@ -404,6 +404,18 @@ CREATE TABLE building_regulations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- 28. REVIEWS (ĐÁNH GIÁ & GÓP Ý)
+CREATE TABLE reviews (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    resident_id VARCHAR(20) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    feedback TEXT,
+    survey_response JSON COMMENT 'Câu trả lời khảo sát',
+    status ENUM('Mới', 'Đã xem') DEFAULT 'Mới',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 
 -- ===================================
 -- 3. INSERT DATA (DỮ LIỆU MẪU)

@@ -19,6 +19,9 @@ import FeeList from '../pages/BOD/FeeManagement/FeeList';
 import NotificationList from '../pages/BOD/NotificationManagement/NotificationList';
 import NotificationCreate from '../pages/BOD/NotificationManagement/NotificationCreate';
 import NotificationDetail from '../pages/BOD/NotificationManagement/NotificationDetail';
+// Review
+import ResidentReview from '../pages/Resident/Review/ResidentReview';
+import BODReviewList from '../pages/BOD/Review/BODReviewList';
 import ReportList from '../pages/BOD/ReportManagement/ReportList';
 import ReportDetail from '../pages/BOD/ReportManagement/ReportDetail';
 import LoginManagement from '../pages/BOD/LoginManagement/LoginManagement.tsx';
@@ -132,6 +135,9 @@ export default function AppRoutes() {
             <Route path="bod/report/list" element={<ReportList />} />
             <Route path="bod/report/list/detail/:id" element={<ReportDetail />} />
 
+            {/* Review Management */}
+            <Route path="bod/reviews" element={<BODReviewList />} />
+
             {/* ... các route bod khác ... */}
           </Route>
 
@@ -189,6 +195,9 @@ export default function AppRoutes() {
 
             {/* Auto-redirect for /resident/profile */}
             <Route path="resident/profile" element={<ResidentProfileEdit />} />
+
+            {/* Review */}
+            <Route path="resident/review" element={<ResidentReview />} />
 
           </Route>
 

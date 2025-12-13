@@ -198,7 +198,12 @@ export default function ResidentApartmentDetail() {
                         <Box>
                           <Typography variant="subtitle1" fontWeight="bold">{member.full_name}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {member.role || 'Thành viên'} • {member.gender || 'N/A'} • {member.dob ? new Date(member.dob).toLocaleDateString('vi-VN') : 'N/A'}
+                            {member.role || 'Thành viên'} • {member.gender || 'N/A'} • {member.dob ? (() => {
+                              // Tránh lỗi timezone: parse trực tiếp date-only string
+                              const dobStr = member.dob.includes('T') ? member.dob.split('T')[0] : member.dob;
+                              const [year, month, day] = dobStr.split('-');
+                              return `${parseInt(day)}/${parseInt(month)}/${year}`;
+                            })() : 'N/A'}
                           </Typography>
                         </Box>
                       </Box>

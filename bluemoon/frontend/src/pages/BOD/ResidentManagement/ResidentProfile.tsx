@@ -74,11 +74,19 @@ export default function ResidentProfile() {
   };
 
   // Helper formatting Date for Input (YYYY-MM-DD)
+  // Không dùng new Date() để tránh lỗi timezone khi parse date-only string
   const formatDateForInput = (isoDate?: string) => {
     if (!isoDate) return '';
     try {
-      const date = new Date(isoDate);
-      return date.toISOString().split('T')[0];
+      // Nếu là ISO string với time component (có chữ T), lấy phần date
+      if (isoDate.includes('T')) {
+        return isoDate.split('T')[0];
+      }
+      // Nếu đã là YYYY-MM-DD thì return luôn
+      if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+        return isoDate;
+      }
+      return '';
     } catch (e) {
       return '';
     }

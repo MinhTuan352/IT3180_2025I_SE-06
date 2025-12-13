@@ -54,7 +54,21 @@ function MemberDetailModal({ open, onClose, member }: MemberDetailModalProps) {
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'Chưa cập nhật';
         try {
-            return new Date(dateString).toLocaleDateString('vi-VN');
+            // Xử lý date-only string (YYYY-MM-DD) để tránh lỗi timezone
+            // Parse trực tiếp thay vì dùng new Date() để tránh bị lùi 1 ngày
+            if (dateString.includes('T')) {
+                // ISO string với time component
+                const date = new Date(dateString);
+                return date.toLocaleDateString('vi-VN');
+            } else {
+                // Date-only string: "1980-01-01"
+                const parts = dateString.split('-');
+                if (parts.length === 3) {
+                    const [year, month, day] = parts;
+                    return `${parseInt(day)}/${parseInt(month)}/${year}`;
+                }
+                return dateString;
+            }
         } catch {
             return dateString;
         }

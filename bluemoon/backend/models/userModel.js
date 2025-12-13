@@ -374,8 +374,11 @@ const User = {
                 apartment_id, role, hometown, occupation
             } = data;
 
-            // 1. Sinh ID (VD: R9999)
-            const newId = await generateUniqueId('R');
+            // 1. Sinh ID (VD: R9999) hoặc dùng ID được truyền vào
+            let newId = data.id;
+            if (!newId) {
+                newId = await generateUniqueId('R');
+            }
             const roleIdResident = 3; // Mặc định role resident là 3
 
             // 2. Insert Users

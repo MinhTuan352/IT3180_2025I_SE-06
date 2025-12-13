@@ -1,6 +1,7 @@
 // File: backend/controllers/residentController.js
 
 const Resident = require('../models/residentModel');
+const User = require('../models/userModel');
 
 const residentController = {
 
@@ -139,7 +140,8 @@ const residentController = {
             // Lấy dữ liệu từ form
             const {
                 id, apartment_id, full_name, role,
-                dob, gender, cccd, phone, email
+                dob, gender, cccd, phone, email,
+                username, password // Thêm 2 trường này
             } = req.body;
 
             // 1. Validate cơ bản
@@ -147,14 +149,37 @@ const residentController = {
                 return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin bắt buộc (ID, Căn hộ, Họ tên, Vai trò, CCCD).' });
             }
 
-            // 2. Gọi Model để tạo
-            const newResident = await Resident.create(req.body);
+            // 2. Logic tạo mới
+            // Nếu là "Chủ hộ" (owner) VÀ có đủ username/password -> Tạo User + Resident (Transaction)
+            if (role === 'owner' && username && password) {
+                // Kiểm tra trùng lặp trước
+                const duplicateError = await User.checkDuplicate(username, email, cccd, 'residents');
+                if (duplicateError) {
+                    return res.status(409).json({ message: duplicateError });
+                }
 
-            res.status(201).json({
-                success: true,
-                message: 'Thêm cư dân thành công!',
-                data: newResident
-            });
+                // Gọi Transaction bên User Model
+                const result = await User.createResidentAccount(req.body);
+
+                return res.status(201).json({
+                    success: true,
+                    message: 'Thêm Cư dân (Chủ hộ) và tạo tài khoản thành công!',
+                    data: result
+                });
+
+            } else {
+                // Trường hợp: Thành viên (không cần user) HOẶC Chủ hộ nhưng thiếu pass (Import Excel, migration cũ...)
+                // Chỉ tạo Resident bình thường
+
+                // Mặc dù user_id có thể null, nhưng nếu Import Excel ta cứ để null
+                const newResident = await Resident.create(req.body);
+
+                return res.status(201).json({
+                    success: true,
+                    message: 'Thêm cư dân thành công!',
+                    data: newResident
+                });
+            }
 
         } catch (error) {
             // Xử lý lỗi trùng lặp (Duplicate entry)
@@ -164,6 +189,7 @@ const residentController = {
             if (error.code === 'ER_NO_REFERENCED_ROW_2') {
                 return res.status(400).json({ message: 'Mã căn hộ (apartment_id) không tồn tại.' });
             }
+            console.error('Error createResident:', error);
             res.status(500).json({ message: 'Lỗi server khi thêm cư dân.', error: error.message });
         }
     },

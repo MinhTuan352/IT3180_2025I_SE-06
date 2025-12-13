@@ -35,6 +35,9 @@ interface FormData {
   status: string;
   hometown: string;
   occupation: string;
+  username?: string;
+  password?: string;
+  apartment_code?: string; // Add this for display
 }
 
 const initialFormData: FormData = {
@@ -49,7 +52,10 @@ const initialFormData: FormData = {
   email: '',
   status: 'Đang sinh sống',
   hometown: '',
-  occupation: ''
+  occupation: '',
+  username: '',
+  password: '',
+  apartment_code: ''
 };
 
 export default function ResidentCreate() {
@@ -57,7 +63,7 @@ export default function ResidentCreate() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingApts, setLoadingApts] = useState(true);
+
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
   });
@@ -70,8 +76,6 @@ export default function ResidentCreate() {
         setApartments(data);
       } catch (error) {
         console.error('Error fetching apartments:', error);
-      } finally {
-        setLoadingApts(false);
       }
     };
     fetchApartments();
@@ -106,11 +110,36 @@ export default function ResidentCreate() {
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handleApartmentCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value;
+    // Tìm ID tương ứng
+    const found = apartments.find(a => a.apartment_code.toLowerCase() === code.toLowerCase());
+
+    setFormData(prev => ({
+      ...prev,
+      apartment_code: code,
+      apartment_id: found ? String(found.id) : ''
+    }));
+  };
+
   const handleCreateResident = async () => {
     // Validate required fields
+    // Validate required fields
     if (!formData.full_name || !formData.apartment_id || !formData.cccd) {
+      if (!formData.apartment_id && formData.apartment_code) {
+        setSnackbar({ open: true, message: 'Mã căn hộ không tồn tại trong hệ thống', severity: 'error' });
+        return;
+      }
       setSnackbar({ open: true, message: 'Vui lòng điền đầy đủ: Họ tên, Căn hộ, CCCD', severity: 'error' });
       return;
+    }
+
+    // Validate Username/Password for Owner
+    if (formData.role === 'owner') {
+      if (!formData.username || !formData.password) {
+        setSnackbar({ open: true, message: 'Chủ hộ bắt buộc phải có Tên đăng nhập và Mật khẩu', severity: 'error' });
+        return;
+      }
     }
 
     setLoading(true);
@@ -182,25 +211,19 @@ export default function ResidentCreate() {
 
               {/* Chọn căn hộ */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Căn hộ *</InputLabel>
-                  <Select
-                    label="Căn hộ *"
-                    value={formData.apartment_id}
-                    onChange={handleSelectChange('apartment_id')}
-                    disabled={loadingApts}
-                  >
-                    {loadingApts ? (
-                      <MenuItem disabled>Đang tải...</MenuItem>
-                    ) : (
-                      apartments.map(apt => (
-                        <MenuItem key={apt.id} value={String(apt.id)}>
-                          {apt.apartment_code}
-                        </MenuItem>
-                      ))
-                    )}
-                  </Select>
-                </FormControl>
+                <TextField
+                  label="Nhập mã căn hộ *"
+                  fullWidth
+                  value={formData.apartment_code}
+                  onChange={handleApartmentCodeChange}
+                  placeholder="VD: A-101"
+                  helperText={
+                    formData.apartment_code && !formData.apartment_id
+                      ? "Mã căn hộ không hợp lệ"
+                      : "Nhập chính xác mã căn hộ"
+                  }
+                  error={!!formData.apartment_code && !formData.apartment_id}
+                />
               </Grid>
 
               {/* Ngày sinh */}
@@ -317,6 +340,35 @@ export default function ResidentCreate() {
                   </Select>
                 </FormControl>
               </Grid>
+
+              {/* Username/Password (Chỉ hiện nếu là Chủ hộ) */}
+              {formData.role === 'owner' && (
+                <>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="subtitle2" color="primary" sx={{ mt: 1, mb: 1, fontWeight: 'bold' }}>
+                      Tài khoản đăng nhập (Dành cho Chủ hộ)
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Tên đăng nhập *"
+                      fullWidth
+                      value={formData.username}
+                      onChange={handleChange('username')}
+                      helperText="Dùng để đăng nhập vào hệ thống"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField
+                      label="Mật khẩu *"
+                      type="password"
+                      fullWidth
+                      value={formData.password}
+                      onChange={handleChange('password')}
+                    />
+                  </Grid>
+                </>
+              )}
             </Grid>
           </Card>
         </Grid>

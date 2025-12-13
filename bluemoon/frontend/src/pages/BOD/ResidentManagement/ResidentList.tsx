@@ -84,19 +84,70 @@ export default function ResidentList() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
         console.log('Dữ liệu Cư dân Import từ Excel:', json);
-        alert('Đã đọc file Excel thành công! Xem dữ liệu ở Console (F12).');
+
+        // Duyệt qua từng dòng và gọi API tạo
+        let successCount = 0;
+        let failCount = 0;
+
+        // Hiển thị loading (tạm thời dùng alert hoặc console, nâng cao thì dùng state)
+        // alert(`Đang xử lý ${json.length} bản ghi...`);
+
+        for (const row of json) {
+          try {
+            // Mapping dữ liệu từ Excel sang format API
+            // Giả sử Excel có các cột: ID, Họ Tên, Căn Hộ (Mã), Vai trò, CCCD, Điện thoại, Email
+            // Note: Mã căn hộ cần map sang ID (nếu API cần ID). 
+            // Ở đây ta giả định API backend đã handle việc tìm apartment_id hoặc ta phải tìm trước.
+            // Tuy nhiên residentController yêu cầu apartment_id.
+            // => Đơn giản hoá: Ta gửi apartment_id nếu Excel có, hoặc map từ code.
+            // (Để nhanh, giả sử Excel người dùng nhập sẵn Apartment ID hoặc Code đúng format)
+
+            const payload = {
+              id: row['ID'] || row['id'],
+              full_name: row['Họ và Tên'] || row['full_name'],
+              apartment_id: row['Mã Căn Hộ'] || row['apartment_id'], // Cần check lại nếu API yêu cầu ID số
+              role: (row['Quyền hạn'] || row['role']) === 'Chủ hộ' ? 'owner' : 'member',
+              cccd: row['CCCD'] || row['cccd'],
+              phone: row['Điện thoại'] || row['phone'],
+              email: row['Email'] || row['email'],
+              gender: row['Giới tính'] || row['gender'],
+              dob: row['Ngày sinh'] || row['dob'],
+              status: 'Đang sinh sống'
+            };
+
+            // Bỏ qua nếu thiếu key fields
+            if (!payload.full_name || !payload.apartment_id) {
+              console.warn('Bỏ qua dòng thiếu dữ liệu:', row);
+              failCount++;
+              continue;
+            }
+
+            await residentApi.create(payload as any);
+            successCount++;
+          } catch (err) {
+            console.error('Lỗi import dòng:', row, err);
+            failCount++;
+          }
+        }
+
+        alert(`Hoàn tất import! Thành công: ${successCount}, Thất bại: ${failCount}`);
+        // Refresh lại trang
+        window.location.reload();
+
       } catch (error) {
         console.error("Lỗi khi đọc file Excel:", error);
         alert('Đã xảy ra lỗi khi đọc file.');

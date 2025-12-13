@@ -380,7 +380,7 @@ const dashboardController = {
             if (apartmentId) {
                 try {
                     const [invoices] = await db.execute(`
-                        SELECT f.id, ft.name as fee_type, f.total_amount, f.amount_remaining, f.due_date, f.status,
+                        SELECT f.id, ft.fee_name as fee_type, f.total_amount, f.amount_remaining, f.due_date, f.status,
                                DATEDIFF(CURDATE(), f.due_date) as days_overdue
                         FROM fees f
                         LEFT JOIN fee_types ft ON f.fee_type_id = ft.id

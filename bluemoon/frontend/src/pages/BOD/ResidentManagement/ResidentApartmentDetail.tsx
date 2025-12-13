@@ -49,13 +49,13 @@ export default function ResidentApartmentDetail() {
         setLoading(true);
         setError(null);
 
-        // Fetch apartment details
+        // API /apartments/:id đã trả về cả members rồi, không cần gọi 2 API riêng
         const apartmentData = await apartmentApi.getById(id);
         setApartment(apartmentData);
 
-        // Fetch residents of this apartment
-        const residentsData = await apartmentApi.getResidentsByApartment(id);
-        setResidents(residentsData);
+        // Backend trả về members trong response, sử dụng trực tiếp
+        // (members là danh sách cư dân của căn hộ này)
+        setResidents((apartmentData as any).members || []);
       } catch (err: any) {
         console.error('Error fetching apartment detail:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin căn hộ.');

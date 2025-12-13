@@ -164,7 +164,13 @@ export default function MainLayout() {
     updatedReports: 0
   });
 
-  // Fetch badge counts khi role là resident HOẶC khi navigate sang trang khác
+  // State để track đã xem Công nợ chưa (dùng localStorage)
+  const [feesViewed, setFeesViewed] = useState(() => {
+    // Đọc từ localStorage khi khởi tạo
+    return localStorage.getItem('bluemoon_fees_viewed') === 'true';
+  });
+
+  // Fetch badge counts khi role là resident
   useEffect(() => {
     if (user?.role !== 'resident') return;
 
@@ -172,8 +178,8 @@ export default function MainLayout() {
       try {
         const counts = await sidebarApi.getBadgeCounts();
 
-        // Nếu đang ở trang Công nợ, giữ unpaidFees = 0 (đã xem)
-        if (location.pathname.startsWith('/resident/fee')) {
+        // Nếu đã xem Công nợ rồi, giữ badge = 0
+        if (feesViewed) {
           counts.unpaidFees = 0;
         }
 
@@ -190,7 +196,7 @@ export default function MainLayout() {
     const interval = setInterval(fetchBadgeCounts, 30000);
 
     return () => clearInterval(interval);
-  }, [user?.role, location.pathname]); // Thêm location.pathname để refresh khi navigate
+  }, [user?.role, location.pathname, feesViewed]); // Thêm feesViewed để update khi trạng thái thay đổi
 
   // Helper: Lấy badge count cho menu item
   const getBadgeCount = (path: string): number => {
@@ -202,11 +208,11 @@ export default function MainLayout() {
 
   // --- THÊM MỚI: Xử lý click menu item và xóa badge ngay lập tức ---
   const handleMenuItemClick = (path: string) => {
-    // Xóa badge ngay lập tức khi click (trước khi navigate)
+    // Xóa badge ngay lập tức khi click vào Công nợ
     if (path === '/resident/fee/list') {
       setBadgeCounts(prev => ({ ...prev, unpaidFees: 0 }));
-      // Gọi API để lưu timestamp (không cần await)
-      sidebarApi.markFeesViewed().catch(err => console.log('markFeesViewed error:', err));
+      setFeesViewed(true);
+      localStorage.setItem('bluemoon_fees_viewed', 'true');
     }
     // Navigate đến trang
     navigate(path);

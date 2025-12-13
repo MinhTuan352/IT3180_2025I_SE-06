@@ -1,5 +1,5 @@
 // src/pages/Resident/Profile/ResidentProfileEdit.tsx
-import { Box, Typography, Paper, Grid, TextField, Button, Avatar, Snackbar, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Typography, Paper, Grid, TextField, Button, Avatar, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { residentApi, type Resident } from '../../../api/residentApi';
 
@@ -7,7 +7,7 @@ export default function ResidentProfileEdit() {
     // State cho dữ liệu profile
     const [profileData, setProfileData] = useState<Resident | null>(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+
     const [error, setError] = useState<string | null>(null);
 
     // State cho form (các trường được phép sửa)
@@ -18,12 +18,7 @@ export default function ResidentProfileEdit() {
         occupation: ''
     });
 
-    // State cho Snackbar
-    const [snackbar, setSnackbar] = useState<{
-        open: boolean;
-        message: string;
-        severity: 'success' | 'error';
-    }>({ open: false, message: '', severity: 'success' });
+
 
     // Fetch dữ liệu khi component mount
     useEffect(() => {
@@ -51,38 +46,9 @@ export default function ResidentProfileEdit() {
         }
     };
 
-    // Xử lý thay đổi input form
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
 
-    // Xử lý lưu thông tin
-    const handleSaveProfile = async () => {
-        try {
-            setSaving(true);
-            const result = await residentApi.updateMyProfile(formData);
-            setSnackbar({
-                open: true,
-                message: result.message || 'Cập nhật thông tin thành công!',
-                severity: 'success'
-            });
-            // Refresh để lấy dữ liệu mới nhất
-            await fetchProfile();
-        } catch (err: any) {
-            console.error('Error saving profile:', err);
-            setSnackbar({
-                open: true,
-                message: err.response?.data?.message || 'Không thể lưu thông tin. Vui lòng thử lại.',
-                severity: 'error'
-            });
-        } finally {
-            setSaving(false);
-        }
-    };
+
+
 
     // Hiển thị loading
     if (loading) {
@@ -226,21 +192,8 @@ export default function ResidentProfileEdit() {
 
             {/* Save button removed */}
 
-            {/* Snackbar thông báo */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Alert
-                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                    severity={snackbar.severity}
-                    sx={{ width: '100%' }}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+
+
         </Paper>
     );
 }

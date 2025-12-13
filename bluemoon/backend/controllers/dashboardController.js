@@ -28,19 +28,19 @@ const dashboardController = {
             let pendingServiceRequests = 0;
             try {
                 const [pendingServices] = await db.execute(
-                    "SELECT COUNT(*) as total FROM service_requests WHERE status IN ('Chờ xử lý', 'Đang xử lý')"
+                    "SELECT COUNT(*) as total FROM service_bookings WHERE status IN ('Chờ duyệt', 'Đã duyệt')"
                 );
                 pendingServiceRequests = pendingServices[0].total;
-            } catch (e) { console.log('service_requests table error:', e.message); }
+            } catch (e) { console.log('service_bookings table error:', e.message); }
 
             // 4. Số sự cố mới (chưa xử lý)
             let pendingIncidents = 0;
             try {
                 const [newIncidents] = await db.execute(
-                    "SELECT COUNT(*) as total FROM incidents WHERE status IN ('Chờ xử lý', 'Đang xử lý')"
+                    "SELECT COUNT(*) as total FROM reports WHERE status IN ('Mới', 'Đang xử lý')"
                 );
                 pendingIncidents = newIncidents[0].total;
-            } catch (e) { console.log('incidents table error:', e.message); }
+            } catch (e) { console.log('reports table error:', e.message); }
 
             // 5. Thống kê hóa đơn tháng này
             let stats = { total_invoices: 0, paid_invoices: 0, unpaid_invoices: 0, total_collected: 0, total_remaining: 0 };
@@ -84,31 +84,33 @@ const dashboardController = {
             let recentIncidents = [];
             try {
                 const [data] = await db.execute(`
-                    SELECT i.id, i.title, i.status, i.priority, i.created_at,
+                    SELECT rp.id, rp.title, rp.status, rp.priority, rp.created_at,
                            a.apartment_code
-                    FROM incidents i
-                    LEFT JOIN apartments a ON i.apartment_id = a.id
-                    ORDER BY i.created_at DESC
+                    FROM reports rp
+                    LEFT JOIN residents r ON rp.reported_by = r.id
+                    LEFT JOIN apartments a ON r.apartment_id = a.id
+                    ORDER BY rp.created_at DESC
                     LIMIT 5
                 `);
                 recentIncidents = data;
-            } catch (e) { console.log('recent incidents error:', e.message); }
+            } catch (e) { console.log('recent reports error:', e.message); }
 
             // 8. Đơn dịch vụ gần đây  
             let recentServices = [];
             try {
                 const [data] = await db.execute(`
-                    SELECT sr.id, sr.status, sr.created_at,
-                           s.name as service_name,
+                    SELECT sb.id, sb.status, sb.created_at,
+                           st.name as service_name,
                            a.apartment_code
-                    FROM service_requests sr
-                    LEFT JOIN services s ON sr.service_id = s.id
-                    LEFT JOIN apartments a ON sr.apartment_id = a.id
-                    ORDER BY sr.created_at DESC
+                    FROM service_bookings sb
+                    LEFT JOIN service_types st ON sb.service_type_id = st.id
+                    LEFT JOIN residents r ON sb.resident_id = r.id
+                    LEFT JOIN apartments a ON r.apartment_id = a.id
+                    ORDER BY sb.created_at DESC
                     LIMIT 5
                 `);
                 recentServices = data;
-            } catch (e) { console.log('recent services error:', e.message); }
+            } catch (e) { console.log('recent service_bookings error:', e.message); }
 
             res.json({
                 success: true,
@@ -392,45 +394,45 @@ const dashboardController = {
 
             // Yêu cầu dịch vụ gần đây
             let recentServiceRequests = [];
-            if (apartmentId) {
+            if (residentId) {
                 try {
                     const [services] = await db.execute(`
-                        SELECT sr.id, s.name as service_name, sr.status, sr.created_at
-                        FROM service_requests sr
-                        LEFT JOIN services s ON sr.service_id = s.id
-                        WHERE sr.apartment_id = ?
-                        ORDER BY sr.created_at DESC
+                        SELECT sb.id, st.name as service_name, sb.status, sb.created_at
+                        FROM service_bookings sb
+                        LEFT JOIN service_types st ON sb.service_type_id = st.id
+                        WHERE sb.resident_id = ?
+                        ORDER BY sb.created_at DESC
                         LIMIT 5
-                    `, [apartmentId]);
+                    `, [residentId]);
                     recentServiceRequests = services;
-                } catch (e) { console.log('service requests error:', e.message); }
+                } catch (e) { console.log('service bookings error:', e.message); }
             }
 
             // Số yêu cầu dịch vụ đang xử lý
             let pendingServiceCount = 0;
-            if (apartmentId) {
+            if (residentId) {
                 try {
                     const [count] = await db.execute(`
-                        SELECT COUNT(*) as count FROM service_requests 
-                        WHERE apartment_id = ? AND status IN ('Chờ xử lý', 'Đang xử lý')
-                    `, [apartmentId]);
+                        SELECT COUNT(*) as count FROM service_bookings 
+                        WHERE resident_id = ? AND status IN ('Chờ duyệt', 'Đã duyệt')
+                    `, [residentId]);
                     pendingServiceCount = count[0].count || 0;
                 } catch (e) { console.log('pending service count error:', e.message); }
             }
 
             // Sự cố đã báo cáo gần đây
             let recentIncidents = [];
-            if (apartmentId) {
+            if (residentId) {
                 try {
                     const [incidents] = await db.execute(`
                         SELECT id, title, status, priority, created_at
-                        FROM incidents
-                        WHERE apartment_id = ?
+                        FROM reports
+                        WHERE reported_by = ?
                         ORDER BY created_at DESC
                         LIMIT 5
-                    `, [apartmentId]);
+                    `, [residentId]);
                     recentIncidents = incidents;
-                } catch (e) { console.log('incidents error:', e.message); }
+                } catch (e) { console.log('reports error:', e.message); }
             }
 
             // Thông báo mới (7 ngày gần đây)

@@ -33,7 +33,7 @@ const getDefaultImage = (name: string): string => {
     return 'https://images.unsplash.com/photo-1563273941-768537b00366?auto=format&fit=crop&w=600&q=80';
   }
   if (lowerName.includes('pccc') || lowerName.includes('bơm')) {
-    return 'https://images.unsplash.com/photo-1574976722234-a09c27776161?auto=format&fit=crop&w=600&q=80';
+    return 'https://images.unsplash.com/photo-1595246140625-573b715d11dc?auto=format&fit=crop&w=600&q=80';
   }
   if (lowerName.includes('cổng') || lowerName.includes('barrier') || lowerName.includes('an ninh')) {
     return 'https://images.unsplash.com/photo-1615890696771-8c467e335527?auto=format&fit=crop&w=600&q=80';

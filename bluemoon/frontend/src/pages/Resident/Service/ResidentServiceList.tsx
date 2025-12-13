@@ -31,7 +31,7 @@ const getServiceImage = (category: string | null) => {
     'Sức khỏe & Làm đẹp': 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80',
     'Tiện ích đời sống': 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80',
     'Ẩm thực & Giải trí': 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=600&q=80',
-    'Giáo dục': 'https://images.unsplash.com/photo-1587654780291-39c940483719?auto=format&fit=crop&w=600&q=80',
+    'Giáo dục': 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=600&q=80',
     'Giải trí': 'https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=600&q=80',
   };
   return images[category || ''] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=600&q=80';

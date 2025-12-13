@@ -61,13 +61,16 @@ export default function SignIn() {
       // Điều hướng dựa trên vai trò backend trả về
       switch (data.user.role) {
         case 'bod':
-          navigate('/bod/admin/list');
+          navigate('/bod/dashboard');
           break;
         case 'accountance':
-          navigate('/accountance/fee/list');
+          navigate('/accountance/dashboard');
           break;
         case 'resident':
-          navigate('/resident/profile/edit');
+          navigate('/resident/dashboard');
+          break;
+        case 'cqcn':
+          navigate('/cqcn/dashboard');
           break;
         default:
           navigate('/'); // Trang chủ mặc định

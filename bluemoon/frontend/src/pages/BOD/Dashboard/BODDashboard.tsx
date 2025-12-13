@@ -470,16 +470,16 @@ export default function BODDashboard() {
 
     // Data for pie chart - Payment status
     const paymentPieData = [
-        { label: 'Đã thanh toán', value: stats.paidInvoices, color: '#4caf50' },
-        { label: 'Chưa thanh toán', value: stats.unpaidInvoices, color: '#ff9800' }
+        { label: 'Đã thanh toán', value: Number(stats.paidInvoices), color: '#4caf50' },
+        { label: 'Chưa thanh toán', value: Number(stats.unpaidInvoices), color: '#ff9800' }
     ];
 
     // Data for horizontal bar chart - Overview stats
     const overviewBarData = [
-        { label: 'Căn hộ', value: stats.totalApartments, color: '#1976d2' },
-        { label: 'Cư dân', value: stats.totalResidents, color: '#9c27b0' },
-        { label: 'Dịch vụ chờ', value: stats.pendingServiceRequests, color: '#ff9800' },
-        { label: 'Sự cố mới', value: stats.pendingIncidents, color: '#f44336' }
+        { label: 'Căn hộ', value: Number(stats.totalApartments), color: '#1976d2' },
+        { label: 'Cư dân', value: Number(stats.totalResidents), color: '#9c27b0' },
+        { label: 'Dịch vụ chờ', value: Number(stats.pendingServiceRequests), color: '#ff9800' },
+        { label: 'Sự cố mới', value: Number(stats.pendingIncidents), color: '#f44336' }
     ];
 
     const incidentTableData = recentIncidents.map(item => ({
@@ -558,7 +558,7 @@ export default function BODDashboard() {
             <DashboardBanner
                 userName={user?.username || 'Người dùng'}
                 userRole={user?.role}
-                pendingTasks={stats.pendingServiceRequests + stats.pendingIncidents}
+                pendingTasks={Number(stats.pendingServiceRequests) + Number(stats.pendingIncidents)}
                 insights={smartInsights}
             />
 
@@ -604,10 +604,10 @@ export default function BODDashboard() {
             <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid size={{ xs: 12, md: 6 }}>
                     <PaymentProgressCard
-                        rate={stats.paymentRate}
-                        paid={stats.paidInvoices}
-                        unpaid={stats.unpaidInvoices}
-                        collected={stats.totalCollected}
+                        rate={Number(stats.paymentRate)}
+                        paid={Number(stats.paidInvoices)}
+                        unpaid={Number(stats.unpaidInvoices)}
+                        collected={Number(stats.totalCollected)}
                     />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>

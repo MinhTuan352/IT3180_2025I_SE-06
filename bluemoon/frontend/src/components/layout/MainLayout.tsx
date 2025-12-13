@@ -24,11 +24,14 @@ import {
   Button,
   Stack,
   InputAdornment,
+  Badge, // --- THÊM MỚI: Badge cho notification ---
 } from '@mui/material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useMemo } from 'react'; // --- THÊM MỚI ---
+import { useState, useMemo, useEffect } from 'react'; // --- THÊM MỚI: useEffect ---
 import { useAuth } from '../../contexts/AuthContext'; // --- THÊM MỚI ---
 import { LayoutContext } from '../../contexts/LayoutContext';
+import sidebarApi from '../../api/sidebarApi'; // --- THÊM MỚI: Badge API ---
+import type { SidebarBadgeCounts } from '../../api/sidebarApi';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { authApi } from '../../api/authApi';
 import toast, { Toaster } from 'react-hot-toast';
@@ -153,6 +156,61 @@ export default function MainLayout() {
         return [];
     }
   }, [user?.role]);
+
+  // --- THÊM MỚI: Badge counts cho sidebar (Resident only) ---
+  const [badgeCounts, setBadgeCounts] = useState<SidebarBadgeCounts>({
+    unreadNotifications: 0,
+    unpaidFees: 0,
+    updatedReports: 0
+  });
+
+  // Fetch badge counts khi role là resident HOẶC khi navigate sang trang khác
+  useEffect(() => {
+    if (user?.role !== 'resident') return;
+
+    const fetchBadgeCounts = async () => {
+      try {
+        const counts = await sidebarApi.getBadgeCounts();
+
+        // Nếu đang ở trang Công nợ, giữ unpaidFees = 0 (đã xem)
+        if (location.pathname.startsWith('/resident/fee')) {
+          counts.unpaidFees = 0;
+        }
+
+        setBadgeCounts(counts);
+      } catch (error) {
+        console.log('Failed to fetch badge counts:', error);
+      }
+    };
+
+    // Fetch ngay khi mount hoặc khi location thay đổi
+    fetchBadgeCounts();
+
+    // Refresh mỗi 30 giây
+    const interval = setInterval(fetchBadgeCounts, 30000);
+
+    return () => clearInterval(interval);
+  }, [user?.role, location.pathname]); // Thêm location.pathname để refresh khi navigate
+
+  // Helper: Lấy badge count cho menu item
+  const getBadgeCount = (path: string): number => {
+    if (path === '/resident/notification/list') return badgeCounts.unreadNotifications;
+    if (path === '/resident/fee/list') return badgeCounts.unpaidFees;
+    if (path === '/resident/report/list') return badgeCounts.updatedReports;
+    return 0;
+  };
+
+  // --- THÊM MỚI: Xử lý click menu item và xóa badge ngay lập tức ---
+  const handleMenuItemClick = (path: string) => {
+    // Xóa badge ngay lập tức khi click (trước khi navigate)
+    if (path === '/resident/fee/list') {
+      setBadgeCounts(prev => ({ ...prev, unpaidFees: 0 }));
+      // Gọi API để lưu timestamp (không cần await)
+      sidebarApi.markFeesViewed().catch(err => console.log('markFeesViewed error:', err));
+    }
+    // Navigate đến trang
+    navigate(path);
+  };
 
   // --- THÊM MỚI --- (Handlers)
   const handleSidebarToggle = () => {
@@ -394,7 +452,7 @@ export default function MainLayout() {
                 return (
                   <ListItem key={item.text} disablePadding sx={{ px: 2, mb: 1 }}>
                     <ListItemButton
-                      onClick={() => navigate(item.path)}
+                      onClick={() => handleMenuItemClick(item.path)}
                       selected={isActive} // Đánh dấu active
                       sx={{
                         borderRadius: '8px',
@@ -424,7 +482,23 @@ export default function MainLayout() {
                         minWidth: 40,
                         justifyContent: 'center', // --- THÊM MỚI ---
                       }}>
-                        {item.icon}
+                        {/* --- THÊM MỚI: Badge wrapper cho icon --- */}
+                        <Badge
+                          badgeContent={getBadgeCount(item.path)}
+                          color="error"
+                          max={99}
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              right: -3,
+                              top: 3,
+                              fontSize: '0.65rem',
+                              minWidth: 16,
+                              height: 16,
+                            }
+                          }}
+                        >
+                          {item.icon}
+                        </Badge>
                       </ListItemIcon>
                       {/* --- CẬP NHẬT --- (Ẩn text khi thu gọn) */}
                       <ListItemText

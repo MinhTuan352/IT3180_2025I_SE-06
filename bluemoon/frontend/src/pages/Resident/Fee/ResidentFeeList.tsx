@@ -7,6 +7,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import feeApi, { type Fee } from '../../../api/feeApi';
+import sidebarApi from '../../../api/sidebarApi'; // --- THÊM MỚI: Để đánh dấu đã xem ---
 
 // Định nghĩa lại kiểu Status cho cư dân
 type FeeStatusResident = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn' | 'Thanh toán một phần' | 'Đã hủy';
@@ -22,6 +23,11 @@ export default function ResidentFeeList() {
     // --- USE EFFECT (Gọi API thật) ---
     useEffect(() => {
         fetchInvoices();
+
+        // --- THÊM MỚI: Đánh dấu đã xem trang Công nợ (để badge = 0) ---
+        sidebarApi.markFeesViewed().catch(err => {
+            console.log('Failed to mark fees as viewed:', err);
+        });
     }, []);
 
     const fetchInvoices = async () => {

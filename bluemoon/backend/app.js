@@ -56,6 +56,7 @@ app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/chatbot', require('./routes/chatbotRoutes'));
 app.use('/api/access', require('./routes/accessRoutes'));
 app.use('/api/building', require('./routes/buildingRoutes'));
+app.use('/api/sidebar', require('./routes/sidebarRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

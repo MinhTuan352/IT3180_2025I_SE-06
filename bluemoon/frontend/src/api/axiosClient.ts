@@ -1,13 +1,16 @@
 // src/api/axiosClient.ts
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
+
 
 const axiosClient = axios.create({
-  // 👇 SỬA DÒNG NÀY: Thay '/api' thành đường dẫn đầy đủ
-  baseURL: 'http://localhost:3000/api',
+  // URL này trỏ đến proxy bạn đã cài trong vite.config.ts
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
 
 // Thêm Interceptor (middleware) cho request
 axiosClient.interceptors.request.use(
@@ -25,18 +28,18 @@ axiosClient.interceptors.request.use(
   }
 );
 
-// Thêm Interceptor cho response
+
+// (Tùy chọn nâng cao) Thêm Interceptor cho response
 // Để xử lý lỗi 401 (Unauthorized) - tự động logout
 axiosClient.interceptors.response.use(
   (response) => {
     return response;
   },
   (error) => {
-    // Chỉ xử lý lỗi 401 (Unauthorized)
-    if (error.response && error.response.status === 401) {
-      // Chỉ reload nếu user ĐÃ ĐĂNG NHẬP (có token) 
-      // hoặc KHÔNG Ở TRANG signin
-      if (localStorage.getItem('token') || window.location.pathname !== '/signin') {
+    const { response } = error;
+    if (response && response.status === 401) {
+      // Chỉ logout nếu đang không ở trang login để tránh lặp vô tận
+      if (window.location.pathname !== '/signin') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.replace('/signin');
@@ -45,5 +48,6 @@ axiosClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
 
 export default axiosClient;

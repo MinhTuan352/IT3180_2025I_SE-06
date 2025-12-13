@@ -120,10 +120,7 @@ export default function ResidentProfileEdit() {
                     >
                         {profileData?.full_name?.charAt(0) || 'U'}
                     </Avatar>
-                    <Button component="label">
-                        Đổi ảnh đại diện
-                        <input type="file" hidden accept="image/*" />
-                    </Button>
+                    {/* Avatar change button removed */}
                     <Typography variant="h6" sx={{ mt: 2 }}>
                         {profileData?.full_name || 'Chưa có tên'}
                     </Typography>
@@ -181,7 +178,7 @@ export default function ResidentProfileEdit() {
                                 fullWidth
                                 name="phone"
                                 value={formData.phone}
-                                onChange={handleChange}
+                                InputProps={{ readOnly: true }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
@@ -191,7 +188,7 @@ export default function ResidentProfileEdit() {
                                 fullWidth
                                 name="email"
                                 value={formData.email}
-                                onChange={handleChange}
+                                InputProps={{ readOnly: true }}
                             />
                         </Grid>
                         <Grid size={12}>
@@ -200,7 +197,7 @@ export default function ResidentProfileEdit() {
                                 fullWidth
                                 name="hometown"
                                 value={formData.hometown}
-                                onChange={handleChange}
+                                InputProps={{ readOnly: true }}
                             />
                         </Grid>
                         <Grid size={12}>
@@ -209,7 +206,7 @@ export default function ResidentProfileEdit() {
                                 fullWidth
                                 name="occupation"
                                 value={formData.occupation}
-                                onChange={handleChange}
+                                InputProps={{ readOnly: true }}
                             />
                         </Grid>
 
@@ -227,16 +224,7 @@ export default function ResidentProfileEdit() {
                 </Grid>
             </Grid>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-                <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleSaveProfile}
-                    disabled={saving}
-                >
-                    {saving ? <CircularProgress size={24} color="inherit" /> : 'Lưu Thay Đổi'}
-                </Button>
-            </Box>
+            {/* Save button removed */}
 
             {/* Snackbar thông báo */}
             <Snackbar

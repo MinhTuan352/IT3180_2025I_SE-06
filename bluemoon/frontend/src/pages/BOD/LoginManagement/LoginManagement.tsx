@@ -11,13 +11,16 @@ import {
   TextField,
   InputAdornment,
   Alert,
+  Button, // Add Button
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx'; // Import XLSX
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PeopleIcon from '@mui/icons-material/People';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import FileDownloadIcon from '@mui/icons-material/FileDownload'; // Import Icon
 import axiosClient from '../../../api/axiosClient';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -211,6 +214,33 @@ export default function LoginManagement() {
     row.full_name.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  // --- EXPORT LOGIC ---
+  const handleExport = () => {
+    // 1. Prepare data
+    const dataToExport = filteredRows.map(row => ({
+      'ID': row.id,
+      'Tài khoản': row.username,
+      'Họ tên': row.full_name,
+      'Vai trò': row.role_name,
+      'Căn hộ': row.apartment_id || '---',
+      'Thời gian': formatDate(row.login_time),
+      'IP': row.ip_address,
+      'Thiết bị': parseUserAgent(row.user_agent),
+      'Trạng thái': 'Thành công'
+    }));
+
+    // 2. Create worksheet
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+    // 3. Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lịch sử đăng nhập");
+
+    // 4. Download file
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `LichSuDangNhap_${dateStr}.xlsx`);
+  };
+
   return (
     <Box>
       <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -252,21 +282,32 @@ export default function LoginManagement() {
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* Search Box */}
-        <TextField
-          size="small"
-          placeholder="Tìm kiếm tài khoản..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="action" />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: 300 }}
-        />
+        {/* Right Side: Search & Export */}
+        <Stack direction="row" spacing={2} alignItems="center">
+          <TextField
+            size="small"
+            placeholder="Tìm kiếm tài khoản..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ width: 300 }}
+          />
+
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExport}
+            sx={{ height: 40, bgcolor: 'white' }}
+          >
+            Export Excel
+          </Button>
+        </Stack>
       </Paper>
 
       {/* Error Message */}

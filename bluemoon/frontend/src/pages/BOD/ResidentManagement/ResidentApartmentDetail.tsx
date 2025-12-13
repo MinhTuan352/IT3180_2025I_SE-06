@@ -14,7 +14,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonIcon from '@mui/icons-material/Person';
@@ -31,6 +31,9 @@ interface ApartmentDetail extends Apartment {
 export default function ResidentApartmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCQCN = location.pathname.startsWith('/cqcn');
+  const basePath = isCQCN ? '/cqcn' : '/bod';
 
   const [apartment, setApartment] = useState<ApartmentDetail | null>(null);
   const [residents, setResidents] = useState<Resident[]>([]);
@@ -94,7 +97,7 @@ export default function ResidentApartmentDetail() {
       <Box>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/bod/resident/lookup')}
+          onClick={() => navigate(`${basePath}/resident/lookup`)}
           sx={{ mb: 3 }}
         >
           Quay lại sơ đồ
@@ -109,7 +112,7 @@ export default function ResidentApartmentDetail() {
       <Box>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/bod/resident/lookup')}
+          onClick={() => navigate(`${basePath}/resident/lookup`)}
           sx={{ mb: 3 }}
         >
           Quay lại sơ đồ
@@ -123,7 +126,7 @@ export default function ResidentApartmentDetail() {
     <Box>
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/bod/resident/lookup')}
+        onClick={() => navigate(`${basePath}/resident/lookup`)}
         sx={{ mb: 3 }}
       >
         Quay lại sơ đồ
@@ -186,7 +189,7 @@ export default function ResidentApartmentDetail() {
                         justifyContent: 'space-between',
                         '&:hover': { bgcolor: '#f5f5f5', cursor: 'pointer' }
                       }}
-                      onClick={() => navigate(`/bod/resident/profile/${member.id}`)}
+                      onClick={() => navigate(`${basePath}/resident/profile/${member.id}`)}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <Avatar sx={{
@@ -220,7 +223,7 @@ export default function ResidentApartmentDetail() {
                 <Typography color="text.secondary">
                   Căn hộ này chưa có cư dân nào được đăng ký.
                 </Typography>
-                <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate('/bod/resident/create')}>
+                <Button variant="contained" sx={{ mt: 2 }} onClick={() => navigate(`${basePath}/resident/create`)}>
                   Thêm cư dân mới
                 </Button>
               </Paper>

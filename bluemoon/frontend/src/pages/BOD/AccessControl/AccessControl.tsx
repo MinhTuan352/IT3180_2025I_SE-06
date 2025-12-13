@@ -15,7 +15,7 @@ import {
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Icons
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
@@ -36,6 +36,9 @@ type SecurityStatus = 'Normal' | 'Warning' | 'Alert';
 
 export default function AccessControl() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCQCN = location.pathname.startsWith('/cqcn');
+  const basePath = isCQCN ? '/cqcn' : '/bod';
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [isLive, setIsLive] = useState(true); // Trạng thái nhận dữ liệu real-time
   const [latestLog, setLatestLog] = useState<AccessLog | null>(null);
@@ -168,7 +171,7 @@ export default function AccessControl() {
           <Button
             variant="outlined"
             startIcon={<AssessmentIcon />}
-            onClick={() => navigate('/bod/access-report')}
+            onClick={() => navigate(`${basePath}/access-report`)}
           >
             Xem báo cáo
           </Button>

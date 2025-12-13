@@ -15,7 +15,7 @@ import {
 import { DataGrid, type GridColDef, type GridRenderCellParams } from '@mui/x-data-grid';
 import { useState, useEffect, useCallback } from 'react';
 import { format, subDays } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Icons
 import AssessmentIcon from '@mui/icons-material/Assessment';
@@ -31,6 +31,9 @@ import { getReportData, exportReportPDF, type ReportData } from '../../../api/ac
 
 export default function AccessReport() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const isCQCN = location.pathname.startsWith('/cqcn');
+    const basePath = isCQCN ? '/cqcn' : '/bod';
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState<ReportData | null>(null);
 
@@ -105,7 +108,7 @@ export default function AccessReport() {
                     <Button
                         variant="outlined"
                         startIcon={<ArrowBackIcon />}
-                        onClick={() => navigate('/bod/access-control')}
+                        onClick={() => navigate(`${basePath}/access-control`)}
                     >
                         Quay lại
                     </Button>

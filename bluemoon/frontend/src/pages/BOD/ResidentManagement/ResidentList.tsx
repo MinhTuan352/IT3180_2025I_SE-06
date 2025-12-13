@@ -11,9 +11,9 @@ import {
   CircularProgress, // Thêm icon loading
   Alert, // Thêm Alert lỗi
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { useRef, type ChangeEvent, useState } from 'react'; 
-import * as XLSX from 'xlsx'; 
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useRef, type ChangeEvent, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { useQuery } from '@tanstack/react-query'; // Import React Query
 import { residentApi, type Resident } from '../../../api/residentApi';
 
@@ -31,6 +31,9 @@ const ROWS_PER_PAGE = 10; // Số dòng mỗi trang
 
 export default function ResidentList() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isCQCN = location.pathname.startsWith('/cqcn');
+  const basePath = isCQCN ? '/cqcn' : '/bod';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(1); // State phân trang
 
@@ -55,11 +58,11 @@ export default function ResidentList() {
 
   // --- Handlers cho Navigation (Yêu cầu 3) ---
   const handleCreateResident = () => {
-    navigate('/bod/resident/profile/create'); 
+    navigate(`${basePath}/resident/profile/create`);
   };
-  
+
   const handleViewProfile = (residentId: string) => {
-    navigate(`/bod/resident/profile/${residentId}`); 
+    navigate(`${basePath}/resident/profile/${residentId}`);
   }
 
   // --- Logic Import/Export (Giữ cấu trúc) ---
@@ -171,35 +174,35 @@ export default function ResidentList() {
         <Grid container spacing={2}>
           {paginatedResidents.map((res: Resident) => {
             const roleInfo = roleMap[res.role as keyof typeof roleMap] || { label: res.role, color: 'default' };
-            
+
             return (
-              <Grid 
+              <Grid
                 size={{ xs: 12 }}
-                key={res.id}> 
+                key={res.id}>
                 <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
-                  
+
                   <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
                     {res.full_name.charAt(0).toUpperCase()}
                   </Avatar>
-                  
+
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="h6">{res.full_name}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                       ID: {res.id} | Căn hộ: <b>{res.apartment_code || `ID:${res.apartment_id}`}</b>
                     </Typography>
-                    <Chip 
-                      label={roleInfo.label} 
-                      color={roleInfo.color as 'primary' | 'secondary' | 'default'} 
-                      size="small" 
+                    <Chip
+                      label={roleInfo.label}
+                      color={roleInfo.color as 'primary' | 'secondary' | 'default'}
+                      size="small"
                       sx={{ mr: 1 }}
                     />
                     {res.status && res.status !== 'Đang sinh sống' && (
-                        <Chip label={res.status} size="small" variant="outlined" />
+                      <Chip label={res.status} size="small" variant="outlined" />
                     )}
                   </Box>
-                  
-                  <Button 
-                    variant="contained" 
+
+                  <Button
+                    variant="contained"
                     onClick={() => handleViewProfile(res.id)}
                   >
                     Xem thêm
@@ -208,10 +211,10 @@ export default function ResidentList() {
               </Grid>
             );
           })}
-          
+
           {paginatedResidents.length === 0 && (
             <Typography sx={{ width: '100%', textAlign: 'center', mt: 4, color: 'text.secondary' }}>
-                Chưa có dữ liệu cư dân.
+              Chưa có dữ liệu cư dân.
             </Typography>
           )}
         </Grid>
@@ -220,12 +223,12 @@ export default function ResidentList() {
       {/* HÀNG 3: Phân trang */}
       {!isLoading && !error && totalRows > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination 
-            count={totalPages} 
+          <Pagination
+            count={totalPages}
             page={page}
             onChange={handlePageChange}
-            color="primary" 
-            showFirstButton 
+            color="primary"
+            showFirstButton
             showLastButton
           />
         </Box>

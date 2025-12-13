@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Paper, Grid, Card, CardActionArea,
   Breadcrumbs, Link, Chip, Avatar, Stack, IconButton, Tooltip, CircularProgress
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query'; // Import React Query
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi.ts'; // Import Apartment API
@@ -28,7 +28,10 @@ const APARTMENTS_PER_FLOOR = 8;
 
 export default function ResidentApartmentLookup() {
   const navigate = useNavigate();
-  
+  const location = useLocation();
+  const isCQCN = location.pathname.startsWith('/cqcn');
+  const basePath = isCQCN ? '/cqcn' : '/bod';
+
   // --- STATE QUẢN LÝ CẤP ĐỘ ---
   const [selectedBuilding, setSelectedBuilding] = useState<'A' | 'B' | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
@@ -52,11 +55,11 @@ export default function ResidentApartmentLookup() {
       residents: dbResidents.filter(r => String(r.apartment_id) === String(apt.id))
     }));
   }, [dbApartments, dbResidents]);
-  
+
   // --- HEADER ACTIONS (GIỮ NGUYÊN TỪ RESIDENT LIST) ---
   const handleExport = () => { alert("Export excel từ view Căn hộ"); };
   const handleImportClick = () => { alert("Import excel vào view Căn hộ"); };
-  const handleCreateResident = () => { navigate('/bod/resident/profile/create'); };
+  const handleCreateResident = () => { navigate(`${basePath}/resident/profile/create`); };
 
   // --- NAVIGATION HANDLERS ---
   const handleSelectBuilding = (b: 'A' | 'B') => setSelectedBuilding(b);
@@ -67,7 +70,7 @@ export default function ResidentApartmentLookup() {
   // --- HÀM ĐIỀU HƯỚNG MỚI ---
   const handleViewApartmentDetail = (aptId?: number) => {
     if (aptId) {
-      navigate(`/bod/resident/apartment/${aptId}`);
+      navigate(`${basePath}/resident/apartment/${aptId}`);
     } else {
       alert("Căn hộ này chưa được thiết lập dữ liệu trên hệ thống.");
     }
@@ -75,21 +78,21 @@ export default function ResidentApartmentLookup() {
 
   const handleViewResidentProfile = (e: React.MouseEvent, residentId: string) => {
     e.stopPropagation(); // Ngăn không cho click vào thẻ căn hộ (parent)
-    navigate(`/bod/resident/profile/${residentId}`);
+    navigate(`${basePath}/resident/profile/${residentId}`);
   };
 
   // --- RENDER CONTENT ---
   const renderContent = () => {
-    if (loadingApt || loadingRes) return <Box sx={{display:'flex', justifyContent:'center', p:5}}><CircularProgress /></Box>;
+    if (loadingApt || loadingRes) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
 
     // 1. CẤP ĐỘ 1: CHỌN TÒA NHÀ
     if (!selectedBuilding) {
       return (
         <Grid container spacing={4} justifyContent="center" sx={{ mt: 2 }}>
           {['A', 'B'].map((building) => (
-            <Grid sx={{xs: 12, sm: 5}} key={building}>
+            <Grid sx={{ xs: 12, sm: 5 }} key={building}>
               <Card sx={{ borderRadius: 4, bgcolor: building === 'A' ? '#e3f2fd' : '#f3e5f5', height: 200 }}>
-                <CardActionArea 
+                <CardActionArea
                   sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
                   onClick={() => handleSelectBuilding(building as 'A' | 'B')}
                 >
@@ -113,11 +116,11 @@ export default function ResidentApartmentLookup() {
           </Typography>
           <Grid container spacing={2}>
             {Array.from({ length: FLOORS }, (_, i) => i + 1).map((floor) => (
-              <Grid sx={{xs: 6, sm: 4, md:3, lg: 2}} key={floor}>
+              <Grid sx={{ xs: 6, sm: 4, md: 3, lg: 2 }} key={floor}>
                 <Button
                   variant="outlined"
                   fullWidth
-                  sx={{ 
+                  sx={{
                     height: 60, fontSize: '1.1rem', borderRadius: 2,
                     borderColor: '#ddd', color: 'text.primary',
                     '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.light', color: 'primary.main' }
@@ -157,17 +160,17 @@ export default function ResidentApartmentLookup() {
           <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
             <HomeIcon sx={{ mr: 1 }} /> Danh sách Căn hộ - Tầng {selectedFloor} - Tòa {selectedBuilding}
           </Typography>
-          
+
           <Grid container spacing={2}>
             {apartmentSlots.map((slot, index) => {
               const hasData = !!slot.data;
               const isOccupied = slot.data?.status === 'Đang sinh sống';
-              
+
               return (
-                <Grid sx={{xs: 12}} key={index}>
-                  <Paper 
+                <Grid sx={{ xs: 12 }} key={index}>
+                  <Paper
                     elevation={0}
-                    sx={{ 
+                    sx={{
                       p: 2, borderRadius: 2, border: '1px solid #eee',
                       // Nếu có người -> viền xanh, Chưa có -> viền xám
                       borderLeft: `6px solid ${hasData && isOccupied ? '#4caf50' : '#bdbdbd'}`,
@@ -185,10 +188,10 @@ export default function ResidentApartmentLookup() {
                       <Typography variant="h6" fontWeight="bold">
                         {slot.virtualCode}
                       </Typography>
-                      <Chip 
+                      <Chip
                         // Nếu có data thì hiện status thật, ko thì hiện "Chưa thông tin"
-                        label={hasData ? slot.data?.status : 'Chưa có thông tin'} 
-                        size="small" 
+                        label={hasData ? slot.data?.status : 'Chưa có thông tin'}
+                        size="small"
                         color={isOccupied ? 'success' : 'default'}
                         variant={isOccupied ? 'filled' : 'outlined'}
                         sx={{ mt: 0.5 }}
@@ -209,7 +212,7 @@ export default function ResidentApartmentLookup() {
                                   <Typography variant="caption" display="block" fontSize="0.65rem">{res.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}</Typography>
                                 </Box>
                               }
-                              onClick={(e) => handleViewResidentProfile(e, res.id)} 
+                              onClick={(e) => handleViewResidentProfile(e, res.id)}
                               sx={{ height: 'auto', py: 0.5, cursor: 'pointer', '&:hover': { bgcolor: '#e3f2fd' } }}
                             />
                           ))}
@@ -222,11 +225,11 @@ export default function ResidentApartmentLookup() {
                       )}
                     </Box>
 
-                  {/* Nút mũi tên chỉ hiện khi có dữ liệu để bấm vào */}
+                    {/* Nút mũi tên chỉ hiện khi có dữ liệu để bấm vào */}
                     <Box sx={{ minWidth: 40, textAlign: 'right' }}>
                       {hasData && (
                         <Tooltip title="Xem chi tiết căn hộ">
-                            <IconButton size="small"><ArrowForwardIcon /></IconButton>
+                          <IconButton size="small"><ArrowForwardIcon /></IconButton>
                         </Tooltip>
                       )}
                     </Box>
@@ -245,22 +248,22 @@ export default function ResidentApartmentLookup() {
       {/* 1. HEADER + ACTIONS (GIỮ NGUYÊN) */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>TRA CỨU THEO CĂN HỘ</Typography>
-            {/* Breadcrumbs Navigation */}
-            <Breadcrumbs aria-label="breadcrumb" sx={{ mt: 1 }}>
-                <Link underline="hover" color="inherit" onClick={() => navigate('/bod/resident')} sx={{ cursor: 'pointer' }}>
-                    Quản lý Cư dân
-                </Link>
-                {selectedBuilding ? (
-                    <Link underline="hover" color="inherit" onClick={resetSelection} sx={{ cursor: 'pointer' }}>
-                        Tòa {selectedBuilding}
-                    </Link>
-                ) : <Typography color="text.primary">Chọn Tòa</Typography>}
-                
-                {selectedFloor && (
-                    <Typography color="text.primary">Tầng {selectedFloor}</Typography>
-                )}
-            </Breadcrumbs>
+          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>TRA CỨU THEO CĂN HỘ</Typography>
+          {/* Breadcrumbs Navigation */}
+          <Breadcrumbs aria-label="breadcrumb" sx={{ mt: 1 }}>
+            <Link underline="hover" color="inherit" onClick={() => navigate(`${basePath}/resident`)} sx={{ cursor: 'pointer' }}>
+              Quản lý Cư dân
+            </Link>
+            {selectedBuilding ? (
+              <Link underline="hover" color="inherit" onClick={resetSelection} sx={{ cursor: 'pointer' }}>
+                Tòa {selectedBuilding}
+              </Link>
+            ) : <Typography color="text.primary">Chọn Tòa</Typography>}
+
+            {selectedFloor && (
+              <Typography color="text.primary">Tầng {selectedFloor}</Typography>
+            )}
+          </Breadcrumbs>
         </Box>
 
         {/* Các nút chức năng (Giữ nguyên như ResidentList) */}
@@ -280,11 +283,11 @@ export default function ResidentApartmentLookup() {
       {/* 2. MAIN CONTENT AREA */}
       <Paper sx={{ p: 3, borderRadius: 3, minHeight: 600, bgcolor: '#fafafa' }}>
         {selectedFloor && (
-            <Button startIcon={<ArrowBackIcon />} onClick={backToFloorSelection} sx={{ mb: 2 }}>
-                Quay lại danh sách tầng
-            </Button>
+          <Button startIcon={<ArrowBackIcon />} onClick={backToFloorSelection} sx={{ mb: 2 }}>
+            Quay lại danh sách tầng
+          </Button>
         )}
-        
+
         {renderContent()}
       </Paper>
     </Box>

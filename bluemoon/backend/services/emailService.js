@@ -117,6 +117,62 @@ const emailService = {
             console.error('[EMAIL ERROR]', error);
             throw error;
         }
+    },
+
+    /**
+     * Gửi email thông báo chung từ Ban Quản Trị
+     */
+    sendNotificationEmail: async (toEmail, residentName, notificationInfo) => {
+        // Xác định màu sắc dựa trên loại thông báo
+        const typeColors = {
+            'Khẩn cấp': { gradient: '#f44336, #e91e63', bg: '#ffebee', border: '#f44336', icon: '🚨' },
+            'Chung': { gradient: '#1976d2, #42a5f5', bg: '#e3f2fd', border: '#1976d2', icon: '📢' },
+            'Thu phí': { gradient: '#ff9800, #ffc107', bg: '#fff3e0', border: '#ff9800', icon: '💰' }
+        };
+        const colors = typeColors[notificationInfo.type] || typeColors['Chung'];
+
+        const mailOptions = {
+            from: `"BlueMoon Apartment" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject: `[BlueMoon] ${notificationInfo.title}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background: linear-gradient(135deg, ${colors.gradient}); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                        <h1 style="color: white; margin: 0;">${colors.icon} BlueMoon Apartment</h1>
+                    </div>
+                    <div style="background: ${colors.bg}; padding: 30px; border-radius: 0 0 10px 10px;">
+                        <h2 style="color: #333;">Kính gửi ${residentName},</h2>
+                        
+                        <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid ${colors.border}; margin: 20px 0;">
+                            <h3 style="color: #333; margin: 0 0 15px 0;">${notificationInfo.title}</h3>
+                            <p style="color: #666; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${notificationInfo.content}</p>
+                        </div>
+                        
+                        <p style="color: #888; font-size: 13px; margin-top: 20px;">
+                            📅 Thời gian gửi: ${new Date().toLocaleString('vi-VN')}
+                        </p>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+                        
+                        <p style="color: #999; font-size: 12px; text-align: center;">
+                            Đây là email tự động từ hệ thống BlueMoon Apartment.<br>
+                            Vui lòng không trả lời email này.<br><br>
+                            © 2024 BlueMoon Apartment Management System
+                        </p>
+                    </div>
+                </div>
+            `
+        };
+
+        try {
+            const info = await transporter.sendMail(mailOptions);
+            console.log('[EMAIL] Notification sent:', info.messageId);
+            return { success: true, messageId: info.messageId };
+        } catch (error) {
+            console.error('[EMAIL ERROR] Notification email failed:', error.message);
+            // Không throw error để không làm gián đoạn flow chính
+            return { success: false, error: error.message };
+        }
     }
 };
 

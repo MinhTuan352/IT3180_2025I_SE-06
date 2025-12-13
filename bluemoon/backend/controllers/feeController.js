@@ -3,6 +3,7 @@
 const Fee = require('../models/feeModel');
 const invoiceNotifier = require('../jobs/invoiceNotifier');
 const db = require('../config/db');
+const emailService = require('../services/emailService');
 
 // Helper: Tìm Resident ID từ User ID (Fix lỗi lệch ID)
 const getResidentIdFromUser = async (userId) => {
@@ -321,18 +322,34 @@ const feeController = {
                 [notiId, feeDetail.resident_id]
             );
 
-            // 4. Log email (trong thực tế sẽ gửi email qua SMTP)
-            console.log(`📧 [EMAIL NHẮC NỢ] Gửi đến: ${resident.email || 'Chưa có email'}`);
-            console.log(`   Nội dung: ${title}`);
-            console.log(`   Số tiền: ${amountDue.toLocaleString('vi-VN')} VNĐ`);
+            // 4. [CẬP NHẬT] Gửi email thực sự qua SMTP
+            let emailSent = false;
+            let emailError = null;
+            if (resident.email) {
+                try {
+                    await emailService.sendDebtReminderEmail(resident.email, resident.full_name, {
+                        amount: amountDue.toLocaleString('vi-VN'),
+                        description: `Mã HĐ: ${feeDetail.id} | Loại: ${feeDetail.fee_name} | Kỳ: ${feeDetail.billing_period} | Hạn: ${new Date(feeDetail.due_date).toLocaleDateString('vi-VN')}`
+                    });
+                    emailSent = true;
+                    console.log(`📧 [EMAIL NHẮC NỢ] Đã gửi thành công đến: ${resident.email}`);
+                } catch (emailErr) {
+                    emailError = emailErr.message;
+                    console.error(`📧 [EMAIL NHẮC NỢ] Gửi thất bại đến ${resident.email}:`, emailErr.message);
+                }
+            } else {
+                console.log(`📧 [EMAIL NHẮC NỢ] Cư dân ${resident.full_name} chưa có email.`);
+            }
 
             res.json({
                 success: true,
-                message: `Đã gửi nhắc nợ đến ${resident.full_name} (${resident.apartment_code}).`,
+                message: `Đã gửi nhắc nợ đến ${resident.full_name} (${resident.apartment_code}).${emailSent ? ' Email đã được gửi!' : ''}`,
                 data: {
                     notification_id: notiId,
                     resident_name: resident.full_name,
                     email: resident.email || 'Chưa có',
+                    email_sent: emailSent,
+                    email_error: emailError,
                     amount_due: amountDue
                 }
             });
@@ -436,8 +453,22 @@ const feeController = {
                         [notiId, residentId]
                     );
 
-                    // Log email
-                    console.log(`📧 [BATCH EMAIL] Gửi đến: ${data.email || 'N/A'} - ${data.resident_name} - Tổng nợ: ${totalDue.toLocaleString()} VNĐ`);
+                    // [CẬP NHẬT] Gửi email thực sự
+                    let emailSent = false;
+                    if (data.email) {
+                        try {
+                            await emailService.sendDebtReminderEmail(data.email, data.resident_name, {
+                                amount: totalDue.toLocaleString('vi-VN'),
+                                description: `${data.invoices.length} hóa đơn từ căn hộ ${data.apartment_code}`
+                            });
+                            emailSent = true;
+                            console.log(`📧 [BATCH EMAIL] Đã gửi đến: ${data.email} - Tổng nợ: ${totalDue.toLocaleString()} VNĐ`);
+                        } catch (emailErr) {
+                            console.error(`📧 [BATCH EMAIL] Gửi thất bại đến ${data.email}:`, emailErr.message);
+                        }
+                    } else {
+                        console.log(`📧 [BATCH EMAIL] ${data.resident_name} chưa có email.`);
+                    }
 
                     results.push({
                         resident_id: residentId,
@@ -445,6 +476,7 @@ const feeController = {
                         apartment_code: data.apartment_code,
                         invoice_count: data.invoices.length,
                         total_due: totalDue,
+                        email_sent: emailSent,
                         status: 'Thành công'
                     });
 

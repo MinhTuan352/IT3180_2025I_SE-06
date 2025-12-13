@@ -1,6 +1,8 @@
 // File: backend/controllers/notificationController.js
 
 const Notification = require('../models/notificationModel');
+const emailService = require('../services/emailService');
+const db = require('../config/db');
 
 const notificationController = {
 
@@ -12,7 +14,7 @@ const notificationController = {
                 role: req.user.role // 'bod' hoặc 'resident'
             };
             const notifications = await Notification.getAll(filters);
-            
+
             res.json({
                 success: true,
                 count: notifications.length,
@@ -54,7 +56,7 @@ const notificationController = {
 
             // 2. Lấy danh sách Người nhận (Recipients)
             let recipients = [];
-            
+
             if (target === 'Cá nhân') {
                 if (!specific_recipient_id) return res.status(400).json({ message: 'Vui lòng chọn người nhận.' });
                 recipients = [specific_recipient_id];
@@ -87,20 +89,54 @@ const notificationController = {
 
             const notiData = {
                 id: notiId,
-                title, 
-                content, 
-                type_id, 
-                target, 
+                title,
+                content,
+                type_id,
+                target,
                 created_by: req.user.id
             };
 
             // 5. Gọi Model transaction
             const result = await Notification.createWithTransaction(notiData, recipients, filesData);
 
+            // 6. [MỚI] Gửi email đến tất cả cư dân có email (chạy background, không block response)
+            // Lấy thông tin loại thông báo
+            let notificationType = 'Chung';
+            try {
+                const [types] = await db.execute('SELECT type_name FROM notification_types WHERE id = ?', [type_id]);
+                if (types.length > 0) notificationType = types[0].type_name;
+            } catch (e) { /* ignore */ }
+
+            // Lấy danh sách email của recipients
+            const placeholders = recipients.map(() => '?').join(',');
+            const [residentsWithEmail] = await db.execute(
+                `SELECT id, full_name, email FROM residents WHERE id IN (${placeholders}) AND email IS NOT NULL AND email != ''`,
+                recipients
+            );
+
+            // Gửi email background (không await để response nhanh)
+            const emailPromises = residentsWithEmail.map(resident =>
+                emailService.sendNotificationEmail(resident.email, resident.full_name, {
+                    title,
+                    content,
+                    type: notificationType
+                }).catch(err => {
+                    console.error(`[EMAIL] Failed to send to ${resident.email}:`, err.message);
+                    return { success: false, email: resident.email };
+                })
+            );
+
+            // Chạy gửi email background
+            Promise.all(emailPromises).then(results => {
+                const sent = results.filter(r => r && r.success).length;
+                console.log(`[EMAIL] Notification emails sent: ${sent}/${residentsWithEmail.length}`);
+            });
+
             res.status(201).json({
                 success: true,
-                message: 'Gửi thông báo thành công!',
-                data: result
+                message: `Gửi thông báo thành công! (${residentsWithEmail.length} email sẽ được gửi)`,
+                data: result,
+                emailCount: residentsWithEmail.length
             });
 
         } catch (error) {

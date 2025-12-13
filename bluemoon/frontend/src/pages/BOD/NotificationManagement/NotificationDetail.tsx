@@ -29,12 +29,13 @@ export default function NotificationDetail() {
     try {
       setLoading(true);
       const response = await notificationApi.getDetail(notiId);
-      // Assuming response structure
-      if (response && (response as any).data) {
-        setNotification((response as any).data);
+      // Ensure we extract the inner data correctly
+      // response.data is { success: boolean, data: Notification }
+      const body = (response as any).data || response;
+      if (body && body.data) {
+        setNotification(body.data);
       } else {
-        // fallback
-        setNotification(response as any);
+        setNotification(body);
       }
     } catch (error) {
       console.error("Failed to fetch detail", error);

@@ -41,12 +41,16 @@ export default function ReportDetail() {
     try {
       setLoading(true);
       const res = await incidentApi.getDetail(reportId);
-      // Safety check response structure
-      const data = (res as any).data || res;
-      if (data) {
-        setReport(data);
-        setCurrentStatus(data.status);
-        setResponseNote(data.admin_response || '');
+      // response.data is { success: boolean, data: Incident }
+      const body = (res as any).data || res;
+      if (body && body.data) {
+        setReport(body.data);
+        setCurrentStatus(body.data.status);
+        setResponseNote(body.data.admin_response || '');
+      } else if (body) {
+        setReport(body);
+        setCurrentStatus(body.status);
+        setResponseNote(body.admin_response || '');
       }
     } catch (err: any) {
       console.error(err);

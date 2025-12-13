@@ -58,6 +58,19 @@ const feeController = {
      */
     getFees: async (req, res) => {
         try {
+            // [AUTO-UPDATE] Tự động cập nhật trạng thái quá hạn
+            // Các hóa đơn chưa thanh toán hoặc thanh toán một phần mà đã quá due_date sẽ chuyển sang 'Quá hạn'
+            try {
+                await db.execute(`
+                    UPDATE fees 
+                    SET status = 'Quá hạn' 
+                    WHERE status IN ('Chưa thanh toán', 'Thanh toán một phần') 
+                    AND due_date < CURDATE()
+                `);
+            } catch (updateErr) {
+                console.log('[Auto-update overdue status error]:', updateErr.message);
+            }
+
             const filters = {};
             if (req.query.status) filters.status = req.query.status;
             if (req.query.apartment_id) filters.apartment_id = req.query.apartment_id;

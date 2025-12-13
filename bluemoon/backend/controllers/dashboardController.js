@@ -195,14 +195,14 @@ const dashboardController = {
             try {
                 const [data] = await db.execute(`
                     SELECT 
-                        ft.name as fee_type,
+                        ft.fee_name as fee_type,
                         COUNT(f.id) as count,
                         COALESCE(SUM(f.total_amount), 0) as total,
                         COALESCE(SUM(f.amount_paid), 0) as paid,
                         COALESCE(SUM(f.amount_remaining), 0) as remaining
                     FROM fee_types ft
                     LEFT JOIN fees f ON ft.id = f.fee_type_id
-                    GROUP BY ft.id, ft.name
+                    GROUP BY ft.id, ft.fee_name
                     ORDER BY total DESC
                     LIMIT 6
                 `);
@@ -216,7 +216,7 @@ const dashboardController = {
                     SELECT 
                         f.id,
                         a.apartment_code,
-                        ft.name as fee_type,
+                        ft.fee_name as fee_type,
                         f.total_amount,
                         f.amount_remaining,
                         f.due_date,

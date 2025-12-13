@@ -44,4 +44,7 @@ router.post('/create-resident', userController.createResidentAccount);
 // [GET] /api/users/:id - Lấy chi tiết một user (admin) theo ID
 router.get('/:id', userController.getAdminById);
 
+// [PUT] /api/users/:id - Cập nhật thông tin admin
+router.put('/:id', userController.updateAdmin);
+
 module.exports = router;

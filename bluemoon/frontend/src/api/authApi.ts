@@ -37,7 +37,7 @@ export const authApi = {
   },
 
   // [MỚI] Quên mật khẩu - Gửi yêu cầu reset
-  forgotPassword: async (email: string): Promise<{ success: boolean; message: string }> => {
+  forgotPassword: async (email: string): Promise<{ success: boolean; message: string; warning?: string; tempPassword?: string }> => {
     const response = await axiosClient.post('/auth/forgot-password', { email });
     return response.data;
   },

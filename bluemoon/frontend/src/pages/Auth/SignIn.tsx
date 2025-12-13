@@ -35,7 +35,7 @@ export default function SignIn() {
   const [openForgotModal, setOpenForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotResult, setForgotResult] = useState<{ success: boolean; message: string; tempPassword?: string } | null>(null);
+  const [forgotResult, setForgotResult] = useState<{ success: boolean; message: string; warning?: string; tempPassword?: string } | null>(null);
 
   // === React Hook Form ===
   const {
@@ -301,9 +301,13 @@ export default function SignIn() {
               sx={{ mb: 2 }}
             >
               {forgotResult.message}
-              {/* Chỉ hiển thị trong DEV mode */}
-              {forgotResult.tempPassword && (
+              {/* Chỉ hiển thị mật khẩu tạm khi email service không hoạt động */}
+              {forgotResult.warning && forgotResult.tempPassword && (
                 <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="warning.main">
+                    ⚠️ Không thể gửi email. Vui lòng sử dụng mật khẩu bên dưới:
+                  </Typography>
+                  <br />
                   <strong>Mật khẩu tạm: </strong>
                   <code>{forgotResult.tempPassword}</code>
                 </Box>

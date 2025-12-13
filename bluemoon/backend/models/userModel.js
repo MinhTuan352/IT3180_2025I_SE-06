@@ -326,6 +326,40 @@ const User = {
     },
 
     /**
+     * Transaction: Cập nhật thông tin Admin
+     * Update đồng thời vào users và admins
+     */
+    updateAdmin: async (userId, data) => {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const { email, phone, role_id, full_name, dob, gender, cccd } = data;
+
+            // 1. Update bảng Users
+            await connection.execute(
+                `UPDATE users SET email = ?, phone = ?, role_id = ? WHERE id = ?`,
+                [email, phone, role_id, userId]
+            );
+
+            // 2. Update bảng Admins (Profile)
+            await connection.execute(
+                `UPDATE admins SET full_name = ?, dob = ?, gender = ?, cccd = ?, phone = ?, email = ? WHERE user_id = ?`,
+                [full_name, dob, gender, cccd, phone, email, userId]
+            );
+
+            await connection.commit();
+            return { success: true };
+
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    },
+
+    /**
      * Transaction: Tạo tài khoản Cư dân
      * Insert đồng thời vào users và residents
      */

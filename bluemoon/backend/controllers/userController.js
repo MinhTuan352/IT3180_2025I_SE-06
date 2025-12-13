@@ -166,6 +166,48 @@ const userController = {
     },
 
     /**
+     * [PUT] /api/users/:id
+     * Cập nhật thông tin admin
+     */
+    updateAdmin: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { email, phone, role_id, full_name, dob, gender, cccd } = req.body;
+
+            // Validate required fields
+            if (!email || !full_name) {
+                return res.status(400).json({ message: 'Email và Họ tên là bắt buộc.' });
+            }
+
+            // Kiểm tra user tồn tại
+            const existingUser = await User.getAdminById(id);
+            if (!existingUser) {
+                return res.status(404).json({ message: 'Không tìm thấy người dùng.' });
+            }
+
+            // Cập nhật thông tin
+            await User.updateAdmin(id, {
+                email,
+                phone: phone || null,
+                role_id: role_id || existingUser.role_id,
+                full_name,
+                dob: dob || null,
+                gender: gender || 'Nam',
+                cccd: cccd || null
+            });
+
+            res.json({
+                success: true,
+                message: 'Cập nhật thông tin thành công!'
+            });
+
+        } catch (error) {
+            console.error('Update admin error:', error);
+            res.status(500).json({ message: 'Lỗi server khi cập nhật.', error: error.message });
+        }
+    },
+
+    /**
      * [GET] /api/users/:id
      * Lấy chi tiết admin theo ID
      */

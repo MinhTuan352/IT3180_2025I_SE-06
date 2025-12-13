@@ -103,8 +103,18 @@ export default function AdminProfile() {
 
     setSaving(true);
     try {
-      // Update user info (if backend supports PUT /users/:id)
-      // For now, we'll update password if provided
+      // 1. Cập nhật thông tin cá nhân
+      await axiosClient.put(`/users/${id}`, {
+        email: formData.email,
+        phone: formData.phone,
+        role_id: formData.role_id,
+        full_name: formData.full_name,
+        dob: formData.dob || null,
+        gender: formData.gender,
+        cccd: formData.cccd,
+      });
+
+      // 2. Cập nhật mật khẩu nếu có
       if (formData.newPassword) {
         await axiosClient.post(`/users/${id}/reset-password`, {
           newPassword: formData.newPassword,
@@ -112,7 +122,18 @@ export default function AdminProfile() {
         toast.success('Đã cập nhật mật khẩu thành công!');
       }
 
-      // Note: Full update endpoint may need to be implemented on backend
+      // Cập nhật lại userData trong state
+      setUserData(prev => prev ? {
+        ...prev,
+        email: formData.email,
+        phone: formData.phone,
+        role_id: formData.role_id,
+        full_name: formData.full_name,
+        dob: formData.dob,
+        gender: formData.gender,
+        cccd: formData.cccd,
+      } : null);
+
       toast.success('Thông tin đã được lưu!');
 
     } catch (err: any) {

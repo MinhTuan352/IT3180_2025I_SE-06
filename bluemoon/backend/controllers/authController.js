@@ -153,7 +153,7 @@ const authController = {
                 });
             }
 
-            // 2. Tạo mật khẩu tạm ngẫu nhiên (6 ký tự)
+            // 2. Tạo mật khẩu tạm ngẫu nhiên (8 ký tự)
             const tempPassword = Math.random().toString(36).slice(-8);
 
             // 3. Mã hóa và lưu mật khẩu mới
@@ -161,16 +161,27 @@ const authController = {
             const newPasswordHash = await bcrypt.hash(tempPassword, salt);
             await User.changePassword(user.id, newPasswordHash);
 
-            // 4. Trong thực tế, gửi email có chứa tempPassword
-            // Hiện tại console.log để test
-            console.log(`[FORGOT PASSWORD] User: ${user.username}, Temp Password: ${tempPassword}`);
+            // 4. Gửi email chứa mật khẩu tạm
+            try {
+                const emailService = require('../services/emailService');
+                await emailService.sendPasswordResetEmail(email, tempPassword, user.full_name || user.username);
 
-            res.json({
-                success: true,
-                message: 'Mật khẩu mới đã được gửi đến email của bạn.',
-                // CHỈ DÙNG CHO DEV - Loại bỏ trong production
-                tempPassword: tempPassword
-            });
+                res.json({
+                    success: true,
+                    message: 'Mật khẩu mới đã được gửi đến email của bạn.'
+                });
+            } catch (emailError) {
+                console.error('[EMAIL ERROR]', emailError);
+                // Nếu gửi email thất bại, vẫn trả về thành công nhưng log lỗi
+                // (mật khẩu đã được đổi trong DB)
+                res.json({
+                    success: true,
+                    message: 'Mật khẩu mới đã được gửi đến email của bạn.',
+                    // Chỉ hiện khi không gửi được email (fallback cho dev)
+                    warning: 'Email service unavailable',
+                    tempPassword: tempPassword
+                });
+            }
 
         } catch (error) {
             console.error('Forgot Password Error:', error);

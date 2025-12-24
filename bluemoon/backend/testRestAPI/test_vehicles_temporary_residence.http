@@ -1,0 +1,174 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP ĐỂ LẤY TOKEN
+# ==================================================================
+
+# 1.1. Đăng nhập CƯ DÂN (R0001 - chuho_a101)
+# -> Lưu lại accessToken trả về để thay vào biến @residentToken
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+
+# 1.2. Đăng nhập BAN QUẢN TRỊ (ID0001 - admin.a)
+# -> Lưu lại accessToken trả về để thay vào biến @bodToken
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+
+# 1.3. Đăng nhập CƠ QUAN CHỨC NĂNG (ID0003 - cqcn.c)
+# -> Lưu lại accessToken trả về để thay vào biến @cqcnToken
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "cqcn.c",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN (Thay token thật vào đây sau khi login) ---
+@residentToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NTk3MjI0LCJleHAiOjE3NjY2MDA4MjR9.5R6AZVY591tBOxqcFd3Q87mOx5u5_i2hMGe4xLyliRc
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY1OTcxNjEsImV4cCI6MTc2NjYwMDc2MX0.pAR_4eXI-LhbVCimtZs1AoyTZJbanMc86BeN3jbAQ-g
+@cqcnToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMyIsInJvbGUiOiJjcWNuIiwiaWF0IjoxNzY2NTk3MTc1LCJleHAiOjE3NjY2MDA3NzV9.WSpVlZK-gAHyvKOMwaIRvsnb7L0g8ld52A_xIgynYYc
+
+
+# ==================================================================
+# 2. MODULE QUẢN LÝ XE (VEHICLES)
+# ==================================================================
+
+### 2.1. [Cư dân] Xem danh sách xe của mình
+GET {{baseUrl}}/vehicles/me
+Authorization: {{residentToken}}
+
+### 2.2. [Cư dân] Đăng ký xe mới (Lưu ý: REST Client hỗ trợ multipart nhưng viết hơi dài, bạn nên test upload bằng Postman)
+# Dưới đây là giả lập request, nếu test bằng Postman hãy chọn Body -> form-data
+# Key: vehicle_type, license_plate, brand, model (Text)
+# Key: vehicle_image, registration_cert (File)
+POST {{baseUrl}}/vehicles/register
+Authorization: {{residentToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="vehicle_type"
+
+Ô tô
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="license_plate"
+
+30A-999.99
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="brand"
+
+Mercedes
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="model"
+
+S450
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="vehicle_image"; filename="car.jpg"
+Content-Type: image/jpeg
+
+<@INCLUDE_PATH_TO_YOUR_IMAGE_HERE>
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 2.3. [BOD] Xem danh sách tất cả xe (Lọc xe Chờ duyệt)
+GET {{baseUrl}}/vehicles?status=Chờ duyệt
+Authorization: {{bodToken}}
+
+### 2.4. [BOD] Duyệt xe (Thay ID xe lấy từ bước 2.3 vào URL)
+PUT {{baseUrl}}/vehicles/1/status
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Đang sử dụng"
+}
+
+### 2.5. [BOD] Cập nhật thông tin xe (Sửa biển số sai)
+PUT {{baseUrl}}/vehicles/1
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "license_plate": "30A-888.88",
+    "brand": "Mercedes-Benz"
+}
+
+### 2.6. [Cư dân] Hủy đăng ký xe (Xóa xe)
+DELETE {{baseUrl}}/vehicles/1
+Authorization: {{residentToken}}
+
+
+# ==================================================================
+# 3. MODULE TẠM TRÚ / TẠM VẮNG (TEMPORARY RESIDENCE)
+# ==================================================================
+
+### 3.1. [Cư dân] Đăng ký Tạm vắng (Có file đính kèm)
+# Tương tự xe, test upload tốt nhất là dùng Postman
+POST {{baseUrl}}/temporary-residence/register
+Authorization: {{residentToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="type"
+
+Tạm vắng
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="start_date"
+
+2025-11-01
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="end_date"
+
+2025-11-10
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="reason"
+
+Đi du lịch Nhật Bản
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="passport.jpg"
+Content-Type: image/jpeg
+
+<@INCLUDE_PATH_TO_YOUR_IMAGE_HERE>
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 3.2. [Cư dân] Xem lịch sử khai báo của mình
+GET {{baseUrl}}/temporary-residence/me
+Authorization: {{residentToken}}
+
+### 3.3. [BOD] Xem danh sách đơn Chờ duyệt
+GET {{baseUrl}}/temporary-residence?status=Chờ duyệt
+Authorization: {{bodToken}}
+
+### 3.4. [BOD] Duyệt đơn (Thay ID đơn lấy từ bước 3.3 vào URL)
+PUT {{baseUrl}}/temporary-residence/1/status
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Đã duyệt"
+}
+
+### 3.5. [Cơ Quan Chức Năng] Xem danh sách nhân khẩu biến động (Tạm trú/Tạm vắng)
+# CQCN lọc theo ngày tháng để làm báo cáo
+GET {{baseUrl}}/temporary-residence?startDate=2025-01-01&endDate=2025-12-31
+Authorization: {{cqcnToken}}
+
+### 3.6. [Cư dân] Hủy đơn (Chỉ khi status là Chờ duyệt)
+DELETE {{baseUrl}}/temporary-residence/3
+Authorization: {{residentToken}}

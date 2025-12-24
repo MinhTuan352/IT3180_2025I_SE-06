@@ -1,11 +1,10 @@
 // src/api/axiosClient.ts
 import axios from 'axios';
-import { API_BASE_URL } from '../config';
 
 
 const axiosClient = axios.create({
   // URL này trỏ đến proxy bạn đã cài trong vite.config.ts
-  baseURL: API_BASE_URL,
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -36,15 +35,12 @@ axiosClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    const { response } = error;
-    if (response && response.status === 401) {
-      // Chỉ logout nếu đang không ở trang login để tránh lặp vô tận
-      if (window.location.pathname !== '/signin') {
+    if (localStorage.getItem('token') || window.location.pathname !== '/signin') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.replace('/signin');
       }
-    }
+   
     return Promise.reject(error);
   }
 );

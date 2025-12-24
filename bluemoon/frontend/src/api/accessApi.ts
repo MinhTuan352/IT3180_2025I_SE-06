@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://it3180-2025i-se-06.onrender.com/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Types
 export interface AccessLog {

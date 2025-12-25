@@ -1,0 +1,131 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+# 1.1. Đăng nhập KẾ TOÁN (User: ketoan.b)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "ketoan.b",
+    "password": "password123"
+}
+
+###
+
+# 1.2. Đăng nhập CƯ DÂN (User: chuho_a101 - R0001)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN ---
+# ⚠️ Copy accessToken dán vào đây (Giữ nguyên 'Bearer ' và dấu cách)
+@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjYzMjE4NCwiZXhwIjoxNzY2NjM1Nzg0fQ.XSE0LcNBP1ehjTjnDrrBgV4-Iou9dc-UpldOnDVi6jU
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NjMyMTk2LCJleHAiOjE3NjY2MzU3OTZ9.wHHwkM2m4Rj18JKyBkg6rucGLpoIvKztnWgU0TbK3jA
+
+
+# ==================================================================
+# 2. LUỒNG KẾ TOÁN (QUẢN LÝ QUỸ)
+# ==================================================================
+
+### 2.1. [Kế toán] Tạo đợt quyên góp mới (Quỹ Tết)
+# ID trả về thường sẽ là 3 (vì database mẫu đã có 1, 2)
+POST {{baseUrl}}/donations/campaigns
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "title": "Quỹ Tết Ấm No 2026",
+    "description": "Quyên góp quà tết cho các hộ nghèo và nhân viên vệ sinh tòa nhà.",
+    "start_date": "2025-12-01",
+    "end_date": "2026-01-30",
+    "target_amount": 100000000
+}
+
+### 2.2. [Kế toán] Thu tiền mặt (Nhập hộ)
+# Giả sử cụ R0003 (Bác B-205) đóng 500k tiền mặt và muốn ẩn danh
+POST {{baseUrl}}/donations/record-offline
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "campaign_id": 3,
+    "resident_id": "R0003",
+    "amount": 500000,
+    "note": "Bác B-205 gửi bảo vệ",
+    "is_anonymous": true
+}
+
+
+# ==================================================================
+# 3. LUỒNG CƯ DÂN (TƯƠNG TÁC)
+# ==================================================================
+
+### 3.1. [Cư dân] Xem danh sách các Quỹ đang mở
+# Mong đợi: Thấy quỹ Tết mới tạo ở trên
+GET {{baseUrl}}/donations/campaigns
+Authorization: {{resToken}}
+
+### 3.2. [Cư dân] Tự Quyên góp qua App (Online)
+# R0001 đóng 200k, công khai tên
+POST {{baseUrl}}/donations/donate
+Authorization: {{resToken}}
+Content-Type: {{contentType}}
+
+{
+    "campaign_id": 3,
+    "amount": 200000,
+    "note": "Gia đình A-101 chúc mừng năm mới",
+    "is_anonymous": false
+}
+
+### 3.3. [Cư dân] Xem lịch sử đóng góp của mình
+GET {{baseUrl}}/donations/me/history
+Authorization: {{resToken}}
+
+
+# ==================================================================
+# 4. KIỂM TRA SAO KÊ (LOGIC ẨN DANH)
+# ==================================================================
+
+### 4.1. [Kế toán] Xem sao kê Quỹ Tết (ID=3)
+# Mong đợi: Thấy rõ tên "Lê Gia Đình" (R0003) dù bác ấy chọn ẩn danh (Vì kế toán cần biết ai đóng)
+GET {{baseUrl}}/donations/campaigns/3/statement
+Authorization: {{accToken}}
+
+### 4.2. [Cư dân] Xem sao kê Quỹ Tết (ID=3)
+# Mong đợi:
+# - Dòng của R0001 (A-101): Hiện tên "Trần Văn Hộ".
+# - Dòng của R0003 (B-205): Hiện tên "Nhà hảo tâm (Ẩn danh)" hoặc "***".
+GET {{baseUrl}}/donations/campaigns/3/statement
+Authorization: {{resToken}}
+
+###
+
+# ==================================================================
+# 5. ĐÓNG QUỸ (KẾT THÚC)
+# ==================================================================
+
+### 5.1. [Kế toán] Đóng quỹ trước hạn
+PUT {{baseUrl}}/donations/campaigns/3/close
+Authorization: {{accToken}}
+
+### 5.2. [Cư dân] Thử đóng tiền vào quỹ đã đóng (Test lỗi)
+# Mong đợi: 400 Bad Request - Quỹ đã đóng
+POST {{baseUrl}}/donations/donate
+Authorization: {{resToken}}
+Content-Type: {{contentType}}
+
+{
+    "campaign_id": 3,
+    "amount": 100000
+}

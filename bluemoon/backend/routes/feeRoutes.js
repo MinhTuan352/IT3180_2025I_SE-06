@@ -63,6 +63,12 @@ router.post('/import-water',
     feeController.importWaterMeter
 );
 
+// [MỚI] Tự động sinh phí gửi xe từ danh sách xe (Chỉ Kế toán & BOD)
+router.post('/generate/vehicles', 
+    checkRole(['accountance', 'bod']), 
+    feeController.generateVehicleFees
+);
+
 // [MỚI] Batch create - Tạo hóa đơn hàng loạt
 router.post('/batch-create',
     checkRole(['accountance', 'bod']),

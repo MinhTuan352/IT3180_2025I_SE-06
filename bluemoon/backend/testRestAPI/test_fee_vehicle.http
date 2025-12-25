@@ -1,0 +1,75 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP KẾ TOÁN
+# ==================================================================
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "ketoan.b",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN ---
+@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjYzNTQ2NywiZXhwIjoxNzY2NjM5MDY3fQ.VDanqtKiexSGMwEN-crE5Z0sffXePxZOdCeJdjn-GLs
+
+
+# ==================================================================
+# 2. CẤU HÌNH LOẠI PHÍ (BẮT BUỘC)
+# ==================================================================
+
+# 2.1. Tạo loại phí "Phí Gửi Xe" (Mã: PGX)
+# Nếu DB chưa có thì bước này sẽ tạo mới. Nếu có rồi có thể báo lỗi trùng (không sao)
+POST {{baseUrl}}/fees/types
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_name": "Phí Gửi Xe Tháng",
+    "fee_code": "PGX",
+    "default_price": 0, 
+    "unit": "Tháng"
+}
+
+###
+
+# ==================================================================
+# 3. TEST SINH PHÍ TỰ ĐỘNG
+# ==================================================================
+
+# 3.1. Chạy lệnh sinh phí cho Tháng 12/2025
+# Hệ thống sẽ quét bảng vehicles -> gom nhóm -> tạo hóa đơn
+POST {{baseUrl}}/fees/generate/vehicles
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "billing_period": "T12/2025",
+    "due_date": "2025-12-31"
+}
+
+###
+
+# 3.2. Kiểm tra kết quả: Xem danh sách hóa đơn vừa tạo
+# Bạn sẽ thấy các hóa đơn có description "Phí gửi xe T12/2025"
+GET {{baseUrl}}/fees?status=Chưa thanh toán
+Authorization: {{accToken}}
+
+###
+
+# 3.3. Test tính năng chống trùng lặp (Idempotency)
+# Gửi lại request bước 3.1 y hệt.
+# Mong đợi: Server trả về "generated": 0, "skipped": <số lượng xe đã tạo>
+# Không được tạo thêm hóa đơn mới nào.
+POST {{baseUrl}}/fees/generate/vehicles
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "billing_period": "T12/2025",
+    "due_date": "2025-12-15"
+}

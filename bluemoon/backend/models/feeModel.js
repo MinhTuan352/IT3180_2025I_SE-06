@@ -103,6 +103,23 @@ const Fee = {
         }
     },
 
+    // [MỚI] Lấy thông tin loại phí bằng mã (VD: 'PGX')
+    getFeeTypeByCode: async (code) => {
+        const query = `SELECT * FROM fee_types WHERE fee_code = ?`;
+        const [rows] = await db.execute(query, [code]);
+        return rows[0] || null;
+    },
+
+    // [MỚI] Kiểm tra xem tháng này căn hộ đã có hóa đơn loại này chưa (Tránh tạo trùng)
+    checkFeeExists: async (apartmentId, feeTypeId, billingPeriod) => {
+        const query = `
+            SELECT id FROM fees 
+            WHERE apartment_id = ? AND fee_type_id = ? AND billing_period = ?
+        `;
+        const [rows] = await db.execute(query, [apartmentId, feeTypeId, billingPeriod]);
+        return rows.length > 0;
+    },
+
     /**
      * TẠO HÓA ĐƠN MỚI (SỬ DỤNG TRANSACTION)
      * Đây là hàm phức tạp nhất: Vừa tạo fee, vừa tạo fee_items

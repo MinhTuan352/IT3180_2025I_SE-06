@@ -110,6 +110,25 @@ const Fee = {
         return rows[0] || null;
     },
 
+    // [MỚI] Hàm lưu chỉ số điện nước vào bảng utility_readings
+    saveUtilityReading: async (connection, data) => {
+        const query = `
+            INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date)
+            VALUES (?, ?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE new_index = VALUES(new_index), updated_at = NOW()
+        `;
+        // service_type map từ code: PN -> Nước, PD -> Điện
+        const serviceType = data.fee_code === 'PN' ? 'Nước' : 'Điện';
+        
+        await connection.execute(query, [
+            data.apartment_id, 
+            serviceType, 
+            data.billing_period, 
+            data.old_index, 
+            data.new_index
+        ]);
+    },
+
     // [MỚI] Kiểm tra xem tháng này căn hộ đã có hóa đơn loại này chưa (Tránh tạo trùng)
     checkFeeExists: async (apartmentId, feeTypeId, billingPeriod) => {
         const query = `
@@ -176,6 +195,43 @@ const Fee = {
             throw error;
         } finally {
             // Trả kết nối về pool
+            connection.release();
+        }
+    },
+
+    // [MỚI] Create Invoice có kèm lưu chỉ số điện nước (Advanced)
+    createUtilityInvoice: async (invoiceData, itemsData, readingData) => {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // 1. Lưu hóa đơn như bình thường
+            await connection.execute(`
+                INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_remaining, status, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Chưa thanh toán', ?)
+            `, [invoiceData.id, invoiceData.apartment_id, invoiceData.resident_id, invoiceData.fee_type_id, invoiceData.description, invoiceData.billing_period, invoiceData.due_date, invoiceData.total_amount, invoiceData.total_amount, invoiceData.created_by]);
+
+            for (const item of itemsData) {
+                await connection.execute(`
+                    INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `, [invoiceData.id, item.item_name, item.unit, item.quantity, item.unit_price, item.amount]);
+            }
+
+            // 2. Lưu chỉ số vào bảng riêng utility_readings
+            const serviceType = readingData.fee_code === 'PN' ? 'Nước' : 'Điện';
+            await connection.execute(`
+                INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date)
+                VALUES (?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE new_index = VALUES(new_index)
+            `, [invoiceData.apartment_id, serviceType, invoiceData.billing_period, readingData.old_index, readingData.new_index]);
+
+            await connection.commit();
+            return invoiceData;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
             connection.release();
         }
     },

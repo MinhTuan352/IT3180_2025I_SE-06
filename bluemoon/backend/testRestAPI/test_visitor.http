@@ -1,0 +1,132 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập BAN QUẢN TRỊ (Bảo vệ / Lễ tân)
+# User: admin.a (Role: BOD)
+# -> Copy accessToken từ response và thay vào @bodToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+### 1.2. Đăng nhập CƠ QUAN CHỨC NĂNG (Công an)
+# User: cqcn.c (Role: CQCN)
+# -> Copy accessToken từ response và thay vào @cqcnToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "cqcn.c",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN (THAY TOKEN CỦA BẠN VÀO ĐÂY) ---
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY2ODM4MzgsImV4cCI6MTc2NjY4NzQzOH0.E8__8ubTjoEMF6plxF8LDPipqVEeKSltEt19QmEQ1kU
+@cqcnToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMyIsInJvbGUiOiJjcWNuIiwiaWF0IjoxNzY2NjgzODgxLCJleHAiOjE3NjY2ODc0ODF9.cL42ed8fJqOORkue92uU7WfKKxgEy50BEVwOafJ2Kf8
+
+
+# ==================================================================
+# 2. NGHIỆP VỤ: CHECK-IN (KHÁCH VÀO)
+# ==================================================================
+
+### 2.1. Khách đến thăm căn hộ A-101 (Có xe máy)
+POST {{baseUrl}}/visitors/check-in
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "apartment_id": 1,
+    "visitor_name": "Nguyễn Văn Khách",
+    "identity_card": "038123456789",
+    "vehicle_plate": "29H1-999.99"
+}
+
+### 2.2. Shipper giao hàng B-205 (Không xe, đi bộ)
+POST {{baseUrl}}/visitors/check-in
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "apartment_id": 2,
+    "visitor_name": "Shipper Shopee",
+    "identity_card": "001234567890",
+    "vehicle_plate": null
+}
+
+### 2.3. Khách đến căn hộ A-101 (Người thứ 2 - Đi ô tô)
+POST {{baseUrl}}/visitors/check-in
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "apartment_id": 1,
+    "visitor_name": "Trần Thị Bạn",
+    "identity_card": "031098765432",
+    "vehicle_plate": "30A-555.55"
+}
+
+
+# ==================================================================
+# 3. NGHIỆP VỤ: TRA CỨU DANH SÁCH KHÁCH
+# ==================================================================
+
+### 3.1. Lấy tất cả khách (BOD xem)
+GET {{baseUrl}}/visitors
+Authorization: {{bodToken}}
+
+### 3.2. Lọc khách đang ở trong tòa nhà (status=active)
+# Những người chưa check-out
+GET {{baseUrl}}/visitors?status=active
+Authorization: {{bodToken}}
+
+### 3.3. Lọc lịch sử khách đã về (status=history)
+GET {{baseUrl}}/visitors?status=history
+Authorization: {{bodToken}}
+
+### 3.4. Tìm kiếm theo tên hoặc biển số (keyword)
+GET {{baseUrl}}/visitors?keyword=Shipper
+Authorization: {{bodToken}}
+
+### 3.5. Cơ quan chức năng kiểm tra khách của căn A-101
+GET {{baseUrl}}/visitors?apartment_id=1
+Authorization: {{cqcnToken}}
+
+
+# ==================================================================
+# 4. NGHIỆP VỤ: CHECK-OUT (KHÁCH RA)
+# ==================================================================
+
+# (!) Lưu ý: Thay ID = 1 bằng ID thực tế bạn nhận được ở bước Check-in
+
+### 4.1. Khách Nguyễn Văn Khách ra về (ID giả định: 1)
+PUT {{baseUrl}}/visitors/1/check-out
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+### 4.2. Shipper ra về (ID giả định: 2)
+PUT {{baseUrl}}/visitors/2/check-out
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+### 4.3. Thử check-out lại khách đã về (Test lỗi)
+PUT {{baseUrl}}/visitors/1/check-out
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+
+# ==================================================================
+# 5. NGHIỆP VỤ: XÓA (CHỈ DÙNG KHI NHẬP SAI)
+# ==================================================================
+
+### 5.1. Xóa bản ghi khách nhập sai (ID giả định: 3)
+DELETE {{baseUrl}}/visitors/3
+Authorization: {{bodToken}}

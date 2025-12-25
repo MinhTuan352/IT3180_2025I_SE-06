@@ -57,10 +57,10 @@ router.post('/trigger-scan',
     feeController.triggerLateFeeScan
 );
 
-// [MỚI] Import chỉ số nước hàng loạt và tạo hóa đơn (Chỉ Kế toán)
-router.post('/import-water',
-    checkRole(['accountance', 'bod']),
-    feeController.importWaterMeter
+// [SỬA] Đổi tên thành import-utility để dùng cho cả Điện & Nước
+router.post('/import-utility', 
+    checkRole(['accountance', 'bod']), 
+    feeController.importUtilityReadings
 );
 
 // [MỚI] Tự động sinh phí gửi xe từ danh sách xe (Chỉ Kế toán & BOD)

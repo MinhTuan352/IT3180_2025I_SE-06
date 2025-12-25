@@ -105,7 +105,7 @@ CREATE TABLE residents (
     INDEX idx_role (role)
 ) ENGINE=InnoDB;
 
--- 7. TEMPORARY_RESIDENCE (KHAI BÁO TẠM TRÚ / TẠM VẮNG - MỚI)
+-- 7. TEMPORARY_RESIDENCE (KHAI BÁO TẠM TRÚ / TẠM VẮNG)
 CREATE TABLE temporary_residence (
     id INT PRIMARY KEY AUTO_INCREMENT,
     resident_id VARCHAR(20) NOT NULL,
@@ -122,11 +122,25 @@ CREATE TABLE temporary_residence (
     FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- [MỚI] 8. RESIDENCE_HISTORY (LỊCH SỬ BIẾN ĐỘNG NHÂN KHẨU)
+-- Dùng để xuất báo cáo HK01/HK02 cho công an
+CREATE TABLE residence_history (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    resident_id VARCHAR(20) NOT NULL,
+    apartment_id INT NOT NULL,
+    event_type ENUM('Chuyển đến', 'Chuyển đi', 'Tạm vắng', 'Tạm trú', 'Khai tử') NOT NULL,
+    event_date DATE NOT NULL,
+    note TEXT COMMENT 'Ghi chú chi tiết',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,
+    FOREIGN KEY (apartment_id) REFERENCES apartments(id)
+) ENGINE=InnoDB;
+
 -- ===================================
 -- 3. MODULE TÀI CHÍNH & DỊCH VỤ
 -- ===================================
 
--- 8. FEE_TYPES (LOẠI PHÍ)
+-- 9. FEE_TYPES (LOẠI PHÍ)
 CREATE TABLE fee_types (
     id INT PRIMARY KEY AUTO_INCREMENT,
     fee_name VARCHAR(100) NOT NULL COMMENT 'Phí Quản lý, Phí Gửi xe',
@@ -137,7 +151,7 @@ CREATE TABLE fee_types (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 9. FEES (HÓA ĐƠN/CÔNG NỢ)
+-- 10. FEES (HÓA ĐƠN/CÔNG NỢ)
 CREATE TABLE fees (
     id VARCHAR(20) PRIMARY KEY COMMENT 'HD0001',
     apartment_id INT NOT NULL,
@@ -162,7 +176,7 @@ CREATE TABLE fees (
     INDEX idx_status (status)
 ) ENGINE=InnoDB;
 
--- 10. FEE_ITEMS (CHI TIẾT HÓA ĐƠN)
+-- 11. FEE_ITEMS (CHI TIẾT HÓA ĐƠN)
 CREATE TABLE fee_items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     fee_id VARCHAR(20) NOT NULL,
@@ -175,7 +189,7 @@ CREATE TABLE fee_items (
     FOREIGN KEY (fee_id) REFERENCES fees(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 11. PAYMENT_HISTORY (LỊCH SỬ THANH TOÁN)
+-- 12. PAYMENT_HISTORY (LỊCH SỬ THANH TOÁN)
 CREATE TABLE payment_history (
     id INT PRIMARY KEY AUTO_INCREMENT,
     fee_id VARCHAR(20) NOT NULL,
@@ -189,11 +203,28 @@ CREATE TABLE payment_history (
     FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- [MỚI] 13. UTILITY_READINGS (CHỈ SỐ ĐIỆN NƯỚC)
+-- Lưu chỉ số chốt hàng tháng để minh bạch hóa đơn
+CREATE TABLE utility_readings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    apartment_id INT NOT NULL,
+    service_type ENUM('Điện', 'Nước') NOT NULL,
+    billing_period VARCHAR(20) NOT NULL COMMENT 'T10/2025',
+    old_index DECIMAL(10,2) NOT NULL,
+    new_index DECIMAL(10,2) NOT NULL,
+    usage_amount DECIMAL(10,2) GENERATED ALWAYS AS (new_index - old_index) STORED COMMENT 'Số tiêu thụ',
+    image_proof VARCHAR(500) COMMENT 'Ảnh chụp công tơ (nếu có)',
+    recorded_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (apartment_id) REFERENCES apartments(id),
+    UNIQUE KEY uk_reading (apartment_id, service_type, billing_period)
+) ENGINE=InnoDB;
+
 -- ===================================
 -- 4. MODULE TIỆN ÍCH & VẬN HÀNH
 -- ===================================
 
--- 12. NOTIFICATION_TYPES (LOẠI THÔNG BÁO)
+-- 14. NOTIFICATION_TYPES (LOẠI THÔNG BÁO)
 CREATE TABLE notification_types (
     id INT PRIMARY KEY AUTO_INCREMENT,
     type_name VARCHAR(50) NOT NULL UNIQUE COMMENT 'Khẩn cấp, Chung, Thu phí',
@@ -201,13 +232,14 @@ CREATE TABLE notification_types (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 13. NOTIFICATIONS (THÔNG BÁO)
+-- 15. NOTIFICATIONS (THÔNG BÁO)
 CREATE TABLE notifications (
     id VARCHAR(20) PRIMARY KEY COMMENT 'TB001',
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     type_id INT NOT NULL,
     target ENUM('Tất cả Cư dân', 'Cá nhân', 'Theo tòa nhà', 'Theo căn hộ') DEFAULT 'Tất cả Cư dân',
+    target_value VARCHAR(255) COMMENT '[MỚI] Giá trị cụ thể: Tòa A, Tầng 15...',
     scheduled_at TIMESTAMP NULL COMMENT 'Hẹn giờ gửi, NULL = gửi ngay',
     is_sent BOOLEAN DEFAULT FALSE,
     created_by VARCHAR(20) NOT NULL,
@@ -217,7 +249,7 @@ CREATE TABLE notifications (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 14. NOTIFICATION_RECIPIENTS (NGƯỜI NHẬN)
+-- 16. NOTIFICATION_RECIPIENTS (NGƯỜI NHẬN)
 CREATE TABLE notification_recipients (
     id INT PRIMARY KEY AUTO_INCREMENT,
     notification_id VARCHAR(20) NOT NULL,
@@ -230,7 +262,7 @@ CREATE TABLE notification_recipients (
     UNIQUE KEY uk_noti_recipient (notification_id, recipient_id)
 ) ENGINE=InnoDB;
 
--- 15. NOTIFICATION_ATTACHMENTS (FILE ĐÍNH KÈM)
+-- 17. NOTIFICATION_ATTACHMENTS (FILE ĐÍNH KÈM)
 CREATE TABLE notification_attachments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     notification_id VARCHAR(20) NOT NULL,
@@ -241,7 +273,7 @@ CREATE TABLE notification_attachments (
     FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 16. REPORTS (SỰ CỐ)
+-- 18. REPORTS (SỰ CỐ)
 CREATE TABLE reports (
     id VARCHAR(20) PRIMARY KEY COMMENT 'SC001',
     title VARCHAR(255) NOT NULL,
@@ -261,7 +293,7 @@ CREATE TABLE reports (
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 17. REPORT_ATTACHMENTS (FILE SỰ CỐ)
+-- 19. REPORT_ATTACHMENTS (FILE SỰ CỐ)
 CREATE TABLE report_attachments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     report_id VARCHAR(20) NOT NULL,
@@ -272,7 +304,8 @@ CREATE TABLE report_attachments (
     FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 18. VEHICLES (PHƯƠNG TIỆN & GỬI XE)
+-- 20. VEHICLES (PHƯƠNG TIỆN & GỬI XE)
+-- [BỔ SUNG] Cột registration_date để tính phí theo ngày
 CREATE TABLE vehicles (
     id INT PRIMARY KEY AUTO_INCREMENT,
     resident_id VARCHAR(20) NOT NULL,
@@ -283,6 +316,7 @@ CREATE TABLE vehicles (
     model VARCHAR(100),
     vehicle_image VARCHAR(500) COMMENT 'Ảnh chụp xe',
     registration_cert VARCHAR(500) COMMENT 'Ảnh đăng ký xe',
+    registration_date DATE DEFAULT (CURRENT_DATE) COMMENT '[MỚI] Ngày bắt đầu tính phí',
     status ENUM('Đang sử dụng', 'Ngừng sử dụng', 'Chờ duyệt') DEFAULT 'Chờ duyệt',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -290,7 +324,8 @@ CREATE TABLE vehicles (
     FOREIGN KEY (apartment_id) REFERENCES apartments(id)
 ) ENGINE=InnoDB;
 
--- 19. ASSETS (TÀI SẢN CHUNG)
+-- 21. ASSETS (TÀI SẢN CHUNG)
+-- [BỔ SUNG] Thông tin bảo hành và nhà cung cấp
 CREATE TABLE assets (
     id INT PRIMARY KEY AUTO_INCREMENT,
     asset_code VARCHAR(20) NOT NULL UNIQUE COMMENT 'TS001, TS002',
@@ -300,11 +335,14 @@ CREATE TABLE assets (
     purchase_date DATE,
     price DECIMAL(15,2),
     status ENUM('Đang hoạt động', 'Đang bảo trì', 'Hỏng', 'Thanh lý') DEFAULT 'Đang hoạt động',
+    warranty_expiry_date DATE COMMENT '[MỚI] Hạn bảo hành',
+    supplier_info TEXT COMMENT '[MỚI] Thông tin nhà cung cấp (SĐT, Tên)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 20. MAINTENANCE_SCHEDULES (LỊCH BẢO TRÌ)
+-- 22. MAINTENANCE_SCHEDULES (LỊCH BẢO TRÌ)
+-- [BỔ SUNG] Cơ chế lặp lại
 CREATE TABLE maintenance_schedules (
     id INT PRIMARY KEY AUTO_INCREMENT,
     asset_id INT NOT NULL,
@@ -315,11 +353,13 @@ CREATE TABLE maintenance_schedules (
     technician_name VARCHAR(255) COMMENT 'Đơn vị hoặc người thực hiện',
     cost DECIMAL(15,2) DEFAULT 0,
     status ENUM('Lên lịch', 'Đang thực hiện', 'Hoàn thành', 'Đã hủy') DEFAULT 'Lên lịch',
+    is_recurring BOOLEAN DEFAULT FALSE COMMENT '[MỚI] Có lặp lại định kỳ không',
+    recurring_interval INT COMMENT '[MỚI] Số ngày lặp lại (ví dụ 30 ngày)',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 21. SERVICE_TYPES (LOẠI DỊCH VỤ)
+-- 23. SERVICE_TYPES (LOẠI DỊCH VỤ)
 CREATE TABLE service_types (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(100) NOT NULL,
@@ -335,7 +375,7 @@ CREATE TABLE service_types (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 22. SERVICE_BOOKINGS (ĐƠN ĐẶT DỊCH VỤ)
+-- 24. SERVICE_BOOKINGS (ĐƠN ĐẶT DỊCH VỤ)
 CREATE TABLE service_bookings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     resident_id VARCHAR(20) NOT NULL,
@@ -350,7 +390,7 @@ CREATE TABLE service_bookings (
     FOREIGN KEY (service_type_id) REFERENCES service_types(id)
 ) ENGINE=InnoDB;
 
--- 23. SERVICE_ATTACHMENTS (FILE ĐÍNH KÈM)
+-- 25. SERVICE_ATTACHMENTS (FILE ĐÍNH KÈM)
 CREATE TABLE service_attachments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     service_type_id INT NOT NULL,
@@ -361,7 +401,7 @@ CREATE TABLE service_attachments (
     FOREIGN KEY (service_type_id) REFERENCES service_types(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 24. VISITORS (KHÁCH RA VÀO)
+-- 26. VISITORS (KHÁCH RA VÀO)
 CREATE TABLE visitors (
     id INT PRIMARY KEY AUTO_INCREMENT,
     apartment_id INT NOT NULL COMMENT 'Đến căn hộ nào',
@@ -376,7 +416,7 @@ CREATE TABLE visitors (
     FOREIGN KEY (security_guard_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 25. AUDIT_LOGS (LỊCH SỬ HỆ THỐNG)
+-- 27. AUDIT_LOGS (LỊCH SỬ HỆ THỐNG)
 CREATE TABLE audit_logs (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(20) COMMENT 'Ai làm?',
@@ -392,7 +432,7 @@ CREATE TABLE audit_logs (
     INDEX idx_entity (entity_name, entity_id)
 ) ENGINE=InnoDB;
 
--- 26. ACCESS_LOGS (LỊCH SỬ XE RA VÀO)
+-- 28. ACCESS_LOGS (LỊCH SỬ XE RA VÀO)
 CREATE TABLE access_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     plate_number VARCHAR(20) NOT NULL,
@@ -409,7 +449,7 @@ CREATE TABLE access_logs (
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
 
--- 27. BUILDING_INFO (THÔNG TIN TÒA NHÀ)
+-- 29. BUILDING_INFO (THÔNG TIN TÒA NHÀ)
 CREATE TABLE building_info (
     id INT PRIMARY KEY DEFAULT 1,
     name VARCHAR(255) NOT NULL DEFAULT 'CHUNG CƯ BLUEMOON',
@@ -425,7 +465,7 @@ CREATE TABLE building_info (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 28. BUILDING_REGULATIONS (QUY ĐỊNH TÒA NHÀ)
+-- 30. BUILDING_REGULATIONS (QUY ĐỊNH TÒA NHÀ)
 CREATE TABLE building_regulations (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
@@ -435,7 +475,7 @@ CREATE TABLE building_regulations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- 29. REVIEWS (ĐÁNH GIÁ & GÓP Ý)
+-- 31. REVIEWS (ĐÁNH GIÁ & GÓP Ý)
 CREATE TABLE reviews (
     id INT PRIMARY KEY AUTO_INCREMENT,
     resident_id VARCHAR(20) NOT NULL,
@@ -447,7 +487,7 @@ CREATE TABLE reviews (
     FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 30. FUND_CAMPAIGNS (CHIẾN DỊCH GÓP QUỸ)
+-- 32. FUND_CAMPAIGNS (CHIẾN DỊCH GÓP QUỸ)
 CREATE TABLE fund_campaigns (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL COMMENT 'Tên quỹ: Quỹ Vaccine, Quỹ Vì người nghèo...',
@@ -462,7 +502,7 @@ CREATE TABLE fund_campaigns (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 31. DONATIONS (CHI TIẾT ỦNG HỘ)
+-- 33. DONATIONS (CHI TIẾT ỦNG HỘ)
 CREATE TABLE IF NOT EXISTS donations (
     id INT PRIMARY KEY AUTO_INCREMENT,
     campaign_id INT NOT NULL,
@@ -530,11 +570,17 @@ INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_
 ('R0004', NULL, 3, 'Phạm Văn B', 'owner', 'Chủ hộ', '1975-12-20', 'Nam', '012345678004', '2021-12-20', 'Cục CS QLHC về TTXH', '0900000014', 'phamvanb@bluemoon.com', 'Đang sinh sống', 'TP.HCM', 'Bác sĩ'),
 ('R0005', NULL, 4, 'Hoàng Thị C', 'member', 'Con', '1990-07-08', 'Nữ', '012345678005', '2022-07-08', 'Cục CS QLHC về TTXH', '0900000015', 'hoangthic@bluemoon.com', 'Đang sinh sống', 'Đà Nẵng', 'Nhân viên văn phòng');
 
+-- Residence History (Lịch sử biến động nhân khẩu)
+INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES
+('R0001', 1, 'Chuyển đến', '2021-01-15', 'Mua căn hộ'),
+('R0002', 1, 'Chuyển đến', '2021-02-20', 'Kết hôn với chủ hộ'),
+('R0003', 2, 'Chuyển đến', '2021-03-01', 'Thuê lâu dài');
+
 -- Vehicles
-INSERT INTO vehicles (resident_id, apartment_id, vehicle_type, license_plate, brand, model, vehicle_image, status) VALUES
-('R0001', 1, 'Ô tô', '29A-12345', 'Toyota', 'Vios', '/uploads/vehicles/vios.jpg', 'Đang sử dụng'),
-('R0001', 1, 'Xe máy', '29X1-23456', 'Honda', 'Air Blade', '/uploads/vehicles/ab.jpg', 'Đang sử dụng'),
-('R0003', 2, 'Ô tô', '30G-98765', 'Mazda', 'CX-5', '/uploads/vehicles/cx5.jpg', 'Đang sử dụng');
+INSERT INTO vehicles (resident_id, apartment_id, vehicle_type, license_plate, brand, model, vehicle_image, registration_date, status) VALUES
+('R0001', 1, 'Ô tô', '29A-12345', 'Toyota', 'Vios', '/uploads/vehicles/vios.jpg', '2024-01-01', 'Đang sử dụng'),
+('R0001', 1, 'Xe máy', '29X1-23456', 'Honda', 'Air Blade', '/uploads/vehicles/ab.jpg', '2024-01-01', 'Đang sử dụng'),
+('R0003', 2, 'Ô tô', '30G-98765', 'Mazda', 'CX-5', '/uploads/vehicles/cx5.jpg', '2024-06-01', 'Đang sử dụng');
 
 -- Temporary Residence (Dữ liệu mẫu Tạm trú / Tạm vắng)
 INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status, approved_by) VALUES
@@ -579,7 +625,7 @@ INSERT INTO notification_attachments (notification_id, file_name, file_path, fil
 INSERT INTO notification_recipients (notification_id, recipient_id, is_read)
 SELECT 'TB001', id, FALSE FROM residents;
 
--- Reports (Sự cố) - [ĐÃ SỬA LỖI: Thêm cột created_at]
+-- Reports (Sự cố)
 INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at, admin_response, completed_at, rating, feedback) VALUES
 ('SC001', 'Vỡ ống nước khu vực hầm B2', 'Tôi phát hiện nước chảy thành dòng lớn ở hầm B2, khu vực cột 15. Đang ngập ra khu vực đỗ xe. Yêu cầu BQL xử lý khẩn cấp.', 'Hầm B2, cột 15', 'R0001', 'Mới', 'Khẩn cấp', '2025-10-28 09:00:00', 'Đã kiểm tra áp lực nước, bình thường.', '2025-10-28 18:00:00', 1, 'Vẫn còn yếu, BQL trả lời cho có lệ.'),
 ('SC002', 'Thang máy sảnh B liên tục báo lỗi', 'Thang máy sảnh B (thang chở hàng) đi từ tầng 1 lên tầng 10 thì bị dừng đột ngột và báo lỗi "DOOR_ERR". Phải đợi 5 phút mới mở cửa được. Yêu cầu BQL kiểm tra gấp.', 'Thang máy B, Tòa B', 'R0003', 'Đang xử lý', 'Cao', '2025-10-27 14:30:00', 'Đã sửa xong, thang máy có thể hoạt động bình thường.', '2025-10-27 14:40:00', 5, 'Xử lý rất nhanh, thang máy đã chạy bình thường'),
@@ -614,14 +660,14 @@ INSERT INTO service_attachments (service_type_id, file_name, file_path, file_siz
 (1, 'gym_pool.jpg', '/uploads/services/gym_pool.jpg', 512000);
 
 -- Mẫu Tài sản
-INSERT INTO assets (asset_code, name, location, status) VALUES 
-('TS001', 'Thang máy A1', 'Tòa A - Sảnh chính', 'Đang hoạt động'),
-('TS002', 'Máy bơm PCCC số 1', 'Hầm B2', 'Đang hoạt động');
+INSERT INTO assets (asset_code, name, location, status, warranty_expiry_date, supplier_info) VALUES 
+('TS001', 'Thang máy A1', 'Tòa A - Sảnh chính', 'Đang hoạt động', '2026-01-01', 'Cty Thang máy Otis - Hotline: 19001234'),
+('TS002', 'Máy bơm PCCC số 1', 'Hầm B2', 'Đang hoạt động', '2025-06-01', 'Cty PCCC Hà Nội - 0909114114');
 
 -- Thêm lịch bảo trì
-INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, status, technician_name, cost) VALUES 
-(1, 'Bảo trì thang máy A1 Quý 4', 'Tra dầu, kiểm tra cáp, vệ sinh buồng máy', '2025-11-01', 'Lên lịch', 'Cty Thang máy Otis', 5000000),
-(2, 'Sửa chữa máy bơm PCCC', 'Thay phớt máy bơm bị rò rỉ', '2025-10-20', 'Hoàn thành', 'Kỹ thuật tòa nhà', 200000);
+INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, status, technician_name, cost, is_recurring, recurring_interval) VALUES 
+(1, 'Bảo trì thang máy A1 Quý 4', 'Tra dầu, kiểm tra cáp, vệ sinh buồng máy', '2025-11-01', 'Lên lịch', 'Cty Thang máy Otis', 5000000, TRUE, 90),
+(2, 'Sửa chữa máy bơm PCCC', 'Thay phớt máy bơm bị rò rỉ', '2025-10-20', 'Hoàn thành', 'Kỹ thuật tòa nhà', 200000, FALSE, NULL);
 
 -- Giả lập log admin sửa phí
 INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, old_values, new_values, ip_address, user_agent) VALUES 

@@ -3,22 +3,31 @@
 const cron = require('node-cron');
 const db = require('../config/db');
 const Notification = require('../models/notificationModel');
+const emailService = require('../services/emailService');
 
 /**
- * Hàm logic chính: Tìm hóa đơn đến hạn và gửi thông báo
+ * Hàm logic chính: Tìm hóa đơn đến hạn và gửi thông báo + Email
  */
 const checkAndNotify = async () => {
     console.log('⏰ [CRON] Bắt đầu quét hóa đơn đến hạn...');
     
+    // Lưu ý: Dùng connection riêng để query, nhưng khi gọi Notification.create thì Model đó tự quản lý connection của nó
     const connection = await db.getConnection();
     try {
         // 1. Tìm các hóa đơn ĐẾN HẠN HÔM NAY (due_date = CURDATE())
-        // VÀ chưa thanh toán
+        // VÀ chưa hoàn thành (Chưa thanh toán hoặc Thanh toán 1 phần)
         const query = `
-            SELECT f.id, f.total_amount, f.resident_id, f.billing_period, r.full_name
+            SELECT 
+                f.id, 
+                f.total_amount, 
+                f.amount_paid, 
+                f.resident_id, 
+                f.billing_period, 
+                r.full_name, 
+                r.email
             FROM fees f
             JOIN residents r ON f.resident_id = r.id
-            WHERE f.status = 'Chưa thanh toán' 
+            WHERE f.status IN ('Chưa thanh toán', 'Thanh toán một phần')
             AND f.due_date = CURDATE()
         `;
         
@@ -33,35 +42,55 @@ const checkAndNotify = async () => {
 
         // 2. Gửi thông báo cho từng người
         for (const invoice of dueInvoices) {
+            // Tính số tiền thực sự còn nợ
+            const paid = Number(invoice.amount_paid) || 0;
+            const total = Number(invoice.total_amount) || 0;
+            const remaining = total - paid;
+
+            if (remaining <= 0) continue; // Bỏ qua nếu data lỗi (đã hết nợ mà status chưa cập nhật)
+
             // Nội dung thông báo
             const title = `🔔 Nhắc nhở thanh toán hóa đơn ${invoice.billing_period}`;
-            const content = `Kính gửi ${invoice.full_name}, hóa đơn ${invoice.billing_period} số tiền ${parseInt(invoice.total_amount).toLocaleString('vi-VN')}đ đã đến hạn thanh toán hôm nay. Vui lòng thanh toán để tránh gián đoạn dịch vụ.`;
+            const content = `Kính gửi ${invoice.full_name},\nHóa đơn kỳ ${invoice.billing_period} có hạn thanh toán là HÔM NAY.\nSố tiền cần đóng: ${remaining.toLocaleString('vi-VN')} VNĐ.\nVui lòng thanh toán để tránh phát sinh phí phạt hoặc gián đoạn dịch vụ.`;
             
-            // Tạo ID thông báo
+            // Tạo ID thông báo (Prefix AUTO để biết là do Cron chạy)
             const notiId = `AUTO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-            // Chuẩn bị dữ liệu để gọi Model
+            // Chuẩn bị dữ liệu để gọi Model Notification
             const notiData = {
                 id: notiId,
                 title: title,
                 content: content,
-                type_id: 3, // Giả sử ID 3 là "Thu phí" (Theo file SQL init ban đầu)
+                type_id: 3, // 3 = Thu phí (Theo init.sql)
                 target: 'Cá nhân',
-                created_by: 'ID0001' // Mặc định Admin hệ thống gửi
+                created_by: 'ID0001' // Mặc định Admin hệ thống (ID0001) đứng tên gửi
             };
 
             const recipients = [invoice.resident_id];
 
-            // Gọi hàm tạo thông báo (Sử dụng Model đã có)
+            // 3.1. Tạo thông báo In-App (Lưu vào DB)
             await Notification.createWithTransaction(notiData, recipients, []);
             
-            console.log(`   -> Đã gửi thông báo cho hóa đơn ${invoice.id} (Cư dân: ${invoice.resident_id})`);
+            // 3.2. Gửi Email nhắc nợ (Nếu cư dân có email)
+            if (invoice.email) {
+                try {
+                    await emailService.sendDebtReminderEmail(invoice.email, invoice.full_name, {
+                        amount: remaining.toLocaleString('vi-VN'),
+                        description: `Hóa đơn kỳ ${invoice.billing_period} (Đến hạn hôm nay)`
+                    });
+                    console.log(`   📧 [EMAIL] Đã gửi nhắc nợ tới ${invoice.email}`);
+                } catch (emailErr) {
+                    console.error(`   ❌ [EMAIL ERROR] Không gửi được mail cho ${invoice.resident_id}:`, emailErr.message);
+                }
+            }
+            
+            console.log(`   -> Đã xử lý hóa đơn ${invoice.id} (Cư dân: ${invoice.resident_id})`);
         }
 
         console.log('🏁 [CRON] Hoàn tất quét hóa đơn.');
 
     } catch (error) {
-        console.error('❌ [CRON] Lỗi khi chạy tác vụ quét hóa đơn:', error.message);
+        console.error('❌ [CRON ERROR] Lỗi khi chạy tác vụ quét hóa đơn:', error.message);
     } finally {
         connection.release();
     }

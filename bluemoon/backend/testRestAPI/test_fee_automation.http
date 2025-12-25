@@ -1,0 +1,179 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập KẾ TOÁN (User: ketoan.b)
+# -> Copy accessToken thay vào @accToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "ketoan.b",
+    "password": "password123"
+}
+
+### 1.2. Đăng nhập CƯ DÂN (User: chuho_a101)
+# -> Copy accessToken thay vào @resToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN ---
+@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjY4MzM5NSwiZXhwIjoxNzY2Njg2OTk1fQ.s3c8L7DAiKEgJfLpQBprA9JZ7KhRj6ncDN5tGU9V7VE
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NjgzNDEwLCJleHAiOjE3NjY2ODcwMTB9.sdGXf5xcWfdS_e-23EUGBFyrDzApZQNzY_qMvnuzjgE
+
+
+# ==================================================================
+# 2. CẤU HÌNH LOẠI PHÍ (SETUP FEE TYPES)
+# ==================================================================
+# Đảm bảo các mã phí PGX, PN, PD đã tồn tại để hệ thống chạy được
+
+### 2.1. Tạo Phí Gửi Xe (PGX) - Nếu chưa có
+POST {{baseUrl}}/fees/types
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_name": "Phí Gửi Xe Tháng",
+    "fee_code": "PGX",
+    "default_price": 0, 
+    "unit": "Tháng"
+}
+
+### 2.2. Tạo Phí Nước (PN) - Nếu chưa có
+POST {{baseUrl}}/fees/types
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_name": "Tiền Nước Sinh Hoạt",
+    "fee_code": "PN",
+    "default_price": 15000, 
+    "unit": "m3"
+}
+
+### 2.3. Tạo Phí Điện (PD) - Nếu chưa có
+POST {{baseUrl}}/fees/types
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_name": "Tiền Điện Sinh Hoạt",
+    "fee_code": "PD",
+    "default_price": 3500, 
+    "unit": "kWh"
+}
+
+
+# ==================================================================
+# 3. TEST TÍNH PHÍ GỬI XE TỰ ĐỘNG
+# ==================================================================
+
+### 3.1. Chạy lệnh sinh phí gửi xe cho Tháng 01/2026
+# Hệ thống sẽ quét bảng `vehicles` -> Gom nhóm theo căn hộ -> Tạo hóa đơn
+POST {{baseUrl}}/fees/generate/vehicles
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "billing_period": "01/2026",
+    "due_date": "2026-01-15"
+}
+
+### 3.2. Test tính năng chống trùng lặp (Idempotency)
+# Gửi lại request y hệt bước 3.1.
+# Mong đợi: "generated": 0, "skipped": X (không tạo thêm hóa đơn rác)
+POST {{baseUrl}}/fees/generate/vehicles
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "billing_period": "01/2026",
+    "due_date": "2026-01-15"
+}
+
+
+# ==================================================================
+# 4. TEST IMPORT CHỈ SỐ ĐIỆN / NƯỚC / NET
+# ==================================================================
+
+### 4.1. Import Tiền Nước (PN) cho Tháng 01/2026
+# Giả lập dữ liệu từ Excel gửi lên
+POST {{baseUrl}}/fees/import-utility
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_code": "PN",
+    "billingPeriod": "01/2026",
+    "readings": [
+        { 
+            "apartmentCode": "A-101", 
+            "oldIndex": 100, 
+            "newIndex": 120 
+            // usage = 20, amount = 20 * 15000 = 300000
+        },
+        { 
+            "apartmentCode": "B-205", 
+            "usage": 15 
+            // amount = 15 * 15000 = 225000
+        }
+    ]
+}
+
+### 4.2. Import Tiền Điện (PD) cho Tháng 01/2026
+# Giả lập excel đã tính sẵn thành tiền (amount)
+POST {{baseUrl}}/fees/import-utility
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "fee_code": "PD",
+    "billingPeriod": "01/2026",
+    "readings": [
+        { 
+            "apartmentCode": "A-101", 
+            "usage": 300,
+            "amount": 1050000 
+        }
+    ]
+}
+
+
+# ==================================================================
+# 5. TEST NHẮC NỢ & QUÉT TỰ ĐỘNG
+# ==================================================================
+
+### 5.1. Kích hoạt quét công nợ thủ công (Trigger Cron Job logic)
+# Những hóa đơn hết hạn sẽ bị chuyển trạng thái 'Quá hạn'
+POST {{baseUrl}}/fees/trigger-scan
+Authorization: {{accToken}}
+
+### 5.2. Gửi nhắc nợ hàng loạt (Email & Notification)
+# Gửi cho tất cả những người chưa đóng tiền
+POST {{baseUrl}}/fees/batch-remind
+Authorization: {{accToken}}
+Content-Type: {{contentType}}
+
+{
+    "filter": "all_unpaid"
+}
+
+
+# ==================================================================
+# 6. KIỂM TRA KẾT QUẢ (DƯỚI GÓC ĐỘ CƯ DÂN)
+# ==================================================================
+
+### 6.1. Cư dân (A-101) xem danh sách hóa đơn mới
+# Mong đợi: Thấy hóa đơn Gửi xe, Điện, Nước tháng 01/2026 vừa tạo
+GET {{baseUrl}}/fees
+Authorization: {{resToken}}

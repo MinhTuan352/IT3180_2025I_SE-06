@@ -1,0 +1,101 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP ĐỂ LẤY TOKEN (CHO CÁC ROLE QUẢN LÝ)
+# ==================================================================
+
+# 1.1. Đăng nhập BAN QUẢN TRỊ (BOD)
+# User: admin.a / Pass: password123
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+
+# 1.2. Đăng nhập KẾ TOÁN (ACCOUNTANCE)
+# User: ketoan.b / Pass: password123
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "ketoan.b",
+    "password": "password123"
+}
+
+###
+
+# 1.3. Đăng nhập CƠ QUAN CHỨC NĂNG (CQCN)
+# User: cqcn.c / Pass: password123
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "cqcn.c",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN ---
+# ⚠️ Copy accessToken từ response trên dán vào đây (giữ nguyên 'Bearer ' và dấu cách)
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY2Mjk0MTcsImV4cCI6MTc2NjYzMzAxN30.Ktf4rhB7PUv6o87U2_XJGwpdVtJXc8fXUSVVE_P6mzw
+@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjYyOTQ2NywiZXhwIjoxNzY2NjMzMDY3fQ.Z_H52MWuqGGm5wik37X0eVXt3w_2oB4p5s8bYbI1e6g
+@cqcnToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMyIsInJvbGUiOiJjcWNuIiwiaWF0IjoxNzY2NjI5NDQ2LCJleHAiOjE3NjY2MzMwNDZ9.t8bVjQRl89so0ezwPePMJJgFdQtgn7N0-BwxwyOrOu4
+
+
+# ==================================================================
+# 2. TEST MODULE EXPORT BÁO CÁO (EXCEL)
+# ==================================================================
+# Lưu ý: Vì trả về file binary, VS Code REST Client sẽ hiện đống ký tự lạ.
+# Nếu thấy response code 200 OK và header Content-Type application/vnd.openxmlformats... là thành công.
+# Để tải file thật, bạn có thể copy Token và paste vào trình duyệt.
+
+# ------------------------------------------------------------------
+# 2.1. BÁO CÁO CƯ DÂN (Residents)
+# Quyền: BOD, CQCN, Accountance
+# ------------------------------------------------------------------
+
+### [BOD] Xuất danh sách cư dân (Quản lý chung)
+GET {{baseUrl}}/reports/residents
+Authorization: {{bodToken}}
+
+### [CQCN] Xuất danh sách cư dân (Kiểm tra nhân khẩu)
+GET {{baseUrl}}/reports/residents
+Authorization: {{cqcnToken}}
+
+
+# ------------------------------------------------------------------
+# 2.2. BÁO CÁO TÀI SẢN (Assets)
+# Quyền: BOD, Accountance
+# ------------------------------------------------------------------
+
+### [BOD] Xuất danh sách tài sản (Quản lý tài sản)
+GET {{baseUrl}}/reports/assets
+Authorization: {{bodToken}}
+
+### [Accountance] Xuất danh sách tài sản (Kiểm kê/Khấu hao)
+GET {{baseUrl}}/reports/assets
+Authorization: {{accToken}}
+
+### [CQCN] Thử truy cập Báo cáo Tài sản (Kỳ vọng: 403 Forbidden - Vì không có quyền)
+GET {{baseUrl}}/reports/assets
+Authorization: {{cqcnToken}}
+
+
+# ------------------------------------------------------------------
+# 2.3. BÁO CÁO PHƯƠNG TIỆN (Vehicles)
+# Quyền: BOD, Accountance, CQCN
+# ------------------------------------------------------------------
+
+### [BOD] Xuất danh sách xe (Quản lý bãi xe)
+GET {{baseUrl}}/reports/vehicles
+Authorization: {{bodToken}}
+
+### [CQCN] Xuất danh sách xe (Tra cứu an ninh/Biển số)
+GET {{baseUrl}}/reports/vehicles
+Authorization: {{cqcnToken}}

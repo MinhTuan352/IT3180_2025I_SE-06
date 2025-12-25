@@ -62,6 +62,7 @@ app.use('/api/vehicles', require('./routes/vehicleRoutes'));
 app.use('/api/temporary-residence', require('./routes/temporaryResidenceRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/donations', require('./routes/donationRoutes'));
+app.use('/api/visitors', require('./routes/visitorRoutes'));
 
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {

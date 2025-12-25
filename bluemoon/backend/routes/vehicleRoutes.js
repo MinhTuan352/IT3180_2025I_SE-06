@@ -33,12 +33,12 @@ router.delete('/:id', checkAuth, checkRole(['resident']), vehicleController.canc
 // ==========================================
 
 // Xem danh sách tất cả xe (có bộ lọc)
-router.get('/', checkAuth, checkRole(['bod', 'admin']), vehicleController.getAllVehicles);
+router.get('/', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.getAllVehicles);
 
 // Duyệt / Từ chối xe (Update status)
-router.put('/:id/status', checkAuth, checkRole(['bod', 'admin']), vehicleController.updateVehicleStatus);
+router.put('/:id/status', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.updateVehicleStatus);
 
 // Chỉnh sửa thông tin xe (Sửa sai sót)
-router.put('/:id', checkAuth, checkRole(['bod', 'admin']), vehicleController.updateVehicleInfo);
+router.put('/:id', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.updateVehicleInfo);
 
 module.exports = router;

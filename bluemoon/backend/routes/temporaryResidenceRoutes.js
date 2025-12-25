@@ -37,24 +37,24 @@ router.delete('/:id',
 // 2. DÀNH CHO QUẢN TRỊ & CƠ QUAN CHỨC NĂNG
 // ==========================================
 
-// Xem danh sách tất cả (BOD, Admin, và CQCN đều xem được)
+// Xem danh sách tất cả (BOD, CQCN đều xem được)
 router.get('/', 
     checkAuth, 
-    checkRole(['bod', 'admin', 'cqcn']), 
+    checkRole(['bod', 'cqcn']), 
     temporaryResidenceController.getAll
 );
 
 // Xem chi tiết một đơn
 router.get('/:id', 
     checkAuth, 
-    checkRole(['bod', 'admin', 'cqcn']), 
+    checkRole(['bod', 'cqcn']), 
     temporaryResidenceController.getDetail
 );
 
-// Duyệt hoặc Từ chối đơn (CHỈ DÀNH CHO BOD/ADMIN - CQCN không được duyệt)
+// Duyệt hoặc Từ chối đơn (CHỈ DÀNH CHO BOD - CQCN không được duyệt)
 router.put('/:id/status', 
     checkAuth, 
-    checkRole(['bod', 'admin']), 
+    checkRole(['bod']), 
     temporaryResidenceController.updateStatus
 );
 

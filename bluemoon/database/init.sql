@@ -447,6 +447,36 @@ CREATE TABLE reviews (
     FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- 30. FUND_CAMPAIGNS (CHIẾN DỊCH GÓP QUỸ)
+CREATE TABLE fund_campaigns (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL COMMENT 'Tên quỹ: Quỹ Vaccine, Quỹ Vì người nghèo...',
+    description TEXT,
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    target_amount DECIMAL(15,2) DEFAULT 0 COMMENT 'Mục tiêu (0 = không giới hạn)',
+    current_amount DECIMAL(15,2) DEFAULT 0 COMMENT 'Tổng tiền đã nhận (Tự động cộng dồn)',
+    status ENUM('Active', 'Closed', 'Planned') DEFAULT 'Active',
+    created_by VARCHAR(20) NOT NULL COMMENT 'ID Kế toán tạo (User ID)',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 31. DONATIONS (CHI TIẾT ỦNG HỘ)
+CREATE TABLE IF NOT EXISTS donations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    campaign_id INT NOT NULL,
+    resident_id VARCHAR(20) NOT NULL COMMENT 'Link tới bảng residents',
+    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
+    payment_method ENUM('Cash', 'Transfer', 'AppPayment') DEFAULT 'AppPayment',
+    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    recorded_by VARCHAR(20) COMMENT 'User ID người thực hiện nhập liệu (Kế toán hoặc chính User)',
+    note TEXT COMMENT 'Lời nhắn: Gia đình cháu A ủng hộ...',
+    is_anonymous BOOLEAN DEFAULT FALSE COMMENT 'Ẩn danh trên sao kê công khai',
+    FOREIGN KEY (campaign_id) REFERENCES fund_campaigns(id) ON DELETE CASCADE,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,
+    FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
 
 -- ===================================
 -- 3. INSERT DATA (DỮ LIỆU MẪU)
@@ -636,3 +666,21 @@ INSERT INTO building_regulations (title, content, sort_order) VALUES
 INSERT INTO reviews (resident_id, rating, feedback, status) VALUES
 ('R0001', 5, 'Dịch vụ Gym rất tốt, sạch sẽ.', 'Đã xem'),
 ('R0003', 2, 'Bảo vệ ca đêm thái độ chưa tốt.', 'Mới');
+
+-- Tạo 2 đợt quyên góp
+INSERT INTO fund_campaigns (title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES 
+('Quỹ Khuyến Học 2025', 'Quyên góp sách vở và học bổng cho con em cư dân đạt thành tích cao.', '2025-01-01 00:00:00', '2025-06-01 23:59:59', 50000000, 2500000, 'Active', 'ID0002'),
+('Ủng hộ đồng bào bão lũ miền Trung', 'Chung tay chia sẻ khó khăn với đồng bào vùng lũ.', '2025-10-20 00:00:00', '2025-11-20 23:59:59', 0, 500000, 'Closed', 'ID0002');
+
+-- Tạo dữ liệu đóng góp giả định
+-- 1. Cư dân R0001 (Chủ hộ A-101) tự đóng qua App
+INSERT INTO donations (campaign_id, resident_id, amount, payment_method, recorded_by, note, is_anonymous) VALUES
+(1, 'R0001', 500000, 'AppPayment', 'ID0001', 'Gia đình A-101 ủng hộ các cháu', FALSE);
+
+-- 2. Cư dân R0003 (Chủ hộ B-205) đóng tiền mặt cho Kế toán (ID0002 nhập)
+INSERT INTO donations (campaign_id, resident_id, amount, payment_method, recorded_by, note, is_anonymous) VALUES
+(1, 'R0003', 2000000, 'Cash', 'ID0002', 'Bác B-205 gửi tiền mặt', TRUE); -- Ẩn danh
+
+-- 3. Đóng góp cho quỹ cũ (đã đóng)
+INSERT INTO donations (campaign_id, resident_id, amount, payment_method, recorded_by, note, is_anonymous) VALUES
+(2, 'R0001', 500000, 'Transfer', 'ID0001', 'Ủng hộ miền Trung', FALSE);

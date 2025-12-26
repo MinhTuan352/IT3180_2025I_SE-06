@@ -132,30 +132,22 @@ const Resident = {
         try {
             const {
                 id, user_id, apartment_id, full_name, role,
-                dob, gender, cccd, phone, email, status, hometown, occupation
+                dob, gender, cccd, phone, email, status, hometown, occupation,
+                relationship_with_owner, identity_date, identity_place
             } = data;
 
             const query = `
                 INSERT INTO residents 
-                (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation, relationship_with_owner, identity_date, identity_place)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             // Dùng (variable || null) để đảm bảo không bao giờ truyền undefined vào SQL
             await db.execute(query, [
-                id,
-                user_id || null,
-                apartment_id,
-                full_name,
-                role,
-                dob || null,
-                gender || null,
-                cccd || null,
-                phone || null,
-                email || null,
-                status || 'Đang sinh sống',
-                hometown || null,   // Fix lỗi undefined
-                occupation || null  // Fix lỗi undefined
+                id, user_id || null, apartment_id, full_name, role,
+                dob || null, gender || null, cccd || null, phone || null, email || null,
+                status || 'Đang sinh sống', hometown || null, occupation || null,
+                relationship_with_owner || 'Chủ hộ', identity_date || null, identity_place || null
             ]);
 
             return { id, ...data };
@@ -242,6 +234,80 @@ const Resident = {
         } catch (error) {
             throw error;
         }
+    },
+
+    /**
+     * Ghi lịch sử biến động nhân khẩu
+     */
+    addHistory: async (data, connection = null) => {
+        const { resident_id, apartment_id, event_type, event_date, note } = data;
+        const query = `
+            INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        await db.execute(query, [resident_id, apartment_id, event_type, event_date, note]);
+    },
+
+    /**
+     * Lấy lịch sử cư trú của 1 người
+     */
+    getHistory: async (residentId) => {
+        const [rows] = await db.execute(
+            `SELECT * FROM residence_history WHERE resident_id = ? ORDER BY event_date DESC`, 
+            [residentId]
+        );
+        return rows;
+    },
+
+    /**
+     * Đăng ký tạm trú / tạm vắng
+     */
+    createTemporary: async (data) => {
+        const { resident_id, type, start_date, end_date, reason } = data;
+        const query = `
+            INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status)
+            VALUES (?, ?, ?, ?, ?, 'Chờ duyệt')
+        `;
+        await db.execute(query, [resident_id, type, start_date, end_date, reason]);
+    },
+
+    /**
+     * Lấy danh sách đơn tạm trú/vắng
+     */
+    getAllTemporary: async (filters = {}) => {
+        let query = `
+            SELECT t.*, r.full_name, r.id as resident_code, a.apartment_code, u.username as approver_name
+            FROM temporary_residence t
+            JOIN residents r ON t.resident_id = r.id
+            JOIN apartments a ON r.apartment_id = a.id
+            LEFT JOIN users u ON t.approved_by = u.id
+            WHERE 1=1
+        `;
+        const params = [];
+        if (filters.status) {
+            query += ` AND t.status = ?`;
+            params.push(filters.status);
+        }
+        query += ` ORDER BY t.created_at DESC`;
+        
+        const [rows] = await db.execute(query, params);
+        return rows;
+    },
+
+    getTemporaryById: async (id) => {
+        const [rows] = await db.execute(`SELECT * FROM temporary_residence WHERE id = ?`, [id]);
+        return rows[0];
+    },
+
+    /**
+     * Duyệt đơn tạm trú/vắng
+     */
+    updateTemporaryStatus: async (id, status, approverId, connection = null) => {
+        const dbConn = connection || db;
+        await dbConn.execute(
+            `UPDATE temporary_residence SET status = ?, approved_by = ? WHERE id = ?`,
+            [status, approverId, id]
+        );
     }
 };
 

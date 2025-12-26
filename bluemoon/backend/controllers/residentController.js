@@ -2,6 +2,7 @@
 
 const Resident = require('../models/residentModel');
 const User = require('../models/userModel');
+const db = require('../config/db');
 
 const residentController = {
 
@@ -128,7 +129,10 @@ const residentController = {
                 return res.status(404).json({ message: 'Không tìm thấy cư dân.' });
             }
 
-            res.status(200).json({ success: true, data: resident });
+            // [MỚI] Lấy thêm lịch sử cư trú
+            const [history] = await db.execute(`SELECT * FROM residence_history WHERE resident_id = ? ORDER BY event_date DESC`, [req.params.id]);
+
+            res.status(200).json({ success: true, data: resident, history });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
@@ -139,9 +143,9 @@ const residentController = {
         try {
             // Lấy dữ liệu từ form
             const {
-                id, apartment_id, full_name, role,
-                dob, gender, cccd, phone, email,
-                username, password // Thêm 2 trường này
+                id, apartment_id, full_name, role, dob, gender, cccd, 
+                phone, email, username, password, identity_date, identity_place,
+                hometown, occupation, relationship_with_owner
             } = req.body;
 
             // 1. Validate cơ bản
@@ -161,6 +165,14 @@ const residentController = {
                 // Gọi Transaction bên User Model
                 const result = await User.createResidentAccount(req.body);
 
+                await Resident.addHistory({
+                    resident_id: id,
+                    apartment_id: apartment_id,
+                    event_type: 'Chuyển đến',
+                    event_date: new Date(),
+                    note: 'Đăng ký mới vào hệ thống'
+                }, connection);
+
                 return res.status(201).json({
                     success: true,
                     message: 'Thêm Cư dân (Chủ hộ) và tạo tài khoản thành công!',
@@ -173,6 +185,14 @@ const residentController = {
 
                 // Mặc dù user_id có thể null, nhưng nếu Import Excel ta cứ để null
                 const newResident = await Resident.create(req.body);
+
+                await Resident.addHistory({
+                    resident_id: id,
+                    apartment_id: apartment_id,
+                    event_type: 'Chuyển đến',
+                    event_date: new Date(),
+                    note: 'Đăng ký mới vào hệ thống'
+                }, connection);
 
                 return res.status(201).json({
                     success: true,
@@ -215,6 +235,41 @@ const residentController = {
         }
     },
 
+    /**
+     * [MOVE-OUT] Chuyển đi (Thay vì xóa)
+     */
+    moveOutResident: async (req, res) => {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            const { id } = req.params;
+            const { move_out_date, reason } = req.body;
+
+            const resident = await Resident.findById(id);
+            if (!resident) throw new Error('Cư dân không tồn tại');
+
+            // 1. Cập nhật trạng thái thành 'Đã chuyển đi'
+            await Resident.update(id, { ...resident, status: 'Đã chuyển đi' }, connection);
+
+            // 2. Ghi lịch sử "Chuyển đi"
+            await Resident.addHistory({
+                resident_id: id,
+                apartment_id: resident.apartment_id,
+                event_type: 'Chuyển đi',
+                event_date: move_out_date || new Date(),
+                note: reason || 'Chuyển đi khỏi chung cư'
+            }, connection);
+
+            await connection.commit();
+            res.json({ success: true, message: 'Đã ghi nhận chuyển đi thành công.' });
+        } catch (error) {
+            await connection.rollback();
+            res.status(500).json({ message: error.message });
+        } finally {
+            connection.release();
+        }
+    },
+
     // [DELETE] /api/residents/:id
     deleteResident: async (req, res) => {
         try {
@@ -236,6 +291,70 @@ const residentController = {
                 return res.status(400).json({ message: 'Không thể xóa cư dân này vì dữ liệu liên quan (Hóa đơn, Phản ánh) vẫn còn.' });
             }
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // --- TẠM TRÚ / TẠM VẮNG ---
+    
+    registerTemporary: async (req, res) => {
+        try {
+            // Validate sơ bộ
+            if (!req.body.resident_id || !req.body.type || !req.body.start_date) {
+                return res.status(400).json({ message: 'Thiếu thông tin bắt buộc.' });
+            }
+            await Resident.createTemporary(req.body);
+            res.status(201).json({ success: true, message: 'Đã gửi đăng ký, vui lòng chờ duyệt.' });
+        } catch (e) { res.status(500).json({ message: e.message }); }
+    },
+
+    getTemporaryList: async (req, res) => {
+        try {
+            const list = await Resident.getAllTemporary(req.query);
+            res.json({ success: true, data: list });
+        } catch (e) { res.status(500).json({ message: e.message }); }
+    },
+
+    /**
+     * [APPROVE] Duyệt đơn Tạm trú/vắng
+     */
+    approveTemporary: async (req, res) => {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            const { id } = req.params;
+            const { status } = req.body; // 'Đã duyệt' hoặc 'Từ chối'
+
+            // 1. Cập nhật trạng thái đơn
+            await Resident.updateTemporaryStatus(id, status, req.user.id, connection);
+
+            // 2. Nếu là 'Tạm vắng' và được 'Đã duyệt' -> Cập nhật trạng thái cư dân + Ghi lịch sử
+            if (status === 'Đã duyệt') {
+                const temp = await Resident.getTemporaryById(id);
+                if (temp && temp.type === 'Tạm vắng') {
+                    // Update Status Cư dân thành 'Tạm vắng'
+                    const [resInfo] = await connection.execute('SELECT * FROM residents WHERE id = ?', [temp.resident_id]);
+                    if (resInfo.length > 0) {
+                        await Resident.update(temp.resident_id, { ...resInfo[0], status: 'Tạm vắng' }, connection);
+                        
+                        // Ghi lịch sử biến động
+                        await Resident.addHistory({
+                            resident_id: temp.resident_id,
+                            apartment_id: resInfo[0].apartment_id,
+                            event_type: 'Tạm vắng',
+                            event_date: new Date(),
+                            note: `Tạm vắng từ ${new Date(temp.start_date).toLocaleDateString()}: ${temp.reason}`
+                        }, connection);
+                    }
+                }
+            }
+
+            await connection.commit();
+            res.json({ success: true, message: `Đã cập nhật trạng thái thành ${status}.` });
+        } catch (error) {
+            await connection.rollback();
+            res.status(500).json({ message: error.message });
+        } finally {
+            connection.release();
         }
     }
 };

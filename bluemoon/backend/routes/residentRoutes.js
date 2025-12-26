@@ -6,56 +6,64 @@ const residentController = require('../controllers/residentController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
 
-// Áp dụng middleware checkAuth cho TẤT CẢ các route bên dưới
-// Nghĩa là phải đăng nhập mới sờ vào được API cư dân
 router.use(checkAuth);
 
-// ========================================================
-// [MỚI] ROUTE CHO CƯ DÂN XEM/CẬP NHẬT PROFILE CỦA CHÍNH MÌNH
-// ========================================================
-// QUAN TRỌNG: Các route /me PHẢI đặt TRƯỚC /:id để tránh Express hiểu nhầm "me" là ID
-
-// Cư dân xem thông tin cá nhân của chính mình
+// --- 1. NHÓM CÁ NHÂN (ME) ---
+// Cư dân tự xem/sửa thông tin của mình
 router.get('/me', residentController.getMyProfile);
-
-// Cư dân cập nhật thông tin cá nhân
 router.put('/me', residentController.updateMyProfile);
-
-// [MỚI] Cư dân xem thông tin căn hộ của mình
 router.get('/my-apartment', residentController.getMyApartment);
 
-// ========================================================
-// ROUTE CHO BOD/ACCOUNTANT QUẢN LÝ CƯ DÂN
-// ========================================================
+// --- 2. NHÓM TẠM TRÚ / TẠM VẮNG ---
+// Đăng ký (Cư dân tự làm hoặc Admin làm hộ)
+router.post('/temporary', residentController.registerTemporary);
 
-// 1. Xem danh sách (Admin, Kế toán, CQCN)
-router.get('/',
-    checkRole(['bod', 'accountance', 'cqcn']),
+// Xem danh sách đơn (Chỉ BOD, Công an)
+router.get('/temporary', 
+    checkRole(['bod', 'cqcn']), 
+    residentController.getTemporaryList
+);
+
+// Duyệt đơn (Chỉ BOD)
+router.put('/temporary/:id/approve', 
+    checkRole(['bod']), 
+    residentController.approveTemporary
+);
+
+// --- 3. NHÓM QUẢN LÝ CƯ DÂN (CRUD) ---
+// Xem danh sách (BOD, Kế toán, Công an)
+router.get('/', 
+    checkRole(['bod', 'accountance', 'cqcn']), 
     residentController.getAllResidents
 );
 
-// 2. Xem chi tiết (Admin, Kế toán, CQCN)
-// (Mở rộng: Cư dân cũng có thể xem profile của chính mình - logic này sẽ xử lý sau)
-router.get('/:id',
-    checkRole(['bod', 'accountance', 'cqcn']),
+// Xem chi tiết
+router.get('/:id', 
+    checkRole(['bod', 'accountance', 'cqcn']), 
     residentController.getResidentDetail
 );
 
-// 3. Thêm mới (Chỉ Admin)
-router.post('/',
-    checkRole(['bod']),
+// Thêm mới (Chỉ BOD)
+router.post('/', 
+    checkRole(['bod']), 
     residentController.createResident
 );
 
-// 4. Cập nhật (Chỉ Admin)
-router.put('/:id',
-    checkRole(['bod']),
+// Cập nhật thông tin (Chỉ BOD)
+router.put('/:id', 
+    checkRole(['bod']), 
     residentController.updateResident
 );
 
-// 5. Xóa (Chỉ Admin)
-router.delete('/:id',
-    checkRole(['bod']),
+// [MỚI] Chức năng Chuyển đi (Thay vì xóa)
+router.put('/:id/move-out', 
+    checkRole(['bod']), 
+    residentController.moveOutResident
+);
+
+// Xóa vĩnh viễn (Chỉ BOD - Dùng khi nhập sai)
+router.delete('/:id', 
+    checkRole(['bod']), 
     residentController.deleteResident
 );
 

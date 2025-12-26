@@ -1,0 +1,118 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập BAN QUẢN TRỊ (Để duyệt đơn)
+# User: admin.a (Role: BOD)
+# -> Copy accessToken từ response và thay vào @bodToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+### 1.2. Đăng nhập CƯ DÂN (Để gửi đơn)
+# User: chuho_a101 (Role: Resident - R0001)
+# -> Copy accessToken từ response và thay vào @resToken bên dưới
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+
+# --- CẤU HÌNH TOKEN (THAY TOKEN CỦA BẠN VÀO ĐÂY) ---
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY3MjM4MjcsImV4cCI6MTc2NjcyNzQyN30.9r-GH6eQi7a-vxtzpyWLTyiiATFv3b8ygH2fjf01CJ4
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NzIzODQ3LCJleHAiOjE3NjY3Mjc0NDd9.pdpf_NYePKDO4nyJaxo5uKlB3hFQuAAwx8QWa6Hpi4E
+
+
+# ==================================================================
+# 2. NGHIỆP VỤ: ĐĂNG KÝ TẠM TRÚ / TẠM VẮNG
+# ==================================================================
+
+### 2.1. Đăng ký TẠM TRÚ (Cho người nhà ở quê lên chơi)
+# Gửi bởi: Cư dân (R0001) hoặc Admin làm hộ
+POST {{baseUrl}}/residents/temporary
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "resident_id": "R0001",
+    "type": "Tạm trú",
+    "start_date": "2025-12-20",
+    "end_date": "2026-01-05",
+    "reason": "Cháu ở quê lên ôn thi đại học"
+}
+
+### 2.2. Đăng ký TẠM VẮNG (Đi công tác)
+# Gửi bởi: Cư dân (R0001)
+POST {{baseUrl}}/residents/temporary
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "resident_id": "R0001",
+    "type": "Tạm vắng",
+    "start_date": "2026-02-01",
+    "end_date": "2026-02-28",
+    "reason": "Đi công tác tại Nhật Bản"
+}
+
+
+# ==================================================================
+# 3. NGHIỆP VỤ: QUẢN LÝ & DUYỆT ĐƠN (DÀNH CHO ADMIN)
+# ==================================================================
+
+### 3.1. Xem danh sách tất cả đơn đăng ký
+GET {{baseUrl}}/residents/temporary
+Authorization: {{bodToken}}
+
+### 3.2. Lọc đơn chưa duyệt (status=Chờ duyệt)
+GET {{baseUrl}}/residents/temporary?status=Chờ duyệt
+Authorization: {{bodToken}}
+
+
+# ==================================================================
+# 4. NGHIỆP VỤ: DUYỆT ĐƠN (APPROVE)
+# ==================================================================
+
+# (!) Lưu ý: Thay ID = 1 hoặc 2 bằng ID thực tế bạn nhận được ở bước 2
+
+### 4.1. DUYỆT ĐƠN TẠM TRÚ (ID giả định: 1)
+PUT {{baseUrl}}/residents/temporary/4/approve
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Đã duyệt",
+    "admin_note": "Đã kiểm tra giấy tờ tùy thân"
+}
+
+### 4.2. TỪ CHỐI ĐƠN (ID giả định: 2)
+PUT {{baseUrl}}/residents/temporary/3/approve
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Từ chối",
+    "admin_note": "Thiếu ảnh chụp CCCD"
+}
+
+
+# ==================================================================
+# 5. KIỂM TRA LẠI TRẠNG THÁI CƯ DÂN
+# ==================================================================
+
+### 5.1. Xem chi tiết cư dân R0001
+# Nếu đơn Tạm vắng được duyệt, trạng thái cư dân sẽ đổi thành 'Tạm vắng'
+# Và lịch sử biến động (history) sẽ có thêm dòng mới
+GET {{baseUrl}}/residents/R0001
+Authorization: {{bodToken}}

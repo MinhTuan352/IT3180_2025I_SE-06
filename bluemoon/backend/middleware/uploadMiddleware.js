@@ -8,12 +8,18 @@ const fs = require('fs');
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         // Tự động chọn thư mục dựa trên loại file hoặc field name
-        let uploadPath = 'public/uploads/others';
+        const baseUrl = req.baseUrl || '';
 
-        if (file.fieldname === 'vehicle_image' || file.fieldname === 'registration_cert') {
+        if (baseUrl.includes('/vehicles')) {
             uploadPath = 'public/uploads/vehicles';
-        } else if (file.fieldname === 'avatar') {
+        } else if (baseUrl.includes('/incidents')) {
+            uploadPath = 'public/uploads/incidents';
+        } else if (baseUrl.includes('/services')) {
+            uploadPath = 'public/uploads/services';
+        } else if (baseUrl.includes('/residents') || baseUrl.includes('/users')) {
             uploadPath = 'public/uploads/avatars';
+        } else if (baseUrl.includes('/notifications')) {
+            uploadPath = 'public/uploads/notifications';
         }
 
         // Tạo thư mục nếu chưa tồn tại
@@ -41,7 +47,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Giới hạn 5MB
+    limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn 10MB
     fileFilter: fileFilter
 });
 

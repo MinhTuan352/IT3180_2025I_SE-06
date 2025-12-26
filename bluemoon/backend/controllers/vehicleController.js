@@ -75,10 +75,10 @@ const vehicleController = {
             let registration_cert = null;
 
             if (req.files) {
-                if (req.files.vehicle_image) {
+                if (req.files.vehicle_image && req.files.vehicle_image.length > 0) {
                     vehicle_image = `/uploads/vehicles/${req.files.vehicle_image[0].filename}`;
                 }
-                if (req.files.registration_cert) {
+                if (req.files.registration_cert && req.files.registration_cert.length > 0) {
                     registration_cert = `/uploads/vehicles/${req.files.registration_cert[0].filename}`;
                 }
             }

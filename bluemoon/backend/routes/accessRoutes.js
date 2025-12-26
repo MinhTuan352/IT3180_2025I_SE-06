@@ -22,6 +22,9 @@ router.get('/simulator-vehicles', accessController.getSimulatorVehicles);
 // Lấy dữ liệu báo cáo phân tích
 router.get('/report', accessController.getReportData);
 
+// [FIX REQ 14] Xuất Excel danh sách đầy đủ
+router.get('/export-excel', accessController.exportAccessExcel);
+
 // Xuất báo cáo PDF
 router.get('/export-pdf', accessController.exportReportPDF);
 

@@ -1,59 +1,117 @@
-# File: backend/testRestAPI/test_access.http
-# Test Access Control API
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
 
-### Lấy danh sách lịch sử ra vào
-GET http://localhost:3000/api/access/logs
-Content-Type: application/json
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
 
-### Lấy lịch sử với pagination
-GET http://localhost:3000/api/access/logs?page=1&limit=10
-Content-Type: application/json
-
-### Lấy bản ghi mới nhất (polling)
-GET http://localhost:3000/api/access/latest?lastId=0
-Content-Type: application/json
-
-### Lấy thống kê hôm nay
-GET http://localhost:3000/api/access/stats
-Content-Type: application/json
-
-### Lấy danh sách xe cho simulator
-GET http://localhost:3000/api/access/simulator-vehicles
-Content-Type: application/json
-
-### Mô phỏng xe đã đăng ký VÀO
-POST http://localhost:3000/api/access/simulate
-Content-Type: application/json
+### 1.1. Đăng nhập BAN QUẢN TRỊ / BẢO VỆ
+# User: admin.a (Role: BOD)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
 
 {
-    "plate_number": "29A-12345",
-    "direction": "In"
+    "username": "admin.a",
+    "password": "password123"
 }
 
-### Mô phỏng xe đã đăng ký RA
-POST http://localhost:3000/api/access/simulate
-Content-Type: application/json
+###
+# -> Copy Token từ response vào biến @bodToken bên dưới
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY3NjQ2ODMsImV4cCI6MTc2Njc2ODI4M30.g54_FNUiMKP5gu4thnqfDbBK6-Vd3kh3y7gDl_GesCQ
+
+
+# ==================================================================
+# 2. MÔ PHỎNG RA VÀO (SIMULATOR)
+# Logic: Hệ thống sẽ tự tra cứu biển số để xác định Cư dân/Khách
+# ==================================================================
+
+### 2.1. [NORMAL] Xe Cư dân VÀO (Lần 1)
+# Biển số: 29A-12345 (Đã có trong init.sql của R0001)
+# Mong đợi: Status = 'Normal', Note = 'Cư dân A-101'
+POST {{baseUrl}}/access/simulate
+Content-Type: {{contentType}}
 
 {
     "plate_number": "29A-12345",
+    "vehicle_type": "Ô tô",
+    "direction": "In",
+    "gate": "Cổng A",
+    "image_url": "/uploads/cam/in_29a12345.jpg"
+}
+
+### 2.2. [WARNING] Xe Cư dân VÀO TIẾP (Lỗi Anti-passback)
+# Xe đang ở trong (từ bước 2.1) mà lại quẹt thẻ VÀO tiếp
+# Mong đợi: Status = 'Warning', Note chứa "Lỗi: Xe đang trong bãi"
+POST {{baseUrl}}/access/simulate
+Content-Type: {{contentType}}
+
+{
+    "plate_number": "29A-12345",
+    "vehicle_type": "Ô tô",
+    "direction": "In",
+    "gate": "Cổng A",
+    "image_url": "/uploads/cam/in_29a12345_error.jpg"
+}
+
+### 2.3. [NORMAL] Xe Cư dân RA (Đúng quy trình)
+# Mong đợi: Status = 'Normal'
+POST {{baseUrl}}/access/simulate
+Content-Type: {{contentType}}
+
+{
+    "plate_number": "29A-12345",
+    "vehicle_type": "Ô tô",
     "direction": "Out",
-    "gate": "Hầm B1"
+    "gate": "Cổng A",
+    "image_url": "/uploads/cam/out_29a12345.jpg"
 }
 
-### Mô phỏng xe lạ VÀO (sẽ hiển thị Warning)
-POST http://localhost:3000/api/access/simulate
-Content-Type: application/json
+### 2.4. [WARNING] Xe Lạ (Khách vãng lai)
+# Biển số: 99K-99999 (Chưa đăng ký)
+# Mong đợi: Status = 'Warning', Note = 'Xe lạ chưa đăng ký'
+POST {{baseUrl}}/access/simulate
+Content-Type: {{contentType}}
 
 {
-    "plate_number": "99X-88888",
-    "direction": "In"
+    "plate_number": "99K-99999",
+    "vehicle_type": "Xe máy",
+    "direction": "In",
+    "gate": "Cổng B",
+    "image_url": "/uploads/cam/in_guest.jpg"
 }
 
-### Mô phỏng xe blacklist VÀO (sẽ hiển thị Alert)
-POST http://localhost:3000/api/access/simulate
-Content-Type: application/json
+### 2.5. [ALERT] Xe Blacklist (Danh sách đen)
+# Biển số chứa từ khóa 'BLACKLIST' (Logic trong Controller)
+# Mong đợi: Status = 'Alert', Note = 'CẢNH BÁO...'
+POST {{baseUrl}}/access/simulate
+Content-Type: {{contentType}}
 
 {
-    "plate_number": "BLACKLIST-001",
-    "direction": "In"
+    "plate_number": "BLACKLIST-99",
+    "vehicle_type": "Xe máy",
+    "direction": "In",
+    "gate": "Cổng B"
 }
+
+
+# ==================================================================
+# 3. QUẢN LÝ & BÁO CÁO (DÀNH CHO BQT)
+# ==================================================================
+
+### 3.1. Xem danh sách Lịch sử ra vào (Mới nhất lên đầu)
+GET {{baseUrl}}/access/logs?page=1&limit=10
+Authorization: {{bodToken}}
+
+### 3.2. Lấy danh sách xe (Dropdown cho Simulator chọn)
+GET {{baseUrl}}/access/simulator-vehicles
+Authorization: {{bodToken}}
+
+### 3.3. Xem thống kê nhanh trong ngày
+GET {{baseUrl}}/access/stats
+Authorization: {{bodToken}}
+
+### 3.4. Xuất Báo cáo Excel (REQ 14)
+# Thay đổi ngày cho phù hợp với dữ liệu thực tế của bạn
+# Kết quả: Trình duyệt sẽ tải về file AccessLogs.xlsx
+GET {{baseUrl}}/access/export-excel?startDate=2025-12-01&endDate=2026-01-30
+Authorization: {{bodToken}}

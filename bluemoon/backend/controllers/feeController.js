@@ -2,7 +2,7 @@
 
 const Fee = require('../models/feeModel');
 const Vehicle = require('../models/vehicleModel'); // [MỚI] Import để lấy danh sách xe
-const invoiceNotifier = require('../jobs/invoiceNotifier');
+const invoiceNotifier = require('../jobs/cronJob');
 const db = require('../config/db');
 const emailService = require('../services/emailService');
 

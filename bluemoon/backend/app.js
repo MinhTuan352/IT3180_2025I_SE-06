@@ -85,7 +85,7 @@ app.use((err, req, res, next) => {
 // =======================
 
 // [MỚI] Khởi động các tác vụ nền (Cron Jobs)
-require('./jobs/invoiceNotifier').start();
+require('./jobs/cronJob').start();
 
 app.listen(PORT, () => {
     console.log(`==========================================`);

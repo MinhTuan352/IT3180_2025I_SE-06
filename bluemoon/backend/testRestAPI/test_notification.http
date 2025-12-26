@@ -1,21 +1,57 @@
-@baseUrl = https://it3180-2025i-se-06.onrender.com/api
-@token = DÁN_TOKEN_ADMIN_VÀO_ĐÂY
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
 
-### 1. Tạo thông báo có đính kèm ảnh (Form-Data)
-# Lưu ý: Sửa đường dẫn file tại dòng < ./duong/dan/anh.jpg
-# Nếu không có file ảnh mẫu, hãy xóa phần Attachments đi để test text trước.
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập BAN QUẢN TRỊ (BOD) - Người gửi thông báo
+# User: admin.a
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào biến @bodToken
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY3Njk1NDksImV4cCI6MTc2Njc3MzE0OX0.R4guRt7e6qYaG3DzHf00Gm8DA0A_vk6ax8XViTmJytI
+
+### 1.2. Đăng nhập CƯ DÂN (Người nhận)
+# User: chuho_a101 (R0001)
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào biến @resToken
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NzY5ODA2LCJleHAiOjE3NjY3NzM0MDZ9.ep0cSf6Qi4uAhtM9MQUsXiObBdtA1z4T8TH_t-y0G4E
+
+
+# ==================================================================
+# 2. NGHIỆP VỤ: TẠO THÔNG BÁO (CHỈ BOD)
+# ==================================================================
+
+### 2.1. Gửi thông báo CHUNG cho TẤT CẢ CƯ DÂN (Gửi ngay)
+# type_id: 2 (Chung)
 POST {{baseUrl}}/notifications
-Authorization: Bearer {{token}}
+Authorization: {{bodToken}}
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
 
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
 Content-Disposition: form-data; name="title"
 
-Thông báo Phun thuốc muỗi đợt 2
+Thông báo lịch phun thuốc muỗi T12
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
 Content-Disposition: form-data; name="content"
 
-Kính gửi cư dân, BQL sẽ phun thuốc vào 8h sáng thứ 7.
+Kính gửi cư dân, BQL sẽ tiến hành phun thuốc muỗi vào sáng thứ 7 tuần này. Vui lòng đóng cửa sổ.
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
 Content-Disposition: form-data; name="type_id"
 
@@ -23,18 +59,96 @@ Content-Disposition: form-data; name="type_id"
 ------WebKitFormBoundary7MA4YWxkTrZu0gW
 Content-Disposition: form-data; name="target"
 
+Tất cả Cư dân
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 2.2. Gửi thông báo KHẨN CẤP cho 1 TÒA NHÀ (Tòa A)
+# type_id: 1 (Khẩn cấp)
+POST {{baseUrl}}/notifications
+Authorization: {{bodToken}}
+Content-Type: multipart/form-data; boundary=boundary123
+
+--boundary123
+Content-Disposition: form-data; name="title"
+
+Cắt nước đột xuất Tòa A
+--boundary123
+Content-Disposition: form-data; name="content"
+
+Do sự cố đường ống, Tòa A sẽ mất nước từ 14h-17h hôm nay.
+--boundary123
+Content-Disposition: form-data; name="type_id"
+
+1
+--boundary123
+Content-Disposition: form-data; name="target"
+
 Theo tòa nhà
-------WebKitFormBoundary7MA4YWxkTrZu0gW
+--boundary123
 Content-Disposition: form-data; name="target_value"
 
 A
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="attachments"; filename="test_image.jpg"
-Content-Type: image/jpeg
+--boundary123--
 
-< ./test_image.jpg
-------WebKitFormBoundary7MA4YWxkTrZu0gW--
+### 2.3. Tạo thông báo HẸN GIỜ (Scheduled)
+# scheduled_at: Thời gian trong tương lai (YYYY-MM-DD HH:mm:ss)
+POST {{baseUrl}}/notifications
+Authorization: {{bodToken}}
+Content-Type: multipart/form-data; boundary=boundaryScheduled
 
-### 2. Xem danh sách thông báo
+--boundaryScheduled
+Content-Disposition: form-data; name="title"
+
+Chúc mừng năm mới 2026
+--boundaryScheduled
+Content-Disposition: form-data; name="content"
+
+Ban quản trị kính chúc quý cư dân một năm mới An Khang Thịnh Vượng!
+--boundaryScheduled
+Content-Disposition: form-data; name="type_id"
+
+2
+--boundaryScheduled
+Content-Disposition: form-data; name="target"
+
+Tất cả Cư dân
+--boundaryScheduled
+Content-Disposition: form-data; name="scheduled_at"
+
+2025-12-27 00:47:00
+--boundaryScheduled--
+
+
+# ==================================================================
+# 3. NGHIỆP VỤ: XEM VÀ ĐỌC THÔNG BÁO
+# ==================================================================
+
+### 3.1. Cư dân xem danh sách thông báo (Inbox)
+# Mong đợi: Thấy thông báo Phun thuốc và Cắt nước (nếu ở Tòa A). 
+# Không thấy thông báo Chúc tết (vì chưa đến giờ gửi).
 GET {{baseUrl}}/notifications
-Authorization: Bearer {{token}}
+Authorization: {{resToken}}
+
+### 3.2. Cư dân xem chi tiết 1 thông báo
+# Thay ID thông báo vào URL (Lấy từ response bước 3.1, VD: TB-1703...)
+GET {{baseUrl}}/notifications/TB83499749-001
+Authorization: {{resToken}}
+
+### 3.3. Cư dân đánh dấu đã đọc
+# Thay ID thông báo vào URL
+PUT {{baseUrl}}/notifications/TB83499749-001/read
+Authorization: {{resToken}}
+
+### 3.4. Admin xem danh sách (Outbox)
+# Mong đợi: Thấy tất cả, bao gồm cả tin hẹn giờ (is_sent = 0)
+GET {{baseUrl}}/notifications
+Authorization: {{bodToken}}
+
+
+# ==================================================================
+# 4. NGHIỆP VỤ: QUẢN LÝ (BOD)
+# ==================================================================
+
+### 4.1. Xóa thông báo (Nếu gửi nhầm)
+DELETE {{baseUrl}}/notifications/TB-1766769892373
+Authorization: {{bodToken}}

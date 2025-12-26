@@ -14,12 +14,7 @@ const notificationController = {
                 role: req.user.role // 'bod' hoặc 'resident'
             };
             const notifications = await Notification.getAll(filters);
-
-            res.json({
-                success: true,
-                count: notifications.length,
-                data: notifications
-            });
+            res.json({ success: true, count: notifications.length, data: notifications });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
@@ -30,129 +25,96 @@ const notificationController = {
         try {
             const { id } = req.params;
             const notification = await Notification.getById(id, req.user.id);
-
-            if (!notification) {
-                return res.status(404).json({ message: 'Thông báo không tồn tại.' });
-            }
-
+            if (!notification) return res.status(404).json({ message: 'Thông báo không tồn tại.' });
             res.json({ success: true, data: notification });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     },
 
-    // [POST] /api/notifications - Tạo thông báo mới (Kèm file)
+    // [POST] /api/notifications
     createNotification: async (req, res) => {
         try {
-            // 1. Lấy dữ liệu Text
-            const { title, content, type_id, target, specific_recipient_id, target_value } = req.body;
-            // target: 'Tất cả Cư dân', 'Theo tòa nhà', 'Cá nhân'
-            // target_value: 'A' (nếu chọn tòa nhà)
-            // specific_recipient_id: 'R001' (nếu chọn cá nhân)
+            const { title, content, type_id, target, target_value, scheduled_at } = req.body;
 
-            if (!title || !content || !type_id || !target) {
-                return res.status(400).json({ message: 'Vui lòng điền đầy đủ tiêu đề, nội dung và đối tượng nhận.' });
+            if (!title || !content || !type_id) {
+                return res.status(400).json({ message: 'Thiếu thông tin bắt buộc.' });
             }
 
-            // 2. Lấy danh sách Người nhận (Recipients)
-            let recipients = [];
+            // [FIX REQ 32] Xử lý logic hẹn giờ
+            // Nếu có scheduled_at -> is_sent = false (Chờ CronJob gửi)
+            // Nếu không -> is_sent = true (Gửi ngay)
+            const is_sent = scheduled_at ? false : true;
 
-            if (target === 'Cá nhân') {
-                if (!specific_recipient_id) return res.status(400).json({ message: 'Vui lòng chọn người nhận.' });
-                recipients = [specific_recipient_id];
-            } else {
-                // Nếu là 'Tất cả Cư dân' hoặc 'Theo tòa nhà'
-                recipients = await Notification.getRecipientIdsByTarget(target, target_value);
-            }
+            const notiId = `TB-${Date.now()}`;
+            const files = req.files || [];
 
-            if (recipients.length === 0) {
-                return res.status(400).json({ message: 'Không tìm thấy cư dân nào phù hợp với nhóm đối tượng đã chọn.' });
-            }
-
-            // 3. Xử lý File (nếu có)
-            // req.files được Multer tạo ra
-            const filesData = [];
-            if (req.files && req.files.length > 0) {
-                req.files.forEach(file => {
-                    filesData.push({
-                        filename: file.originalname,
-                        // Lưu đường dẫn tương đối để Frontend dễ hiển thị
-                        // Ví dụ: /uploads/notifications/17000000-image.jpg
-                        path: `/uploads/notifications/${file.filename}`,
-                        size: file.size
-                    });
-                });
-            }
-
-            // 4. Tạo ID cho thông báo (TB + timestamp)
-            const notiId = `TB${Date.now().toString().slice(-6)}`;
-
-            const notiData = {
+            const result = await Notification.create({
                 id: notiId,
                 title,
                 content,
                 type_id,
                 target,
+                target_value,
+                scheduled_at: scheduled_at || null,
+                is_sent,
                 created_by: req.user.id
-            };
+            }, files);
 
-            // 5. Gọi Model transaction
-            const result = await Notification.createWithTransaction(notiData, recipients, filesData);
+            // [LOGIC EMAIL] Chỉ gửi ngay nếu KHÔNG hẹn giờ
+            let emailCount = 0;
+            if (is_sent) {
+                // Lấy danh sách người nhận để gửi mail
+                const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
+                
+                if (recipientIds.length > 0) {
+                    const placeholders = recipientIds.map(() => '?').join(',');
+                    const [residents] = await db.execute(
+                        `SELECT email, full_name FROM residents WHERE id IN (${placeholders}) AND email IS NOT NULL`,
+                        recipientIds
+                    );
 
-            // 6. [MỚI] Gửi email đến tất cả cư dân có email (chạy background, không block response)
-            // Lấy thông tin loại thông báo
-            let notificationType = 'Chung';
-            try {
-                const [types] = await db.execute('SELECT type_name FROM notification_types WHERE id = ?', [type_id]);
-                if (types.length > 0) notificationType = types[0].type_name;
-            } catch (e) { /* ignore */ }
-
-            // Lấy danh sách email của recipients
-            const placeholders = recipients.map(() => '?').join(',');
-            const [residentsWithEmail] = await db.execute(
-                `SELECT id, full_name, email FROM residents WHERE id IN (${placeholders}) AND email IS NOT NULL AND email != ''`,
-                recipients
-            );
-
-            // Gửi email background (không await để response nhanh)
-            const emailPromises = residentsWithEmail.map(resident =>
-                emailService.sendNotificationEmail(resident.email, resident.full_name, {
-                    title,
-                    content,
-                    type: notificationType
-                }).catch(err => {
-                    console.error(`[EMAIL] Failed to send to ${resident.email}:`, err.message);
-                    return { success: false, email: resident.email };
-                })
-            );
-
-            // Chạy gửi email background
-            Promise.all(emailPromises).then(results => {
-                const sent = results.filter(r => r && r.success).length;
-                console.log(`[EMAIL] Notification emails sent: ${sent}/${residentsWithEmail.length}`);
-            });
+                    // Gửi background (không await để API phản hồi nhanh)
+                    residents.forEach(resident => {
+                        emailService.sendNotificationEmail(resident.email, resident.full_name, {
+                            title: title,
+                            content: content,
+                            type: 'Thông báo chung' // Có thể map từ type_id
+                        }).catch(e => console.error(`Failed to send email to ${resident.email}:`, e.message));
+                    });
+                    emailCount = residents.length;
+                }
+            }
 
             res.status(201).json({
                 success: true,
-                message: `Gửi thông báo thành công! (${residentsWithEmail.length} email sẽ được gửi)`,
-                data: result,
-                emailCount: residentsWithEmail.length
+                message: is_sent 
+                    ? `Đã gửi thông báo thành công tới ${emailCount} cư dân.` 
+                    : `Đã lên lịch gửi vào lúc ${new Date(scheduled_at).toLocaleString('vi-VN')}.`,
+                data: result
             });
 
         } catch (error) {
             console.error(error);
-            res.status(500).json({ message: 'Lỗi server khi tạo thông báo.', error: error.message });
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     },
 
-    // [PUT] /api/notifications/:id/read - Đánh dấu đã đọc
     markAsRead: async (req, res) => {
         try {
-            const { id } = req.params;
-            await Notification.markAsRead(id, req.user.id);
-            res.json({ success: true, message: 'Đã đánh dấu đã đọc.' });
+            await Notification.markAsRead(req.params.id, req.user.id);
+            res.json({ success: true, message: 'Đã đọc.' });
         } catch (error) {
-            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+            res.status(500).json({ message: error.message });
+        }
+    },
+
+    deleteNotification: async (req, res) => {
+        try {
+            await Notification.delete(req.params.id);
+            res.json({ success: true, message: 'Đã xóa thông báo.' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
     }
 };

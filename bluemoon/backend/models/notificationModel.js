@@ -39,7 +39,8 @@ const Notification = {
                     SELECT 
                         n.*, 
                         nt.type_name,
-                        u.username as created_by_name
+                        u.username as creator_name,
+                        (SELECT COUNT(*) FROM notification_recipients nr WHERE nr.notification_id = n.id) as recipient_count
                     FROM notifications n
                     JOIN notification_types nt ON n.type_id = nt.id
                     JOIN users u ON n.created_by = u.id
@@ -54,92 +55,87 @@ const Notification = {
         }
     },
 
-    /**
-     * Lấy chi tiết 1 thông báo (Kèm file đính kèm)
-     */
-    getById: async (id, userId = null) => {
+    getById: async (id, userId) => {
         try {
-            // 1. Lấy thông tin chung
-            let query = `
-                SELECT n.*, nt.type_name 
+            // Lấy thông tin chính
+            const [rows] = await db.execute(`
+                SELECT n.*, nt.type_name, u.username as creator_name
                 FROM notifications n
                 JOIN notification_types nt ON n.type_id = nt.id
+                JOIN users u ON n.created_by = u.id
                 WHERE n.id = ?
-            `;
-            const [rows] = await db.execute(query, [id]);
+            `, [id]);
+
             if (rows.length === 0) return null;
-            
             const notification = rows[0];
 
-            // 2. Lấy danh sách file đính kèm
-            const [attachments] = await db.execute(
-                `SELECT * FROM notification_attachments WHERE notification_id = ?`, 
-                [id]
-            );
+            // Lấy file đính kèm
+            const [attachments] = await db.execute(`
+                SELECT * FROM notification_attachments WHERE notification_id = ?
+            `, [id]);
 
-            // 3. Nếu là Cư dân xem -> Đánh dấu trạng thái 'is_read' của riêng họ
-            let readStatus = null;
-            if (userId) {
-                const [recipient] = await db.execute(
-                    `SELECT is_read, read_at FROM notification_recipients WHERE notification_id = ? AND recipient_id = ?`,
-                    [id, userId]
-                );
-                if (recipient.length > 0) readStatus = recipient[0];
-            }
-
-            return { 
-                ...notification, 
-                attachments, 
-                read_status: readStatus 
-            };
-
+            return { ...notification, attachments };
         } catch (error) {
             throw error;
         }
     },
 
     // ===========================
-    // 2. TẠO MỚI (TRANSACTION)
+    // 2. TẠO MỚI (FIX LỖI BIND PARAMETERS)
     // ===========================
 
-    createWithTransaction: async (notiData, recipients, files) => {
+    create: async (data, files) => {
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
 
-            const { id, title, content, type_id, target, created_by } = notiData;
+            const { id, title, content, type_id, target, target_value, scheduled_at, is_sent, created_by } = data;
 
-            // B1: Insert bảng NOTIFICATIONS
-            const queryNoti = `
-                INSERT INTO notifications (id, title, content, type_id, target, created_by, is_sent)
-                VALUES (?, ?, ?, ?, ?, ?, TRUE) 
-            `; 
-            // Lưu ý: Tạm thời set is_sent = TRUE (gửi ngay). Nếu làm chức năng hẹn giờ thì set FALSE.
-            await connection.execute(queryNoti, [id, title, content, type_id, target, created_by]);
+            // 1. Tạo Notification
+            // [FIXED] Dùng toán tử || null để tránh undefined
+            await connection.execute(`
+                INSERT INTO notifications (id, title, content, type_id, target, target_value, scheduled_at, is_sent, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                id, 
+                title, 
+                content, 
+                type_id, 
+                target, 
+                target_value || null,  // Nếu không có target_value thì truyền null
+                scheduled_at || null,  // Nếu không có scheduled_at thì truyền null
+                is_sent, 
+                created_by
+            ]);
 
-            // B2: Insert bảng NOTIFICATION_ATTACHMENTS (Nếu có file)
+            // 2. Lưu Attachments (Nếu có)
             if (files && files.length > 0) {
-                const queryFile = `INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES (?, ?, ?, ?)`;
                 for (const file of files) {
-                    await connection.execute(queryFile, [id, file.filename, file.path, file.size]);
+                    await connection.execute(`
+                        INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size)
+                        VALUES (?, ?, ?, ?)
+                    `, [id, file.originalname, `/uploads/notifications/${file.filename}`, file.size]);
                 }
             }
 
-            // B3: Insert bảng NOTIFICATION_RECIPIENTS (Bulk Insert)
-            // Nếu danh sách người nhận > 0
-            if (recipients && recipients.length > 0) {
-                // Tạo câu lệnh INSERT nhiều dòng: VALUES (id, u1), (id, u2), (id, u3)...
-                // Cách tối ưu cho MySQL
-                const recipientValues = recipients.map(rId => [id, rId]); // Mảng 2 chiều [[id, 'R01'], [id, 'R02']]
+            // 3. Tạo danh sách người nhận (Recipients)
+            // Lấy ID cư dân phù hợp
+            const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
+            
+            if (recipientIds.length > 0) {
+                // Bulk Insert recipients
+                // Cú pháp: INSERT INTO ... VALUES (id, r1), (id, r2)...
+                const values = recipientIds.map(rid => [id, rid]);
                 
-                const queryRecipient = `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES ?`;
-                
-                // mysql2 hỗ trợ bulk insert thông qua phương thức query (không phải execute)
-                await connection.query(queryRecipient, [recipientValues]);
+                // MySQL2 helper `query` hỗ trợ bulk insert mảng 2 chiều tốt hơn execute
+                await connection.query(
+                    `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES ?`,
+                    [values]
+                );
             }
 
             await connection.commit();
-            return { id, ...notiData, attachment_count: files.length, recipient_count: recipients.length };
+            return { id, ...data };
 
         } catch (error) {
             await connection.rollback();
@@ -149,43 +145,45 @@ const Notification = {
         }
     },
 
-    // ===========================
-    // 3. TÁC VỤ KHÁC
-    // ===========================
+    delete: async (id) => {
+        await db.execute('DELETE FROM notifications WHERE id = ?', [id]);
+    },
 
-    markAsRead: async (notificationId, residentId) => {
-        try {
-            const query = `
-                UPDATE notification_recipients 
-                SET is_read = TRUE, read_at = NOW() 
+    markAsRead: async (notiId, userId) => {
+        // Cần tìm resident_id từ user_id trước
+        const [res] = await db.execute('SELECT id FROM residents WHERE user_id = ?', [userId]);
+        if (res.length > 0) {
+            await db.execute(`
+                UPDATE notification_recipients SET is_read = TRUE, read_at = NOW()
                 WHERE notification_id = ? AND recipient_id = ?
-            `;
-            await db.execute(query, [notificationId, residentId]);
-        } catch (error) {
-            throw error;
+            `, [notiId, res[0].id]);
         }
     },
 
-    // Helper: Lấy danh sách ID cư dân dựa trên tiêu chí (Để dùng khi target = 'Tất cả' hoặc 'Tòa nhà')
+    // Helper: Lấy danh sách ID cư dân dựa trên tiêu chí
     getRecipientIdsByTarget: async (targetType, targetValue) => {
         try {
-            let query = `SELECT id FROM residents WHERE status = 'Đang sinh sống'`;
+            // Luôn đặt alias là 'r' để tránh lỗi 'Unknown column r.status'
+            let baseQuery = `SELECT r.id FROM residents r WHERE r.status IN ('Đang sinh sống', 'Tạm vắng')`;
             let params = [];
 
             if (targetType === 'Theo tòa nhà' && targetValue) {
-                // targetValue ví dụ: 'A' (Tòa A)
-                // Cần JOIN bảng apartments để lọc building
-                query = `
-                    SELECT r.id FROM residents r
-                    JOIN apartments a ON r.apartment_id = a.id
-                    WHERE r.status = 'Đang sinh sống' AND a.building = ?
-                `;
+                // targetValue = 'A'
+                baseQuery += ` AND r.apartment_id IN (SELECT id FROM apartments WHERE building = ?)`;
                 params.push(targetValue);
+            } 
+            else if (targetType === 'Theo căn hộ' && targetValue) {
+                // targetValue = 'A-101'
+                baseQuery += ` AND r.apartment_id IN (SELECT id FROM apartments WHERE apartment_code = ?)`;
+                params.push(targetValue);
+            } 
+            else if (targetType === 'Cá nhân' && targetValue) {
+                return [targetValue];
             }
-            // Nếu targetType === 'Tất cả Cư dân' thì không cần thêm điều kiện
+            // Nếu targetType === 'Tất cả Cư dân', query sẽ giữ nguyên baseQuery -> Lấy tất cả
 
-            const [rows] = await db.execute(query, params);
-            return rows.map(row => row.id); // Trả về mảng ['R001', 'R002']
+            const [rows] = await db.execute(baseQuery, params);
+            return rows.map(row => row.id);
         } catch (error) {
             throw error;
         }

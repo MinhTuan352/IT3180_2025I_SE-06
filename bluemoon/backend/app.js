@@ -3,6 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const cronJob = require('./jobs/cronJob');
 require('dotenv').config();
 
 // Import Database (chỉ để kiểm tra kết nối lúc khởi động)
@@ -35,7 +36,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Cấu hình thư mục Static để truy cập file upload (ảnh báo cáo, thông báo)
 // Ví dụ: http://localhost:3000/uploads/notifications/abc.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // =======================
 // 2. ROUTES (Định tuyến)
@@ -64,6 +65,7 @@ app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/donations', require('./routes/donationRoutes'));
 app.use('/api/visitors', require('./routes/visitorRoutes'));
 
+cronJob.start();
 // Route kiểm tra server sống hay chết
 app.get('/', (req, res) => {
     res.send('🚀 BlueMoon Backend API is running!');
@@ -84,12 +86,10 @@ app.use((err, req, res, next) => {
 // 3. START SERVER
 // =======================
 
-// [MỚI] Khởi động các tác vụ nền (Cron Jobs)
-require('./jobs/cronJob').start();
-
 app.listen(PORT, () => {
     console.log(`==========================================`);
     console.log(`Server is running on port: ${PORT}`);
     console.log(`Link: http://localhost:${PORT}`);
+    console.log(`Public Uploads Path: ${path.join(__dirname, 'public/uploads')}`);
     console.log(`==========================================`);
 });

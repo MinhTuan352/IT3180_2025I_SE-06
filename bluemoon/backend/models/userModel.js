@@ -189,9 +189,9 @@ const User = {
     /**
      * Lấy danh sách tất cả người dùng (Kèm thông tin Role)
      */
-    getAllUsers: async () => {
+    getAllUsers: async (filters = {}) => { // Nhận thêm tham số filters
         try {
-            const query = `
+            let query = `
                 SELECT 
                     u.id, u.username, u.email, u.phone, u.is_active, u.created_at, 
                     r.role_name, r.role_code,
@@ -200,9 +200,26 @@ const User = {
                 JOIN roles r ON u.role_id = r.id
                 LEFT JOIN admins a ON u.id = a.user_id
                 LEFT JOIN residents res ON u.id = res.user_id
-                ORDER BY u.created_at DESC
+                WHERE 1=1
             `;
-            const [rows] = await db.execute(query);
+            const params = [];
+
+            // 1. Lọc theo Role (VD: chỉ lấy bod, accountance)
+            if (filters.role_code) {
+                query += ` AND r.role_code = ?`;
+                params.push(filters.role_code);
+            }
+
+            // 2. Tìm kiếm theo Username hoặc Tên hiển thị
+            if (filters.keyword) {
+                query += ` AND (u.username LIKE ? OR COALESCE(a.full_name, res.full_name) LIKE ?)`;
+                const kw = `%${filters.keyword}%`;
+                params.push(kw, kw);
+            }
+
+            query += ` ORDER BY u.created_at DESC`;
+
+            const [rows] = await db.execute(query, params);
             return rows;
         } catch (error) {
             throw error;

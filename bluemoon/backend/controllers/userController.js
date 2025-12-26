@@ -12,7 +12,15 @@ const userController = {
     // [GET] /api/users - Lấy danh sách tài khoản
     getAllUsers: async (req, res) => {
         try {
-            const users = await User.getAllUsers();
+            // [CẬP NHẬT] Lấy tham số lọc từ URL
+            const filters = {
+                role_code: req.query.role_code, // Lọc theo vai trò (bod, resident...)
+                keyword: req.query.keyword      // Tìm theo username hoặc tên thật
+            };
+
+            // Truyền filters vào Model
+            const users = await User.getAllUsers(filters);
+
             res.json({
                 success: true,
                 count: users.length,

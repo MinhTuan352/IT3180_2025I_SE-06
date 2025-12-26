@@ -8,28 +8,66 @@ const Service = {
         return rows;
     },
 
-    // Chỉ lấy dịch vụ đang hoạt động (cho Resident xem)
     getActiveServices: async () => {
-        const [rows] = await db.execute('SELECT * FROM service_types WHERE is_active = 1 ORDER BY category, name');
+        // [CẬP NHẬT] Lấy thêm 1 ảnh đại diện (nếu có) để hiển thị list
+        const query = `
+            SELECT st.*, 
+            (SELECT file_path FROM service_attachments sa WHERE sa.service_type_id = st.id LIMIT 1) as thumbnail
+            FROM service_types st 
+            WHERE is_active = 1 
+            ORDER BY category, name
+        `;
+        const [rows] = await db.execute(query);
         return rows;
     },
 
     findById: async (id) => {
         const [rows] = await db.execute('SELECT * FROM service_types WHERE id = ?', [id]);
-        return rows[0];
+        if (rows.length === 0) return null;
+        
+        // Lấy thêm attachments
+        const [attachments] = await db.execute('SELECT * FROM service_attachments WHERE service_type_id = ?', [id]);
+        return { ...rows[0], attachments };
     },
 
-    create: async (data) => {
-        const { name, description, base_price, unit, is_active, category, location, open_hours, contact_phone } = data;
-        const query = `
-            INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        const [result] = await db.execute(query, [
-            name, description, base_price || 0, unit, is_active !== undefined ? is_active : 1,
-            category || null, location || null, open_hours || null, contact_phone || null
-        ]);
-        return { id: result.insertId, ...data };
+    /**
+     * [CẬP NHẬT] Tạo dịch vụ kèm ảnh (Transaction)
+     */
+    create: async (data, files) => {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const { name, description, base_price, unit, is_active, category, location, open_hours, contact_phone } = data;
+            const query = `
+                INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const [result] = await connection.execute(query, [
+                name, description, base_price || 0, unit, is_active !== undefined ? is_active : 1,
+                category || null, location || null, open_hours || null, contact_phone || null
+            ]);
+            
+            const newId = result.insertId;
+
+            // Lưu ảnh
+            if (files && files.length > 0) {
+                for (const file of files) {
+                    await connection.execute(`
+                        INSERT INTO service_attachments (service_type_id, file_name, file_path, file_size)
+                        VALUES (?, ?, ?, ?)
+                    `, [newId, file.originalname, `/uploads/services/${file.filename}`, file.size]);
+                }
+            }
+
+            await connection.commit();
+            return { id: newId, ...data };
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
     },
 
     update: async (id, data) => {
@@ -90,10 +128,23 @@ const Service = {
         return rows;
     },
 
+    // [MỚI] Lấy chi tiết booking để gửi thông báo
+    getBookingDetail: async (id) => {
+        const query = `
+            SELECT sb.*, st.name as service_name, r.id as resident_id, r.full_name, a.apartment_code 
+            FROM service_bookings sb
+            JOIN service_types st ON sb.service_type_id = st.id
+            JOIN residents r ON sb.resident_id = r.id
+            JOIN apartments a ON r.apartment_id = a.id
+            WHERE sb.id = ?
+        `;
+        const [rows] = await db.execute(query, [id]);
+        return rows[0];
+    },
+
     updateBookingStatus: async (id, status) => {
         await db.execute('UPDATE service_bookings SET status = ? WHERE id = ?', [status, id]);
     }
 };
 
 module.exports = Service;
-

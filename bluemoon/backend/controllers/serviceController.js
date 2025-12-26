@@ -211,19 +211,43 @@ const serviceController = {
         }
     },
 
-    // 10. BOD cập nhật trạng thái booking
+    // 10. Duyệt đơn & Gửi thông báo
     updateBookingStatus: async (req, res) => {
         try {
             const { id } = req.params;
-            const { status } = req.body;
+            const { status } = req.body; // 'Đã duyệt', 'Đã hủy'
 
-            const validStatuses = ['Chờ duyệt', 'Đã duyệt', 'Đã hủy', 'Hoàn thành'];
-            if (!validStatuses.includes(status)) {
+            if (!['Đã duyệt', 'Đã hủy', 'Hoàn thành'].includes(status)) {
                 return res.status(400).json({ message: 'Trạng thái không hợp lệ.' });
             }
 
+            // 1. Cập nhật Status
             await Service.updateBookingStatus(id, status);
-            res.json({ success: true, message: 'Cập nhật trạng thái thành công.' });
+
+            // 2. [MỚI] Gửi thông báo cho cư dân
+            const booking = await Service.getBookingDetail(id);
+            if (booking) {
+                // Tạo ID thông báo (dùng timestamp để unique)
+                const notiId = `TB-DV-${Date.now()}`;
+                const title = `Cập nhật trạng thái đặt dịch vụ: ${booking.service_name}`;
+                const content = `Đơn đặt dịch vụ "${booking.service_name}" vào ngày ${new Date(booking.booking_date).toLocaleDateString('vi-VN')} của bạn đã chuyển sang trạng thái: ${status.toUpperCase()}.`;
+
+                // Insert Notification
+                // type_id = 4 (Dịch vụ)
+                await db.execute(
+                    `INSERT INTO notifications (id, title, content, type_id, target, created_by, is_sent) 
+                     VALUES (?, ?, ?, 4, 'Cá nhân', ?, TRUE)`, 
+                    [notiId, title, content, req.user.id]
+                );
+                
+                // Insert Recipient
+                await db.execute(
+                    `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES (?, ?)`,
+                    [notiId, booking.resident_id]
+                );
+            }
+
+            res.json({ success: true, message: `Đã cập nhật trạng thái: ${status}` });
         } catch (error) {
             console.error(error);
             res.status(500).json({ message: 'Lỗi server.' });

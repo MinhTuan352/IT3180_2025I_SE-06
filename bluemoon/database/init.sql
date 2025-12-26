@@ -533,7 +533,8 @@ INSERT INTO roles (id, role_name, role_code) VALUES
 INSERT INTO notification_types (type_name, type_code) VALUES
 ('Khẩn cấp', 'EMERGENCY'),
 ('Chung', 'GENERAL'),
-('Thu phí', 'FEE');
+('Thu phí', 'FEE'),
+('Dịch vụ', 'SERVICE');
 
 -- Fee Types
 INSERT INTO fee_types (fee_name, fee_code, default_price, unit) VALUES

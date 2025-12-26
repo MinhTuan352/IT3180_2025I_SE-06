@@ -2,40 +2,53 @@
 
 const express = require('express');
 const router = express.Router();
-console.log('--- DBG: serviceRoutes.js Loaded ---');
+const multer = require('multer');
+const path = require('path'); // [MỚI] Import path
 const serviceController = require('../controllers/serviceController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
 
-// Bảo vệ tất cả routes
+// [MỚI] CẤU HÌNH UPLOAD ẢNH
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, 'uploads/services/'),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ 
+    storage, 
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Chỉ chấp nhận file ảnh!'));
+    }
+});
+
 router.use(checkAuth);
 
-// === ROUTES CHO TẤT CẢ USER ĐÃ ĐĂNG NHẬP ===
-// Lấy danh sách dịch vụ đang hoạt động (cho Resident xem)
+// === PUBLIC (AI CŨNG XEM ĐƯỢC) ===
 router.get('/public', serviceController.getActiveServices);
-
-// Lấy chi tiết dịch vụ theo ID
 router.get('/detail/:id', serviceController.getServiceById);
 
-// === ROUTES CHO RESIDENT ===
-// Cư dân đặt dịch vụ
+// === RESIDENT ===
 router.post('/bookings', checkRole(['resident']), serviceController.createBooking);
-
-// Cư dân xem lịch sử booking của mình
 router.get('/my-bookings', checkRole(['resident']), serviceController.getMyBookings);
 
-// === ROUTES CHO BOD/ACCOUNTANT ===
-// Lấy tất cả dịch vụ (bao gồm inactive)
+// === BOD (ADMIN) ===
 router.get('/', checkRole(['bod', 'accountance']), serviceController.getAllServices);
 
-// BOD quản lý dịch vụ
-router.post('/', checkRole(['bod']), serviceController.createService);
+// [CẬP NHẬT] Thêm middleware upload.array('images')
+router.post('/', 
+    checkRole(['bod']), 
+    upload.array('images', 5), 
+    serviceController.createService
+);
+
 router.put('/:id', checkRole(['bod']), serviceController.updateService);
 router.delete('/:id', checkRole(['bod']), serviceController.deleteService);
 
-// BOD xem và quản lý tất cả bookings
 router.get('/bookings', checkRole(['bod']), serviceController.getAllBookings);
 router.put('/bookings/:id/status', checkRole(['bod']), serviceController.updateBookingStatus);
 
 module.exports = router;
-

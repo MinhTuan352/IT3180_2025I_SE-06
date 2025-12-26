@@ -1,0 +1,145 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập BAN QUẢN TRỊ (BOD) - Quyền cao nhất
+# User: admin.a
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào biến @bodToken
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY3NjY5MDIsImV4cCI6MTc2Njc3MDUwMn0.Ih0GpXWWAok-sC4AxEVdb81gUvoWyAHbFPKOdAhgGMY
+
+### 1.2. Đăng nhập CƯ DÂN (Chỉ xem)
+# User: chuho_a101
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "chuho_a101",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào biến @resToken
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NzY2OTE5LCJleHAiOjE3NjY3NzA1MTl9.CWsZzzN9yYF-VsW7po0Xz-8kGDxHLWQxI3toMuuYcaY
+
+
+# ==================================================================
+# 2. NGHIỆP VỤ: QUẢN LÝ TÀI SẢN (CRUD)
+# ==================================================================
+
+### 2.1. Thêm tài sản mới (Không gửi asset_code để test tự sinh mã)
+POST {{baseUrl}}/assets
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "name": "Máy phát điện dự phòng Cummins",
+    "description": "Máy phát điện công suất lớn cho tòa nhà",
+    "location": "Phòng kỹ thuật Tầng hầm B1",
+    "purchase_date": "2023-01-15",
+    "price": 500000000,
+    "status": "Đang hoạt động",
+    "warranty_expiry_date": "2026-01-15",
+    "supplier_info": "Công ty Máy phát điện Việt Nhật - 0988777666"
+}
+
+### 2.2. Thêm tài sản (Có mã định danh riêng)
+POST {{baseUrl}}/assets
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "asset_code": "TS-VIP-001",
+    "name": "Sofa sảnh chờ Tòa A",
+    "location": "Sảnh Lễ tân Tòa A",
+    "price": 25000000
+}
+
+### 2.3. Xem danh sách tài sản (BOD) - Có lọc
+GET {{baseUrl}}/assets?status=Đang hoạt động&keyword=Máy phát
+Authorization: {{bodToken}}
+
+### 2.4. Cư dân xem danh sách (Read-only)
+GET {{baseUrl}}/assets/resident
+Authorization: {{resToken}}
+
+### 2.5. Cập nhật thông tin tài sản
+# Thay ID tài sản vào URL (Lấy từ response bước 2.1)
+PUT {{baseUrl}}/assets/7
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "status": "Đang bảo trì",
+    "description": "Đang chờ thay nhớt định kỳ"
+}
+
+
+# ==================================================================
+# 3. NGHIỆP VỤ: QUẢN LÝ BẢO TRÌ (MAINTENANCE)
+# ==================================================================
+
+### 3.1. Lên lịch bảo trì định kỳ (Lặp lại 30 ngày/lần)
+# Thay ID tài sản vào URL (ID = 3)
+POST {{baseUrl}}/assets/7/maintenance
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "title": "Bảo dưỡng máy phát điện Tháng 1",
+    "description": "Kiểm tra dầu nhớt, ắc quy, chạy thử không tải",
+    "scheduled_date": "2026-01-10",
+    "technician_name": "Kỹ thuật tòa nhà (A. Hùng)",
+    "is_recurring": 1,
+    "recurring_interval": 30
+}
+
+### 3.2. Xem chi tiết tài sản (Để thấy lịch bảo trì vừa tạo)
+# Mong đợi: Có mảng `maintenance_history` chứa lịch vừa tạo
+GET {{baseUrl}}/assets/7
+Authorization: {{bodToken}}
+
+### 3.3. Hoàn thành bảo trì (Kích hoạt Snapshot & Tạo lịch mới)
+# Thay Schedule ID vào URL (Lấy ID từ response bước 3.2 hoặc DB)
+# Giả sử Schedule ID = 5
+PUT {{baseUrl}}/assets/maintenance/5/complete
+Authorization: {{bodToken}}
+Content-Type: {{contentType}}
+
+{
+    "completed_date": "2026-01-10",
+    "cost": 500000,
+    "note": "Máy hoạt động tốt, đã châm thêm nước làm mát."
+}
+
+### 3.4. Kiểm tra lại kết quả
+# Mong đợi:
+# 1. Lịch cũ (ID 5) trạng thái -> 'Hoàn thành'
+# 2. Có thêm 1 lịch mới (Lên lịch) vào ngày 2026-02-09 (30 ngày sau)
+GET {{baseUrl}}/assets/7
+Authorization: {{bodToken}}
+
+
+# ==================================================================
+# 4. NGHIỆP VỤ: XÓA (DELETE)
+# ==================================================================
+
+### 4.1. Thử xóa tài sản đang có lịch sử bảo trì (Sẽ bị chặn)
+DELETE {{baseUrl}}/assets/7
+Authorization: {{bodToken}}
+
+### 4.2. Xóa tài sản rác (Mới tạo, chưa có lịch sử)
+# Giả sử ID = 4 (Cái Sofa tạo ở bước 2.2)
+DELETE {{baseUrl}}/assets/4
+Authorization: {{bodToken}}

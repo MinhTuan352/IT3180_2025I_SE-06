@@ -6,54 +6,31 @@ const assetController = require('../controllers/assetController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
 
-// ==========================================
-// MIDDLEWARE BẢO VỆ CHUNG
-// ==========================================
-// Tất cả các API bên dưới đều yêu cầu phải đăng nhập
 router.use(checkAuth);
 
-// ==========================================
-// 1. NHÓM API ĐỌC DỮ LIỆU (READ)
-// ==========================================
+// --- NHÓM CƯ DÂN (READ ONLY) ---
+router.get('/resident', checkRole(['resident']), assetController.getAllAssets);
 
-// API dành cho Cư dân - Chỉ xem danh sách tài sản công cộng (Read-only)
-router.get('/resident',
-    checkRole(['resident']),
-    assetController.getAllAssets
+// --- NHÓM QUẢN TRỊ (BOD/Accountant) ---
+router.get('/', checkRole(['bod', 'accountance']), assetController.getAllAssets);
+router.get('/:id', checkRole(['bod', 'accountance']), assetController.getAssetDetail);
+
+router.post('/', checkRole(['bod']), assetController.createAsset);
+router.put('/:id', checkRole(['bod']), assetController.updateAsset);
+router.delete('/:id', checkRole(['bod']), assetController.deleteAsset);
+
+// --- NHÓM BẢO TRÌ (MAINTENANCE) ---
+// Thêm lịch bảo trì cho tài sản ID
+router.post('/:id/maintenance', 
+    checkRole(['bod']), 
+    assetController.addMaintenance
 );
 
-// Cho phép: Ban quản trị (bod) & Kế toán (accountance)
-router.get('/',
-    checkRole(['bod', 'accountance']),
-    assetController.getAllAssets
-);
-
-router.get('/:id',
-    checkRole(['bod', 'accountance']),
-    assetController.getAssetDetail
-);
-
-// ==========================================
-// 2. NHÓM API THAY ĐỔI DỮ LIỆU (WRITE)
-// ==========================================
-// Chỉ cho phép: Ban quản trị (bod)
-
-// Thêm tài sản mới
-router.post('/',
-    checkRole(['bod']),
-    assetController.createAsset
-);
-
-// Cập nhật thông tin tài sản
-router.put('/:id',
-    checkRole(['bod']),
-    assetController.updateAsset
-);
-
-// Xóa tài sản
-router.delete('/:id',
-    checkRole(['bod']),
-    assetController.deleteAsset
+// Hoàn thành bảo trì (Theo Schedule ID)
+// Lưu ý: Route này dùng ID của Schedule, không phải ID Asset
+router.put('/maintenance/:scheduleId/complete', 
+    checkRole(['bod']), 
+    assetController.completeMaintenance
 );
 
 module.exports = router;

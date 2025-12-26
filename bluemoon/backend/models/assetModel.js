@@ -13,9 +13,16 @@ const Asset = {
             let query = `
                 SELECT 
                     a.*,
-                    (SELECT MAX(completed_date) FROM maintenance_schedules ms WHERE ms.asset_id = a.id AND ms.status = 'Hoàn thành') as last_maintenance,
-                    (SELECT MIN(scheduled_date) FROM maintenance_schedules ms WHERE ms.asset_id = a.id AND ms.status = 'Lên lịch' AND ms.scheduled_date >= CURRENT_DATE) as next_maintenance
-                FROM assets a 
+                    (
+                        SELECT scheduled_date 
+                        FROM maintenance_schedules ms 
+                        WHERE ms.asset_id = a.id 
+                        AND ms.status = 'Lên lịch' 
+                        AND ms.scheduled_date >= CURDATE()
+                        ORDER BY ms.scheduled_date ASC 
+                        LIMIT 1
+                    ) as next_maintenance_date
+                FROM assets a
                 WHERE 1=1
             `;
             const params = [];
@@ -46,13 +53,17 @@ const Asset = {
      * Lấy chi tiết tài sản theo ID
      */
     findById: async (id) => {
-        try {
-            const query = `SELECT * FROM assets WHERE id = ?`;
-            const [rows] = await db.execute(query, [id]);
-            return rows[0];
-        } catch (error) {
-            throw error;
-        }
+        const [rows] = await db.execute('SELECT * FROM assets WHERE id = ?', [id]);
+        if (rows.length === 0) return null;
+        
+        // Lấy lịch sử bảo trì
+        const [maintenance_history] = await db.execute(`
+            SELECT * FROM maintenance_schedules 
+            WHERE asset_id = ? 
+            ORDER BY scheduled_date DESC
+        `, [id]);
+
+        return { ...rows[0], maintenance_history };
     },
 
     /**
@@ -73,93 +84,114 @@ const Asset = {
      * Thêm tài sản mới
      */
     create: async (data) => {
-        try {
-            const { asset_code, name, description, location, purchase_date, price, status } = data;
+        const { asset_code, name, description, location, purchase_date, price, status, warranty_expiry_date, supplier_info } = data;
+        
+        // [FIX REQ 27] Default status là 'Đang hoạt động'
+        const finalStatus = status || 'Đang hoạt động';
 
-            const query = `
-                INSERT INTO assets (asset_code, name, description, location, purchase_date, price, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `;
+        const query = `
+            INSERT INTO assets 
+            (asset_code, name, description, location, purchase_date, price, status, warranty_expiry_date, supplier_info)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        // [FIX] Sử dụng toán tử || null để đảm bảo không truyền undefined
+        const [result] = await db.execute(query, [
+            asset_code, 
+            name, 
+            description || null, 
+            location || null, 
+            purchase_date || null, 
+            price || 0, 
+            finalStatus, 
+            warranty_expiry_date || null, 
+            supplier_info || null
+        ]);
 
-            // Sử dụng toán tử || null để tránh lỗi undefined nếu người dùng không nhập các trường không bắt buộc
-            const [result] = await db.execute(query, [
-                asset_code,
-                name,
-                description || null,
-                location || null,
-                purchase_date || null,
-                price || 0,
-                status || 'Đang hoạt động'
-            ]);
-
-            return { id: result.insertId, ...data };
-        } catch (error) {
-            throw error;
-        }
+        return { id: result.insertId, ...data, status: finalStatus };
     },
 
     /**
      * Cập nhật thông tin tài sản
      */
     update: async (id, data) => {
-        try {
-            const { name, description, location, purchase_date, price, status, next_maintenance } = data;
+        // Chỉ update thông tin cơ bản, KHÔNG update lịch bảo trì ở đây (Tách riêng ra hàm maintenance)
+        const fields = [];
+        const params = [];
 
-            // Lưu ý: Không cho phép cập nhật asset_code (Mã tài sản thường cố định)
-            const query = `
-                UPDATE assets 
-                SET name = ?, description = ?, location = ?, purchase_date = ?, price = ?, status = ?
-                WHERE id = ?
-            `;
-
-            await db.execute(query, [
-                name,
-                description || null,
-                location || null,
-                purchase_date || null,
-                price || 0,
-                status,
-                id
-            ]);
-
-            // Cập nhật lịch bảo trì nếu có next_maintenance
-            if (next_maintenance) {
-                // Kiểm tra xem đã có lịch bảo trì "Lên lịch" nào chưa
-                const checkQuery = `SELECT id FROM maintenance_schedules WHERE asset_id = ? AND status = 'Lên lịch'`;
-                const [existing] = await db.execute(checkQuery, [id]);
-
-                if (existing.length > 0) {
-                    // Update existing
-                    await db.execute(
-                        `UPDATE maintenance_schedules SET scheduled_date = ? WHERE id = ?`,
-                        [next_maintenance, existing[0].id]
-                    );
-                } else {
-                    // Create new
-                    await db.execute(
-                        `INSERT INTO maintenance_schedules (asset_id, title, scheduled_date, status) VALUES (?, ?, ?, 'Lên lịch')`,
-                        [id, `Bảo trì định kỳ tài sản ${name}`, next_maintenance]
-                    );
-                }
+        // Helper function để add field
+        const addField = (key, value) => {
+            if (value !== undefined) {
+                fields.push(`${key} = ?`);
+                params.push(value);
             }
+        };
 
-            return { id, ...data };
-        } catch (error) {
-            console.error("Error updating asset:", error);
-            throw error;
-        }
+        addField('name', data.name);
+        addField('description', data.description);
+        addField('location', data.location);
+        addField('price', data.price);
+        addField('status', data.status);
+        addField('warranty_expiry_date', data.warranty_expiry_date);
+        addField('supplier_info', data.supplier_info);
+
+        if (fields.length === 0) return null;
+
+        const query = `UPDATE assets SET ${fields.join(', ')} WHERE id = ?`;
+        params.push(id);
+
+        await db.execute(query, params);
+        return { id, ...data };
+    },
+
+    delete: async (id) => {
+        await db.execute('DELETE FROM assets WHERE id = ?', [id]);
+    },
+
+    // ==========================================
+    // QUẢN LÝ BẢO TRÌ (REQ 31: SNAPSHOT)
+    // ==========================================
+
+    /**
+     * Thêm lịch bảo trì mới (Lên lịch)
+     */
+    addMaintenanceSchedule: async (data) => {
+        const { asset_id, title, description, scheduled_date, technician_name, is_recurring, recurring_interval } = data;
+        const query = `
+            INSERT INTO maintenance_schedules 
+            (asset_id, title, description, scheduled_date, technician_name, status, is_recurring, recurring_interval)
+            VALUES (?, ?, ?, ?, ?, 'Lên lịch', ?, ?)
+        `;
+
+        await db.execute(query, [
+            asset_id, 
+            title, 
+            description || null, 
+            scheduled_date, 
+            technician_name || null, 
+            is_recurring || 0, 
+            recurring_interval || null
+        ]);
     },
 
     /**
-     * Xóa tài sản
+     * Hoàn thành bảo trì (Lưu snapshot & Tạo lịch mới nếu lặp lại)
      */
-    delete: async (id) => {
-        try {
-            const query = `DELETE FROM assets WHERE id = ?`;
-            await db.execute(query, [id]);
-        } catch (error) {
-            throw error;
-        }
+    completeMaintenance: async (scheduleId, data, connection = null) => {
+        const dbConn = connection || db;
+        const { completed_date, cost, note } = data; // note có thể nối vào description
+
+        // 1. Update dòng hiện tại thành 'Hoàn thành'
+        await dbConn.execute(`
+            UPDATE maintenance_schedules 
+            SET status = 'Hoàn thành', completed_date = ?, cost = ?, description = CONCAT(description, ' | Kết quả: ', ?)
+            WHERE id = ?
+        `, [completed_date, cost, note || '', scheduleId]);
+    },
+
+    getScheduleById: async (id) => {
+        const [rows] = await db.execute('SELECT * FROM maintenance_schedules WHERE id = ?', [id]);
+        return rows[0];
     }
 };
 

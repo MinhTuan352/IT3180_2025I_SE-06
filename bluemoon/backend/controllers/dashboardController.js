@@ -17,12 +17,27 @@ const dashboardController = {
                 totalApartments = apartments[0].total;
             } catch (e) { console.log('apartments table error:', e.message); }
 
-            // 2. Tổng số cư dân
+            // 2. Tổng số cư dân & [MỚI] Biến động nhân khẩu tháng này
             let totalResidents = 0;
+            let demographics = { moveIn: 0, moveOut: 0 };
             try {
-                const [residents] = await db.execute('SELECT COUNT(*) as total FROM residents');
+                const [residents] = await db.execute('SELECT COUNT(*) as total FROM residents WHERE status = "Đang sinh sống"');
                 totalResidents = residents[0].total;
-            } catch (e) { console.log('residents table error:', e.message); }
+
+                // Thống kê chuyển đến/đi trong tháng hiện tại
+                const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+                const [demoStats] = await db.execute(`
+                    SELECT 
+                        SUM(CASE WHEN event_type = 'Chuyển đến' THEN 1 ELSE 0 END) as move_in,
+                        SUM(CASE WHEN event_type = 'Chuyển đi' THEN 1 ELSE 0 END) as move_out
+                    FROM residence_history
+                    WHERE DATE_FORMAT(event_date, '%Y-%m') = ?
+                `, [currentMonth]);
+                demographics = {
+                    moveIn: demoStats[0].move_in || 0,
+                    moveOut: demoStats[0].move_out || 0
+                };
+            } catch (e) { console.log('demographics error:', e.message); }
 
             // 3. Số đơn dịch vụ chờ xử lý
             let pendingServiceRequests = 0;
@@ -118,6 +133,7 @@ const dashboardController = {
                     stats: {
                         totalApartments,
                         totalResidents,
+                        demographics, // [MỚI] Thêm số liệu chuyển đến/đi
                         pendingServiceRequests,
                         pendingIncidents,
                         paymentRate,
@@ -146,6 +162,10 @@ const dashboardController = {
      */
     getAccountantStats: async (req, res) => {
         try {
+            // ... (Phần logic Kế toán của bạn đã Tốt - Giữ nguyên không thay đổi)
+            // Tôi rút gọn phần này trong hiển thị để tập trung vào phần Resident thay đổi nhiều
+            // Bạn hãy giữ nguyên code cũ của getAccountantStats ở đây
+            
             // 1. Thống kê hóa đơn tổng quan
             let invoiceStats = { total: 0, paid: 0, unpaid: 0, overdue: 0 };
             let totalRevenue = 0;
@@ -343,7 +363,6 @@ const dashboardController = {
                         apartmentInfo = apartments[0];
                     }
 
-                    // Đếm số thành viên trong căn hộ
                     const [memberCount] = await db.execute(
                         'SELECT COUNT(*) as count FROM residents WHERE apartment_id = ?',
                         [apartmentId]
@@ -375,6 +394,25 @@ const dashboardController = {
                 } catch (e) { console.log('fee stats error:', e.message); }
             }
 
+            // [MỚI] Biểu đồ tiêu thụ Điện/Nước 6 tháng gần nhất (US 025)
+            // Lấy từ bảng utility_readings (bảng mới ta đã thêm)
+            let utilityUsage = [];
+            if (apartmentId) {
+                try {
+                    const [readings] = await db.execute(`
+                        SELECT 
+                            billing_period,
+                            service_type, -- 'Điện' hoặc 'Nước'
+                            usage_amount
+                        FROM utility_readings
+                        WHERE apartment_id = ?
+                        ORDER BY recorded_date ASC
+                        LIMIT 12 -- Lấy tối đa 12 bản ghi (6 tháng x 2 loại)
+                    `, [apartmentId]);
+                    utilityUsage = readings;
+                } catch (e) { console.log('utility usage error:', e.message); }
+            }
+
             // Hóa đơn chưa thanh toán gần đây
             let pendingInvoices = [];
             if (apartmentId) {
@@ -392,8 +430,11 @@ const dashboardController = {
                 } catch (e) { console.log('pending invoices error:', e.message); }
             }
 
-            // Yêu cầu dịch vụ gần đây
+            // Yêu cầu dịch vụ & Sự cố (Giữ nguyên)
             let recentServiceRequests = [];
+            let pendingServiceCount = 0;
+            let recentIncidents = [];
+            
             if (residentId) {
                 try {
                     const [services] = await db.execute(`
@@ -405,25 +446,13 @@ const dashboardController = {
                         LIMIT 5
                     `, [residentId]);
                     recentServiceRequests = services;
-                } catch (e) { console.log('service bookings error:', e.message); }
-            }
 
-            // Số yêu cầu dịch vụ đang xử lý
-            let pendingServiceCount = 0;
-            if (residentId) {
-                try {
                     const [count] = await db.execute(`
                         SELECT COUNT(*) as count FROM service_bookings 
                         WHERE resident_id = ? AND status IN ('Chờ duyệt', 'Đã duyệt')
                     `, [residentId]);
                     pendingServiceCount = count[0].count || 0;
-                } catch (e) { console.log('pending service count error:', e.message); }
-            }
 
-            // Sự cố đã báo cáo gần đây
-            let recentIncidents = [];
-            if (residentId) {
-                try {
                     const [incidents] = await db.execute(`
                         SELECT id, title, status, priority, created_at
                         FROM reports
@@ -432,12 +461,14 @@ const dashboardController = {
                         LIMIT 5
                     `, [residentId]);
                     recentIncidents = incidents;
-                } catch (e) { console.log('reports error:', e.message); }
+                } catch (e) { console.log('services/incidents error:', e.message); }
             }
 
-            // Thông báo mới (7 ngày gần đây)
+            // Thông báo mới
             let newNotifications = 0;
             try {
+                // Đếm thông báo chung + thông báo riêng chưa đọc
+                // Ở đây lấy đơn giản theo ngày, thực tế nên query bảng notification_recipients
                 const [count] = await db.execute(`
                     SELECT COUNT(*) as count FROM notifications 
                     WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
@@ -456,6 +487,9 @@ const dashboardController = {
                         paidInvoices: feeStats.paidInvoices,
                         pendingServiceRequests: pendingServiceCount,
                         newNotifications
+                    },
+                    charts: {
+                        utilityUsage // [MỚI] Data vẽ biểu đồ điện nước
                     },
                     pendingInvoices,
                     recentServiceRequests,

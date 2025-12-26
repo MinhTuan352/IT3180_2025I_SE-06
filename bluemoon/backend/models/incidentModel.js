@@ -106,11 +106,6 @@ const Incident = {
 
             const { id, title, description, location, reported_by, priority } = reportData;
 
-            // B1: Insert vào bảng REPORTS
-            const queryReport = `
-                INSERT INTO reports (id, title, description, location, reported_by, priority, status)
-                VALUES (?, (?, ?, ?, ?, ?, 'Mới')
-            `;
             // Lưu ý: Có 2 dấu ? cho title, desc... sửa lại cú pháp cho đúng:
             const insertQuery = `
                  INSERT INTO reports (id, title, description, location, reported_by, priority, status)

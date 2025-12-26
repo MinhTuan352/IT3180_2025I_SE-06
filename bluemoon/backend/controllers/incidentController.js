@@ -168,7 +168,7 @@ const incidentController = {
             if (!oldIncident) return res.status(404).json({ message: 'Sự cố không tồn tại.' });
 
             // LOGIC CẬP NHẬT THEO VAI TRÒ
-            if (userRole === 'bod' || userRole === 'admin') {
+            if (userRole === 'bod') {
                 // --- ADMIN ---
                 const { status, priority, assigned_to, admin_response } = req.body;
                 

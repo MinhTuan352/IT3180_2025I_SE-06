@@ -29,6 +29,7 @@ export default function ResidentProfile() {
   const [userData, setUserData] = useState<Resident | null>(null);
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [changeHistory, setChangeHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +46,11 @@ export default function ResidentProfile() {
         setError(null);
 
         // Fetch resident, apartments and vehicles in parallel
-        const [resResponse, aptsData, vehiclesData] = await Promise.all([
+        const [resResponse, aptsData, vehiclesData, historyData] = await Promise.all([
           residentApi.getById(id),
           apartmentApi.getAll(),
-          vehicleApi.getVehiclesByResidentId(id)
+          vehicleApi.getVehiclesByResidentId(id),
+          residentApi.getResidentChangeHistory(id)
         ]);
 
         // Handle response structure
@@ -56,6 +58,7 @@ export default function ResidentProfile() {
         setUserData(data);
         setApartments(aptsData);
         setVehicles(vehiclesData);
+        setChangeHistory(historyData);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
@@ -374,6 +377,95 @@ export default function ResidentProfile() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </Box>
+        )}
+      </Card>
+
+      {/* Section: Lịch sử thay đổi */}
+      <Card sx={{ mt: 3, p: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Lịch sử thay đổi thông tin
+        </Typography>
+        {changeHistory.length === 0 ? (
+          <Alert severity="info">Chưa có lịch sử thay đổi.</Alert>
+        ) : (
+          <Box sx={{ overflowX: 'auto', maxHeight: 300, overflow: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ background: '#f5f5f5', position: 'sticky', top: 0 }}>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd', width: '150px' }}>Thời gian</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd', width: '120px' }}>Người thực hiện</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd', width: '100px' }}>Hành động</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Chi tiết thay đổi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {changeHistory.map((log, idx) => {
+                  // Tạo danh sách các trường đã thay đổi
+                  const hiddenFields = ['password', 'user_id', 'created_at', 'updated_at', 'apartment_code', 'history'];
+                  const fieldLabels: Record<string, string> = {
+                    full_name: 'Họ tên', phone: 'SĐT', email: 'Email', dob: 'Ngày sinh',
+                    gender: 'Giới tính', cccd: 'CCCD', hometown: 'Quê quán', occupation: 'Nghề nghiệp',
+                    role: 'Vai trò', status: 'Trạng thái', apartment_id: 'Căn hộ',
+                    relationship_with_owner: 'Quan hệ với chủ hộ'
+                  };
+
+                  const changes: { field: string; oldVal: any; newVal: any }[] = [];
+                  if (log.old_values && log.new_values && log.action_type === 'UPDATE') {
+                    Object.keys(log.new_values).forEach(key => {
+                      if (!hiddenFields.includes(key) && log.old_values[key] !== log.new_values[key]) {
+                        changes.push({
+                          field: fieldLabels[key] || key,
+                          oldVal: log.old_values[key] ?? '(trống)',
+                          newVal: log.new_values[key] ?? '(trống)'
+                        });
+                      }
+                    });
+                  }
+
+                  return (
+                    <tr key={log.id || idx}>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                        {log.created_at ? new Date(log.created_at).toLocaleString('vi-VN') : 'N/A'}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        {log.actor_name || 'Hệ thống'}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <Box component="span" sx={{
+                          px: 1, py: 0.5, borderRadius: 1, fontSize: '0.8rem',
+                          bgcolor: log.action_type === 'CREATE' ? '#e3f2fd' : log.action_type === 'UPDATE' ? '#fff3e0' : '#ffebee',
+                          color: log.action_type === 'CREATE' ? '#1565c0' : log.action_type === 'UPDATE' ? '#e65100' : '#c62828'
+                        }}>
+                          {log.action_type === 'CREATE' ? 'Tạo mới' : log.action_type === 'UPDATE' ? 'Cập nhật' : 'Xóa'}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
+                        {log.action_type === 'CREATE' ? (
+                          <span style={{ color: '#1565c0' }}>Tạo hồ sơ cư dân mới</span>
+                        ) : log.action_type === 'DELETE' ? (
+                          <span style={{ color: '#c62828' }}>Xóa hồ sơ cư dân</span>
+                        ) : changes.length > 0 ? (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            {changes.slice(0, 5).map((c, i) => (
+                              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                                <strong>{c.field}:</strong>
+                                <span style={{ color: '#c62828', textDecoration: 'line-through' }}>{String(c.oldVal)}</span>
+                                <span>→</span>
+                                <span style={{ color: '#2e7d32', fontWeight: 500 }}>{String(c.newVal)}</span>
+                              </Box>
+                            ))}
+                            {changes.length > 5 && <span style={{ color: '#666' }}>... và {changes.length - 5} thay đổi khác</span>}
+                          </Box>
+                        ) : (
+                          <span style={{ color: '#999' }}>Không có thay đổi rõ ràng</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </Box>

@@ -19,51 +19,57 @@ router.get('/my-apartment', residentController.getMyApartment);
 router.post('/temporary', residentController.registerTemporary);
 
 // Xem danh sách đơn (Chỉ BOD, Công an)
-router.get('/temporary', 
-    checkRole(['bod', 'cqcn']), 
+router.get('/temporary',
+    checkRole(['bod', 'cqcn']),
     residentController.getTemporaryList
 );
 
 // Duyệt đơn (Chỉ BOD)
-router.put('/temporary/:id/approve', 
-    checkRole(['bod']), 
+router.put('/temporary/:id/approve',
+    checkRole(['bod']),
     residentController.approveTemporary
 );
 
 // --- 3. NHÓM QUẢN LÝ CƯ DÂN (CRUD) ---
 // Xem danh sách (BOD, Kế toán, Công an)
-router.get('/', 
-    checkRole(['bod', 'accountance', 'cqcn']), 
+router.get('/',
+    checkRole(['bod', 'accountance', 'cqcn']),
     residentController.getAllResidents
 );
 
 // Xem chi tiết
-router.get('/:id', 
-    checkRole(['bod', 'accountance', 'cqcn']), 
+router.get('/:id',
+    checkRole(['bod', 'accountance', 'cqcn']),
     residentController.getResidentDetail
 );
 
+// Xem lịch sử thay đổi thông tin (từ audit_logs)
+router.get('/:id/change-history',
+    checkRole(['bod']),
+    residentController.getResidentChangeHistory
+);
+
 // Thêm mới (Chỉ BOD)
-router.post('/', 
-    checkRole(['bod']), 
+router.post('/',
+    checkRole(['bod']),
     residentController.createResident
 );
 
 // Cập nhật thông tin (Chỉ BOD)
-router.put('/:id', 
-    checkRole(['bod']), 
+router.put('/:id',
+    checkRole(['bod']),
     residentController.updateResident
 );
 
 // [MỚI] Chức năng Chuyển đi (Thay vì xóa)
-router.put('/:id/move-out', 
-    checkRole(['bod']), 
+router.put('/:id/move-out',
+    checkRole(['bod']),
     residentController.moveOutResident
 );
 
 // Xóa vĩnh viễn (Chỉ BOD - Dùng khi nhập sai)
-router.delete('/:id', 
-    checkRole(['bod']), 
+router.delete('/:id',
+    checkRole(['bod']),
     residentController.deleteResident
 );
 

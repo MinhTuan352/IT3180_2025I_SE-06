@@ -87,5 +87,12 @@ export const residentApi = {
     const url = '/residents/me';
     const response = await axiosClient.put(url, data);
     return response.data;
+  },
+
+  // [BOD] Lấy lịch sử thay đổi thông tin cư dân
+  getResidentChangeHistory: async (id: string): Promise<any[]> => {
+    const url = `/residents/${id}/change-history`;
+    const response = await axiosClient.get(url);
+    return (response.data as any).data || [];
   }
 };

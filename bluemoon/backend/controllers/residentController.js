@@ -21,7 +21,7 @@ const residentController = {
         try {
             const userId = req.user.id;
             const oldData = await Resident.findByUserId(userId);
-            
+
             // Chỉ cho phép update các thông tin liên lạc, không cho đổi vai trò/căn hộ
             const { phone, email, hometown, occupation } = req.body;
             await Resident.updateMyProfile(userId, { phone, email, hometown, occupation });
@@ -62,9 +62,21 @@ const residentController = {
         try {
             const resident = await Resident.findById(req.params.id);
             if (!resident) return res.status(404).json({ message: 'Không tìm thấy.' });
-            
+
             const history = await Resident.getHistory(req.params.id);
             res.json({ success: true, data: { ...resident, history } });
+        } catch (e) { res.status(500).json({ message: e.message }); }
+    },
+
+    // Lấy lịch sử thay đổi thông tin cư dân (từ audit_logs)
+    getResidentChangeHistory: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const logs = await AuditLog.getAll({
+                entity_name: 'residents',
+                entity_id: id
+            });
+            res.json({ success: true, data: logs });
         } catch (e) { res.status(500).json({ message: e.message }); }
     },
 
@@ -78,12 +90,12 @@ const residentController = {
         try {
             await connection.beginTransaction();
 
-            const { 
-                apartment_id, role, full_name, 
-                dob, gender, cccd, phone, email, 
-                hometown, occupation, relationship_with_owner, 
+            const {
+                apartment_id, role, full_name,
+                dob, gender, cccd, phone, email,
+                hometown, occupation, relationship_with_owner,
                 identity_date, identity_place,
-                username, password 
+                username, password
             } = req.body;
 
             // [CHECK 1] Single Owner Rule
@@ -104,7 +116,7 @@ const residentController = {
             if (role === 'owner') {
                 if (username && password) {
                     const [existing] = await connection.execute(
-                        `SELECT id FROM users WHERE username = ? OR email = ?`, 
+                        `SELECT id FROM users WHERE username = ? OR email = ?`,
                         [username, email]
                     );
                     if (existing.length > 0) throw new Error('Username hoặc Email đã được sử dụng.');
@@ -118,7 +130,7 @@ const residentController = {
                          VALUES (?, ?, ?, ?, ?, 3, 1)`,
                         [newId, username, hashedPassword, email, phone]
                     );
-                    userId = newId; 
+                    userId = newId;
                 }
             }
 
@@ -130,8 +142,8 @@ const residentController = {
                 full_name,
                 role,
                 dob, gender, cccd, phone, email,
-                hometown, occupation, 
-                relationship_with_owner, 
+                hometown, occupation,
+                relationship_with_owner,
                 identity_date, identity_place,
                 status: 'Đang sinh sống'
             }, connection);
@@ -197,7 +209,7 @@ const residentController = {
 
             // [LOGIC 1] Chuyển đổi Vai trò (Role Switching)
             if (role && role !== oldData.role) {
-                
+
                 // A. Member -> Owner (Thăng chức)
                 if (role === 'owner') {
                     // Check xem đã có chủ hộ khác chưa
@@ -217,7 +229,7 @@ const residentController = {
                             await connection.execute(`UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`, [username, hash, newUserId]);
                         } else {
                             // Create new user (ID = Resident ID)
-                            newUserId = id; 
+                            newUserId = id;
                             // Check collision
                             const [uCheck] = await connection.execute('SELECT id FROM users WHERE id = ?', [newUserId]);
                             if (uCheck.length === 0) {
@@ -230,14 +242,14 @@ const residentController = {
                             }
                         }
                     }
-                } 
-                
+                }
+
                 // B. Owner -> Member (Hạ chức)
                 else if (role === 'member') {
                     // Nếu status vẫn đang sống -> Phải đảm bảo đã có chủ hộ khác (hoặc sẽ có)
                     // Tuy nhiên, vì thao tác này thường làm trước khi thăng chức người khác
                     // Nên ta chỉ Cảnh báo hoặc cho phép nhưng Disable User.
-                    
+
                     // Logic chặt: Nếu căn hộ còn người khác đang sống, mà hạ chủ hộ này xuống -> Căn hộ mất chủ
                     // Nhưng để linh hoạt cho FE, ta cho phép hạ, nhưng Disable User ngay lập tức.
                     if (newUserId) {
@@ -254,7 +266,7 @@ const residentController = {
             if (status && status !== oldData.status) {
                 let eventType = 'Thay đổi trạng thái';
                 if (status === 'Đã chuyển đi') eventType = 'Chuyển đi';
-                
+
                 await Resident.addHistory({
                     resident_id: id,
                     apartment_id: currentAptId,
@@ -268,13 +280,13 @@ const residentController = {
                     if (oldData.user_id) {
                         await connection.execute(`UPDATE users SET is_active = 0 WHERE id = ?`, [oldData.user_id]);
                     }
-                    
+
                     // Check xem nhà còn ai không
                     const [actives] = await connection.execute(
                         `SELECT COUNT(*) as c FROM residents WHERE apartment_id = ? AND status != 'Đã chuyển đi' AND id != ?`,
                         [currentAptId, id]
                     );
-                    
+
                     if (actives[0].c === 0) {
                         // Nhà trống -> Update status
                         await connection.execute(
@@ -300,10 +312,10 @@ const residentController = {
             await connection.commit();
             res.json({ success: true, message: 'Cập nhật thành công.' });
 
-        } catch (e) { 
+        } catch (e) {
             await connection.rollback();
             if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'Dữ liệu bị trùng.' });
-            res.status(500).json({ message: e.message }); 
+            res.status(500).json({ message: e.message });
         } finally {
             connection.release();
         }
@@ -347,7 +359,7 @@ const residentController = {
                 `SELECT COUNT(*) as c FROM residents WHERE apartment_id = ? AND status = 'Đang sinh sống'`,
                 [resident.apartment_id]
             );
-            
+
             if (actives[0].c === 0) {
                 await connection.execute(
                     `UPDATE apartments SET status = 'Trống' WHERE id = ? AND status != 'Đang sửa chữa'`,
@@ -422,10 +434,10 @@ const residentController = {
 
             await connection.commit();
             res.json({ success: true, message: 'Đã xóa hồ sơ vĩnh viễn.' });
-        } catch (e) { 
+        } catch (e) {
             await connection.rollback();
             if (e.errno === 1451) return res.status(400).json({ message: 'Không thể xóa vì dữ liệu ràng buộc (Hóa đơn, Sự cố...). Vui lòng dùng chức năng "Chuyển đi".' });
-            res.status(500).json({ message: e.message }); 
+            res.status(500).json({ message: e.message });
         } finally {
             connection.release();
         }
@@ -453,7 +465,7 @@ const residentController = {
         try {
             await connection.beginTransaction();
             const { id } = req.params;
-            const { status } = req.body; 
+            const { status } = req.body;
 
             await Resident.updateTemporaryStatus(id, status, req.user.id, connection);
 

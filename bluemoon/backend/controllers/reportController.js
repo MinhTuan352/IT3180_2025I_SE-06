@@ -4,6 +4,7 @@ const xl = require('excel4node');
 const Resident = require('../models/residentModel');
 const Asset = require('../models/assetModel'); // Bạn cần đảm bảo model này đã có hàm getAll
 const Vehicle = require('../models/vehicleModel');
+const Fee = require('../models/feeModel');
 const db = require('../config/db');
 
 // Helper: Định dạng ngày tháng VN
@@ -11,6 +12,11 @@ const formatDate = (date) => {
     if (!date) return '';
     return new Date(date).toLocaleDateString('vi-VN');
 };
+
+// Helper: Định dạng tiền tệ VNĐ
+const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+};  
 
 const reportController = {
 
@@ -92,7 +98,7 @@ const reportController = {
 
             const headers = [
                 'Mã TS', 'Tên Tài Sản', 'Vị Trí', 'Ngày Mua', 
-                'Giá Trị', 'Trạng Thái'
+                'Giá Trị', 'Trạng Thái', 'Bảo Trì Tiếp Theo'
             ];
 
             headers.forEach((header, i) => {
@@ -105,8 +111,10 @@ const reportController = {
                 ws.cell(row, 2).string(a.name || '');
                 ws.cell(row, 3).string(a.location || '');
                 ws.cell(row, 4).string(formatDate(a.purchase_date));
-                ws.cell(row, 5).number(Number(a.price) || 0);
+                ws.cell(row, 4).number(Number(a.price) || 0).style({ numberFormat: '#,##0 ₫' });
                 ws.cell(row, 6).string(a.status || '');
+                const nextDate = a.next_maintenance_date ? new Date(a.next_maintenance_date).toLocaleDateString('vi-VN') : '';
+                ws.cell(row, 7).string(nextDate);
             });
 
             wb.write('DanhSachTaiSan.xlsx', res);
@@ -158,6 +166,58 @@ const reportController = {
         } catch (error) {
             console.error('Export Vehicle Error:', error);
             res.status(500).json({ message: 'Lỗi khi xuất báo cáo.' });
+        }
+    },
+
+    /**
+     * [MỚI] [GET] /api/reports/fees
+     * Xuất báo cáo công nợ / hóa đơn (Dành cho Kế toán)
+     */
+    exportFeeList: async (req, res) => {
+        try {
+            // Lấy tham số lọc từ URL (nếu muốn xuất theo tháng cụ thể)
+            // VD: ?month=2025-12
+            const filters = {};
+            if (req.query.status) filters.status = req.query.status;
+            // Lưu ý: Fee.getAllFees cần hỗ trợ lọc, ở đây ta lấy mặc định
+            
+            const fees = await Fee.getAllFees(filters);
+
+            const wb = new xl.Workbook();
+            const ws = wb.addWorksheet('Báo Cáo Công Nợ');
+
+            const headerStyle = wb.createStyle({
+                font: { bold: true, color: '#FFFFFF' },
+                fill: { type: 'pattern', patternType: 'solid', fgColor: '#F9A825' } // Màu vàng cam
+            });
+
+            const headers = [
+                'Mã HĐ', 'Căn Hộ', 'Kỳ TT', 'Loại Phí', 
+                'Tổng Tiền', 'Đã Trả', 'Còn Nợ', 'Trạng Thái', 'Ngày Trả'
+            ];
+            headers.forEach((h, i) => ws.cell(1, i + 1).string(h).style(headerStyle));
+
+            fees.forEach((f, i) => {
+                const row = i + 2;
+                ws.cell(row, 1).string(f.id || '');
+                ws.cell(row, 2).string(f.apartment_code || '');
+                ws.cell(row, 3).string(f.billing_period || '');
+                ws.cell(row, 4).string(f.fee_name || '');
+                
+                ws.cell(row, 5).number(Number(f.total_amount) || 0).style({ numberFormat: '#,##0' });
+                ws.cell(row, 6).number(Number(f.amount_paid) || 0).style({ numberFormat: '#,##0' });
+                ws.cell(row, 7).number(Number(f.amount_remaining) || 0).style({ numberFormat: '#,##0', font: { color: f.amount_remaining > 0 ? 'red' : 'black' } });
+                
+                ws.cell(row, 8).string(f.status || '');
+                
+                const payDate = f.payment_date ? new Date(f.payment_date).toLocaleDateString('vi-VN') : '';
+                ws.cell(row, 9).string(payDate);
+            });
+
+            wb.write('BaoCaoCongNo.xlsx', res);
+        } catch (error) {
+            console.error('Export Fee Error:', error);
+            res.status(500).json({ message: 'Lỗi xuất báo cáo.' });
         }
     }
 };

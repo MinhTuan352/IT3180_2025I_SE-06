@@ -3,6 +3,7 @@
 const Asset = require('../models/assetModel');
 const AuditLog = require('../models/auditModel');
 const db = require('../config/db');
+const idGenerator = require('../utils/idGenerator');
 
 const assetController = {
 
@@ -10,7 +11,7 @@ const assetController = {
     getAllAssets: async (req, res) => {
         try {
             const assets = await Asset.getAll(req.query);
-            res.json({ success: true, count: assets.length, data: assets });
+            res.status(200).json({ success: true, count: assets.length, data: assets });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
@@ -21,7 +22,7 @@ const assetController = {
         try {
             const asset = await Asset.findById(req.params.id);
             if (!asset) return res.status(404).json({ message: 'Tài sản không tồn tại.' });
-            res.json({ success: true, data: asset });
+            res.status(200).json({ success: true, data: asset });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
@@ -30,9 +31,11 @@ const assetController = {
     // [POST] /api/assets
     createAsset: async (req, res) => {
         try {
-            // [FIX REQ 26 & 28] Tự động sinh mã định danh (TS + Timestamp)
-            // VD: TS17035999
-            const asset_code = req.body.asset_code || `TS${Date.now().toString().slice(-8)}`;
+            // [MỚI] Sinh mã TS001... nếu người dùng không nhập
+            let asset_code = req.body.asset_code;
+            if (!asset_code) {
+                asset_code = await idGenerator.generateIncrementalId('assets', 'TS', 'asset_code', 3);
+            }
             
             // [FIX REQ 27] Status mặc định xử lý bên Model rồi, nhưng check ở đây cho chắc
             const status = req.body.status || 'Đang hoạt động';

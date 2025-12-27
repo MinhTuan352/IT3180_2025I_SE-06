@@ -3,6 +3,7 @@
 const Notification = require('../models/notificationModel');
 const emailService = require('../services/emailService');
 const db = require('../config/db');
+const idGenerator = require('../utils/idGenerator');
 
 const notificationController = {
 
@@ -46,7 +47,7 @@ const notificationController = {
             // Nếu không -> is_sent = true (Gửi ngay)
             const is_sent = scheduled_at ? false : true;
 
-            const notiId = `TB-${Date.now()}`;
+            const notiId = await idGenerator.generateDateBasedId('notifications', 'TB', 'id');
             const files = req.files || [];
 
             const result = await Notification.create({

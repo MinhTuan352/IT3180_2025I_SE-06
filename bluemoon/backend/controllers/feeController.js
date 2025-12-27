@@ -5,6 +5,7 @@ const Vehicle = require('../models/vehicleModel'); // [MỚI] Import để lấy
 const invoiceNotifier = require('../jobs/cronJob');
 const db = require('../config/db');
 const emailService = require('../services/emailService');
+const idGenerator = require('../utils/idGenerator');
 
 // Helper: Tìm Resident ID từ User ID (Fix lỗi lệch ID)
 const getResidentIdFromUser = async (userId) => {
@@ -126,74 +127,35 @@ const feeController = {
      */
     createInvoice: async (req, res) => {
         try {
-            const {
-                apartment_id, resident_id, fee_type_id,
-                description, billing_period, due_date, items
-            } = req.body;
-
-            // Validation
-            if (!apartment_id || !resident_id || !fee_type_id || !items || !Array.isArray(items)) {
-                return res.status(400).json({ message: 'Thiếu thông tin bắt buộc hoặc danh sách chi tiết (items) không hợp lệ.' });
-            }
-
-            // 1. Lấy thông tin Mã phí (PQL, DV...) và Mã căn hộ (A101...) để tạo ID đẹp
-            const [metadata] = await db.execute(`
-                SELECT ft.fee_code, a.apartment_code 
-                FROM fee_types ft, apartments a
-                WHERE ft.id = ? AND a.id = ?
-            `, [fee_type_id, apartment_id]);
-
-            if (metadata.length === 0) {
-                return res.status(404).json({ message: 'Không tìm thấy loại phí hoặc căn hộ.' });
-            }
-
-            const { fee_code, apartment_code } = metadata[0];
-            const cleanPeriod = sanitizePeriod(billing_period);
-
-            // [QUAN TRỌNG] Tạo ID có ý nghĩa
-            // VD: PQL-A101-122025
-            // Thêm Date.now().slice(-4) phòng trường hợp tạo nhiều phiếu thu cùng tháng cho 1 căn
-            const invoiceId = `${fee_code}-${apartment_code}-${cleanPeriod}-${Date.now().toString().slice(-4)}`;
-
-            // 2. Tính toán tổng tiền (Server tự tính để đảm bảo chính xác)
+            const { apartment_id, resident_id, fee_type_id, billing_period, due_date, items } = req.body;
+            
+            const [meta] = await db.execute(`SELECT ft.fee_code, a.apartment_code FROM fee_types ft, apartments a WHERE ft.id = ? AND a.id = ?`, [fee_type_id, apartment_id]);
+            if (meta.length === 0) return res.status(404).json({ message: 'Dữ liệu không hợp lệ.' });
+            
+            // [MỚI] Sinh ID thông minh
+            const invoiceId = await idGenerator.generateInvoiceId(
+                meta[0].fee_code, 
+                meta[0].apartment_code, 
+                billing_period
+            );
+            
             let totalAmount = 0;
             const processedItems = items.map(item => {
-                const itemAmount = item.quantity * item.unit_price;
-                totalAmount += itemAmount;
-                return {
-                    ...item,
-                    amount: itemAmount
-                };
+                const amt = item.quantity * item.unit_price;
+                totalAmount += amt;
+                return { ...item, amount: amt };
             });
 
-            // 3. Chuẩn bị data
             const invoiceData = {
-                id: invoiceId,
-                apartment_id,
-                resident_id,
-                fee_type_id,
-                description,
-                billing_period,
-                due_date,
-                total_amount: totalAmount,
-                created_by: req.user.id // ID của kế toán đang đăng nhập
+                id: invoiceId, apartment_id, resident_id, fee_type_id, 
+                description: req.body.description, billing_period, due_date, 
+                total_amount: totalAmount, created_by: req.user.id
             };
 
-            // 4. Gọi Model
             await Fee.createInvoice(invoiceData, processedItems);
-
-            res.status(201).json({
-                success: true,
-                message: 'Tạo hóa đơn thành công!',
-                data: invoiceData
-            });
-
+            res.status(201).json({ success: true, message: 'Tạo thành công!', data: invoiceData });
         } catch (error) {
-            console.error(error);
-            if (error.code === 'ER_DUP_ENTRY') {
-                return res.status(409).json({ message: 'Hóa đơn này đã tồn tại trong hệ thống.' });
-            }
-            res.status(500).json({ message: 'Lỗi server khi tạo hóa đơn.', error: error.message });
+            res.status(500).json({ message: error.message });
         }
     },
 

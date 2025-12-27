@@ -64,6 +64,7 @@ app.use('/api/temporary-residence', require('./routes/temporaryResidenceRoutes')
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/donations', require('./routes/donationRoutes'));
 app.use('/api/visitors', require('./routes/visitorRoutes'));
+app.use('/api/import', require('./routes/importRoutes'));
 
 cronJob.start();
 // Route kiểm tra server sống hay chết

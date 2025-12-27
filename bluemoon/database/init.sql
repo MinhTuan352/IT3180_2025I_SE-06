@@ -69,7 +69,7 @@ CREATE TABLE admins (
 CREATE TABLE apartments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     apartment_code VARCHAR(20) NOT NULL UNIQUE COMMENT 'A-101, B-205',
-    building VARCHAR(10) NOT NULL COMMENT 'A, B, C, D',
+    building VARCHAR(10) NOT NULL COMMENT 'A, B',
     floor INT NOT NULL,
     area DECIMAL(10,2),
     status ENUM('Đang sinh sống', 'Trống', 'Đang sửa chữa') DEFAULT 'Trống',

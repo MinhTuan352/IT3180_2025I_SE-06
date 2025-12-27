@@ -51,4 +51,17 @@ router.get('/vehicles',
     reportController.exportVehicleList
 );
 
+/**
+ * [GET] /api/reports/fees
+ * Xuất báo cáo công nợ phí (Excel)
+ * Ai được xem?
+ * - bod: Quản lý chung.
+ * - accountance: Kế toán quản lý phí.
+ */
+router.get('/fees', 
+    checkAuth, 
+    checkRole(['bod', 'accountance']), 
+    reportController.exportFeeList
+);
+
 module.exports = router;

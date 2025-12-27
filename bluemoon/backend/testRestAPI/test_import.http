@@ -1,0 +1,37 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+# ==================================================================
+# 1. SETUP: ĐĂNG NHẬP (LẤY TOKEN)
+# ==================================================================
+
+### 1.1. Đăng nhập BAN QUẢN TRỊ (BOD) - Quyền cao nhất
+# User: admin.a
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào biến @bodToken
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY4MTc5NzksImV4cCI6MTc2NjgyMTU3OX0.sIvkjK6nwm4OddDJ5fdA-Sn9B532kQgmklpLssRJUMo
+# ==================================================================
+
+### 1. Tải template (Để xem cấu trúc)
+GET {{baseUrl}}/import/template
+Authorization: {{bodToken}}
+
+### 2. Import File (Multipart)
+POST {{baseUrl}}/import/master-data
+Authorization: {{bodToken}}
+Content-Type: multipart/form-data; boundary=boundaryExcel
+
+--boundaryExcel
+Content-Disposition: form-data; name="file"; filename="Data.xlsx"
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+< ./Data.xlsx
+--boundaryExcel--

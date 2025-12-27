@@ -2,7 +2,9 @@
 
 const Incident = require('../models/incidentModel');
 const AuditLog = require('../models/auditModel');
+const Resident = require('../models/residentModel');
 const db = require('../config/db'); // Cần db để query ID cư dân thủ công
+const idGenerator = require('../utils/idGenerator');
 
 const incidentController = {
 
@@ -12,10 +14,13 @@ const incidentController = {
     
     // Tìm Resident ID từ User ID (Do bảng reports lưu resident_id)
     getResidentIdFromUser: async (userId) => {
+        if (Resident.findByUserId) {
+            const res = await Resident.findByUserId(userId);
+            return res ? res.id : null;
+        }
         const query = `SELECT id FROM residents WHERE user_id = ?`;
         const [rows] = await db.execute(query, [userId]);
-        if (rows.length > 0) return rows[0].id;
-        return null;
+        return rows.length > 0 ? rows[0].id : null;
     },
 
     // ==========================================
@@ -125,7 +130,7 @@ const incidentController = {
             }
 
             // 5. Tạo ID (SC + timestamp)
-            const reportId = `SC${Date.now().toString().slice(-6)}`;
+            const reportId = await idGenerator.generateDateBasedId('reports', 'SC', 'id');
 
             const reportData = {
                 id: reportId,

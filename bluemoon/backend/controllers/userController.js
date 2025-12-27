@@ -2,6 +2,7 @@
 
 const User = require('../models/userModel');
 const bcrypt = require('bcryptjs');
+const idGenerator = require('../utils/idGenerator');
 
 const userController = {
 
@@ -93,10 +94,13 @@ const userController = {
             if (!username || !password || !email || !role_id || !full_name || !cccd) {
                 return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin bắt buộc.' });
             }
-            // Role ID: 1=BOD, 2=Accountance
-            if (![1, 2].includes(Number(role_id))) {
-                return res.status(400).json({ message: 'Role ID không hợp lệ (Phải là 1 hoặc 2).' });
+            // Role ID: 1=BOD, 2=Accountance, 4=CQCN
+            if (![1, 2, 4].includes(Number(role_id))) {
+                return res.status(400).json({ message: 'Role ID không hợp lệ (Phải là 1, 2 hoặc 4).' });
             }
+
+            // [MỚI] Sinh ID tự động (ID0001...)
+            const newId = await idGenerator.generateIncrementalId('users', 'ID', 'id', 4);
 
             // 2. Check trùng lặp (Gọi Model helper)
             const duplicateError = await User.checkDuplicate(username, email, cccd, 'admins');
@@ -110,6 +114,7 @@ const userController = {
 
             // 4. Gọi Model thực hiện Transaction
             const newUser = await User.createManagementAccount({
+                id: newId,
                 ...req.body,
                 password: hashedPassword
             });
@@ -148,12 +153,17 @@ const userController = {
                 return res.status(409).json({ message: duplicateError });
             }
 
+            // [MỚI] Sinh ID cư dân (R0001...)
+            // ID này sẽ dùng chung cho bảng users và residents
+            const newId = await idGenerator.generateIncrementalId('residents', 'R', 'id', 4);
+
             // 3. Hash Password
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
             // 4. Gọi Model thực hiện Transaction
             const newUser = await User.createResidentAccount({
+                id: newId,
                 ...req.body,
                 password: hashedPassword
             });

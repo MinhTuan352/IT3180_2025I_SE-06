@@ -207,6 +207,59 @@ export default function ResidentProfileEdit() {
                                 helperText="Liên hệ BQL để thay đổi thông tin này."
                             />
                         </Grid>
+
+                        {/* Thông tin Cư trú & Tài khoản */}
+                        <Grid size={{ xs: 12 }}>
+                            <Typography variant="subtitle1" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                                Thông tin Cư trú & Tài khoản
+                            </Typography>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                label="Quyền hạn"
+                                fullWidth
+                                value={profileData?.role === 'owner' ? 'Chủ hộ' : 'Thành viên'}
+                                InputProps={{ readOnly: true }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField
+                                label="Tình trạng cư trú"
+                                fullWidth
+                                value={profileData?.status || 'Đang sinh sống'}
+                                InputProps={{ readOnly: true }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 12 }}>
+                            <Alert severity={profileData?.user_id ? "success" : "warning"} sx={{ mt: 1 }}>
+                                {profileData?.user_id
+                                    ? `✅ Có tài khoản đăng nhập | User ID: ${profileData.user_id}`
+                                    : '⚠️ Chưa có tài khoản đăng nhập'
+                                }
+                            </Alert>
+                        </Grid>
+                        {profileData?.user_id && (
+                            <>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        label="Tên đăng nhập"
+                                        fullWidth
+                                        value={(profileData as any).account_username || ''}
+                                        InputProps={{ readOnly: true }}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        label="Mật khẩu"
+                                        type="password"
+                                        fullWidth
+                                        value="********"
+                                        InputProps={{ readOnly: true }}
+                                        helperText="Liên hệ BQL để đổi mật khẩu"
+                                    />
+                                </Grid>
+                            </>
+                        )}
                     </Grid>
                 </Grid>
             </Grid>
@@ -406,6 +459,64 @@ export default function ResidentProfileEdit() {
                                 onChange={(e) => setEditFormData({ ...editFormData, cccd: e.target.value })}
                             />
                         </Grid>
+
+                        {/* 3 trường mới: Quyền hạn, Tình trạng, Tài khoản */}
+                        <Grid size={{ xs: 12 }}>
+                            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
+                                Yêu cầu thay đổi Quyền hạn / Tài khoản
+                            </Typography>
+                        </Grid>
+                        <Grid size={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Quyền hạn mới</InputLabel>
+                                <Select
+                                    value={editFormData.role || ''}
+                                    label="Quyền hạn mới"
+                                    onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                                >
+                                    <MenuItem value="">-- Không thay đổi --</MenuItem>
+                                    <MenuItem value="owner">Chủ hộ</MenuItem>
+                                    <MenuItem value="member">Thành viên</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid size={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Tình trạng mới</InputLabel>
+                                <Select
+                                    value={editFormData.status || ''}
+                                    label="Tình trạng mới"
+                                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                                >
+                                    <MenuItem value="">-- Không thay đổi --</MenuItem>
+                                    <MenuItem value="Đang sinh sống">Đang sinh sống</MenuItem>
+                                    <MenuItem value="Đã chuyển đi">Đã chuyển đi</MenuItem>
+                                    <MenuItem value="Tạm vắng">Tạm vắng</MenuItem>
+                                    <MenuItem value="Tạm trú">Tạm trú</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid size={6}>
+                            <TextField
+                                label="Tên đăng nhập mới"
+                                fullWidth
+                                placeholder={(profileData as any)?.account_username || 'Chưa có tài khoản'}
+                                value={editFormData.username || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, username: e.target.value })}
+                                helperText="Yêu cầu đổi username"
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <TextField
+                                label="Mật khẩu mới"
+                                type="password"
+                                fullWidth
+                                value={editFormData.password || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                                helperText="Yêu cầu đổi mật khẩu"
+                            />
+                        </Grid>
+
                         <Grid size={12}>
                             <TextField
                                 label="Lý do yêu cầu"

@@ -4,39 +4,34 @@ import {
   Typography,
   Button,
   Card,
-  //CardContent,
   Avatar,
   Chip,
   Pagination,
   Grid,
-  //CircularProgress, // Thêm icon loading
-  //Alert, // Thêm thông báo lỗi
+  CircularProgress,
+  Alert,
+  Modal,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useState, useRef, type ChangeEvent } from 'react';
+import { useState, useRef, type ChangeEvent, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { adminApi } from '../../../api/adminApi';
+import { adminApi, type UserData } from '../../../api/adminApi';
+
 // Icons
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import * as XLSX from 'xlsx';
 
-// Dữ liệu giả (Mock Data) để test (--- CẬP NHẬT --- Yêu cầu 4)
-//const mockAdmins = [
-//{ id: 'ID0001', name: 'Nguyễn Văn A', role: 'bod' },
-//{ id: 'ID0002', name: 'Nguyễn Văn B', role: 'accountance' },
-//{ id: 'ID0003', name: 'Nguyễn Văn C', role: 'bod' },
-//{ id: 'ID0004', name: 'Nguyễn Văn D', role: 'accountance' },
-//{ id: 'ID0005', name: 'Trần Thị E', role: 'bod' },
-//{ id: 'ID0006', name: 'Lê Văn F', role: 'accountance' },
-//{ id: 'ID0007', name: 'Phạm Hữu G', role: 'bod' },
-//{ id: 'ID0008', name: 'Hoàng Minh H', role: 'bod' },
-//{ id: 'ID0009', name: 'Vũ Thị I', role: 'accountance' },
-//{ id: 'ID0010', name: 'Đặng Văn K', role: 'bod' },
-//];
-
-// Định nghĩa màu cho các vai trò (giữ nguyên)
-// --- CẬP NHẬT MAP: Dùng role_id làm key ---
+// Định nghĩa màu cho các vai trò
 const roleMap: Record<number, { label: string, color: string, code: string }> = {
   1: { label: 'Ban quản trị', color: 'primary', code: 'bod' },
   2: { label: 'Kế toán', color: 'secondary', code: 'accountance' },
@@ -47,67 +42,196 @@ const roleMap: Record<number, { label: string, color: string, code: string }> = 
 // Cấu hình phân trang
 const ROWS_PER_PAGE = 10;
 
+// Interface cho filter state
+interface FilterState {
+  name: string;
+  email: string;
+  roleId: string;
+  status: string;
+}
+
+// Interface cho sort state
+interface SortState {
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
+// Modal style
+const modalStyle = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 500,
+  bgcolor: 'background.paper',
+  borderRadius: 2,
+  boxShadow: 24,
+  p: 4,
+};
+
 export default function AdminList() {
   const navigate = useNavigate();
 
   // --- STATE PHÂN TRANG ---
   const [page, setPage] = useState(1);
 
+  // --- STATE CHO ADVANCED SEARCH ---
+  const [openAdvancedSearch, setOpenAdvancedSearch] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    name: '',
+    email: '',
+    roleId: '',
+    status: '',
+  });
+  const [sort, setSort] = useState<SortState>({
+    sortBy: 'username',
+    sortOrder: 'asc',
+  });
+  // Temp states cho modal
+  const [tempFilters, setTempFilters] = useState<FilterState>(filters);
+  const [tempSort, setTempSort] = useState<SortState>(sort);
+
   // --- KẾT NỐI API ---
   const { data: adminList = [], isLoading, error } = useQuery({
-    queryKey: ['admins'], // Key định danh cho query này
-    queryFn: adminApi.getAdminsOnly, // Gọi hàm lấy và lọc admin
+    queryKey: ['admins'],
+    queryFn: adminApi.getAdminsOnly,
   });
 
-  // --- LOGIC TÍNH TOÁN PHÂN TRANG (Client-side) ---
-  const totalRows = adminList.length;
-  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  // --- LOGIC FILTER VÀ SORT ---
+  const filteredAndSortedAdmins = useMemo(() => {
+    let result = [...adminList];
 
-  // Cắt mảng adminList theo trang hiện tại
-  const paginatedAdmins = adminList.slice(
+    // Apply filters
+    if (filters.name) {
+      const searchTerm = filters.name.toLowerCase();
+      result = result.filter(a =>
+        (a.full_name || '').toLowerCase().includes(searchTerm) ||
+        a.username.toLowerCase().includes(searchTerm)
+      );
+    }
+    if (filters.email) {
+      result = result.filter(a =>
+        a.email.toLowerCase().includes(filters.email.toLowerCase())
+      );
+    }
+    if (filters.roleId) {
+      result = result.filter(a => Number(a.role_id) === Number(filters.roleId));
+    }
+    if (filters.status) {
+      if (filters.status === 'active') {
+        result = result.filter(a => a.is_active === true);
+      } else if (filters.status === 'inactive') {
+        result = result.filter(a => a.is_active === false);
+      }
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aVal: string = '';
+      let bVal: string = '';
+
+      switch (sort.sortBy) {
+        case 'username':
+          aVal = a.username.toLowerCase();
+          bVal = b.username.toLowerCase();
+          break;
+        case 'full_name':
+          aVal = (a.full_name || a.username).toLowerCase();
+          bVal = (b.full_name || b.username).toLowerCase();
+          break;
+        case 'email':
+          aVal = a.email.toLowerCase();
+          bVal = b.email.toLowerCase();
+          break;
+        case 'id':
+          aVal = a.id;
+          bVal = b.id;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sort.sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sort.sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [adminList, filters, sort]);
+
+  // --- PHÂN TRANG ---
+  const totalRows = filteredAndSortedAdmins.length;
+  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  const paginatedAdmins = filteredAndSortedAdmins.slice(
     (page - 1) * ROWS_PER_PAGE,
     page * ROWS_PER_PAGE
   );
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
     setPage(value);
-    // Cuộn lên đầu trang khi chuyển trang (UX tốt hơn)
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // --- HANDLERS CHO MODAL ---
+  const handleOpenAdvancedSearch = () => {
+    setTempFilters(filters);
+    setTempSort(sort);
+    setOpenAdvancedSearch(true);
+  };
+
+  const handleCloseAdvancedSearch = () => {
+    setOpenAdvancedSearch(false);
+  };
+
+  const handleApplyFilters = () => {
+    setFilters(tempFilters);
+    setSort(tempSort);
+    setPage(1);
+    setOpenAdvancedSearch(false);
+  };
+
+  const handleClearFilters = () => {
+    const clearedFilters = { name: '', email: '', roleId: '', status: '' };
+    const defaultSort = { sortBy: 'username', sortOrder: 'asc' as const };
+    setTempFilters(clearedFilters);
+    setTempSort(defaultSort);
+    setFilters(clearedFilters);
+    setSort(defaultSort);
+    setPage(1);
+    setOpenAdvancedSearch(false);
+  };
+
+  // Check if có filter đang active
+  const hasActiveFilters = filters.name || filters.email || filters.roleId || filters.status;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleViewProfile = (adminId: string) => {
-    navigate(`/bod/admin/profile/${adminId}`); //
-  }
+    navigate(`/bod/admin/profile/${adminId}`);
+  };
 
-  // --- THÊM MỚI: Logic EXPORT ---
+  // --- EXPORT (dùng dữ liệu đã filter) ---
   const handleExport = () => {
-    // Export data thật từ API
-    const dataToExport = adminList.map(admin => ({
+    const dataToExport = filteredAndSortedAdmins.map((admin: UserData) => ({
       'ID': admin.id,
       'Username': admin.username,
+      'Họ và Tên': admin.full_name || '',
       'Email': admin.email,
-      'Vai trò': roleMap[admin.role_id || 3]?.label || 'Không xác định'
+      'Vai trò': roleMap[admin.role_id || 3]?.label || 'Không xác định',
+      'Trạng thái': admin.is_active ? 'Hoạt động' : 'Đã khóa',
     }));
 
-    // 2. Tạo worksheet
     const ws = XLSX.utils.json_to_sheet(dataToExport);
-    // 3. Tạo workbook
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DanhSachQuanTriVien');
-
-    // 4. Xuất file
     XLSX.writeFile(wb, 'DanhSachQuanTriVien.xlsx');
   };
 
-  // --- THÊM MỚI: Logic IMPORT (Bước 1: Kích hoạt input ẩn) ---
+  // --- IMPORT ---
   const handleImportClick = () => {
-    // Mở hộp thoại chọn file của máy tính
     fileInputRef.current?.click();
   };
 
-  // --- THÊM MỚI: Logic IMPORT (Bước 2: Xử lý file đã chọn) ---
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -117,15 +241,10 @@ export default function AdminList() {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'array' });
-
-        // Lấy sheet đầu tiên
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-
-        // Chuyển đổi sheet thành JSON
         const json = XLSX.utils.sheet_to_json(worksheet);
 
-        // (Đây là nơi bạn xử lý dữ liệu json, ví dụ: gửi lên server)
         console.log('Dữ liệu Import từ Excel:', json);
         alert('Đã đọc file Excel thành công! Xem dữ liệu ở Console (F12).');
 
@@ -135,48 +254,50 @@ export default function AdminList() {
       }
     };
 
-    // Đọc file
     reader.readAsArrayBuffer(file);
-
-    // Reset input để có thể chọn lại file y hệt
     e.target.value = '';
   };
 
   return (
     <Box>
-      {/* --- THÊM MỚI: Input ẩn để Import --- */}
+      {/* Input ẩn để Import */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         style={{ display: 'none' }}
-        accept=".xlsx, .xls" // Chỉ chấp nhận file Excel
+        accept=".xlsx, .xls"
       />
 
-      {/* HÀNG 1: Tiêu đề + Các nút (giữ nguyên) */}
+      {/* HÀNG 1: Tiêu đề + Các nút */}
       <Box
         sx={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           mb: 3,
+          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
           DANH SÁCH QUẢN TRỊ VIÊN
+          {hasActiveFilters && (
+            <Chip
+              label="Đang lọc"
+              size="small"
+              color="info"
+              sx={{ ml: 2 }}
+              onDelete={handleClearFilters}
+            />
+          )}
         </Typography>
 
-        <Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
             startIcon={<FileUploadIcon />}
-            sx={{
-              mr: 1,
-              backgroundColor: 'white',
-              color: '#333',
-              borderColor: '#ccc',
-              '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' }
-            }}
+            sx={{ backgroundColor: 'white', color: '#333', borderColor: '#ccc', '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' } }}
             onClick={handleImportClick}
           >
             Import
@@ -184,16 +305,18 @@ export default function AdminList() {
           <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
-            sx={{
-              mr: 1,
-              backgroundColor: 'white',
-              color: '#333',
-              borderColor: '#ccc',
-              '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' }
-            }}
+            sx={{ backgroundColor: 'white', color: '#333', borderColor: '#ccc', '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' } }}
             onClick={handleExport}
           >
             Export
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<SearchIcon />}
+            sx={{ backgroundColor: 'white', color: '#333', borderColor: '#ccc', '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' } }}
+            onClick={handleOpenAdvancedSearch}
+          >
+            Tìm kiếm nâng cao
           </Button>
           <Button
             variant="contained"
@@ -204,18 +327,148 @@ export default function AdminList() {
         </Box>
       </Box>
 
-      {/* --- DANH SÁCH USER TỪ API --- */}
+      {/* MODAL TÌM KIẾM NÂNG CAO */}
+      <Modal
+        open={openAdvancedSearch}
+        onClose={handleCloseAdvancedSearch}
+        aria-labelledby="advanced-search-modal"
+      >
+        <Box sx={modalStyle}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" fontWeight="bold">
+              Tìm kiếm nâng cao
+            </Typography>
+            <IconButton onClick={handleCloseAdvancedSearch} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {/* Filters */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Tên / Username"
+              value={tempFilters.name}
+              onChange={(e) => setTempFilters({ ...tempFilters, name: e.target.value })}
+              size="small"
+              fullWidth
+              placeholder="Nhập tên hoặc username..."
+            />
+
+            <TextField
+              label="Email"
+              value={tempFilters.email}
+              onChange={(e) => setTempFilters({ ...tempFilters, email: e.target.value })}
+              size="small"
+              fullWidth
+              placeholder="Nhập email..."
+            />
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Vai trò</InputLabel>
+              <Select
+                value={tempFilters.roleId}
+                label="Vai trò"
+                onChange={(e) => setTempFilters({ ...tempFilters, roleId: e.target.value })}
+              >
+                <MenuItem value="">Tất cả</MenuItem>
+                <MenuItem value="1">Ban quản trị</MenuItem>
+                <MenuItem value="2">Kế toán</MenuItem>
+                <MenuItem value="4">Cơ quan chức năng</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select
+                value={tempFilters.status}
+                label="Trạng thái"
+                onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value })}
+              >
+                <MenuItem value="">Tất cả</MenuItem>
+                <MenuItem value="active">Hoạt động</MenuItem>
+                <MenuItem value="inactive">Đã khóa</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Sorting */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Sắp xếp theo</InputLabel>
+                <Select
+                  value={tempSort.sortBy}
+                  label="Sắp xếp theo"
+                  onChange={(e) => setTempSort({ ...tempSort, sortBy: e.target.value })}
+                >
+                  <MenuItem value="username">Username</MenuItem>
+                  <MenuItem value="full_name">Tên</MenuItem>
+                  <MenuItem value="email">Email</MenuItem>
+                  <MenuItem value="id">ID</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Thứ tự</InputLabel>
+                <Select
+                  value={tempSort.sortOrder}
+                  label="Thứ tự"
+                  onChange={(e) => setTempSort({ ...tempSort, sortOrder: e.target.value as 'asc' | 'desc' })}
+                >
+                  <MenuItem value="asc">Tăng dần</MenuItem>
+                  <MenuItem value="desc">Giảm dần</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+
+          {/* Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={<FilterAltOffIcon />}
+              onClick={handleClearFilters}
+            >
+              Xóa bộ lọc
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleApplyFilters}
+            >
+              Áp dụng
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* LOADING / ERROR */}
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Không thể tải danh sách quản trị viên. Vui lòng thử lại sau.
+        </Alert>
+      )}
+
+      {/* Hiển thị số lượng kết quả khi có filter */}
+      {!isLoading && !error && hasActiveFilters && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Tìm thấy {totalRows} kết quả phù hợp
+        </Alert>
+      )}
+
+      {/* DANH SÁCH ADMIN */}
       {!isLoading && !error && (
         <Grid container spacing={2}>
           {paginatedAdmins.length === 0 ? (
-            <Typography sx={{ p: 2, fontStyle: 'italic', color: 'text.secondary' }}>Chưa có quản trị viên nào.</Typography>
+            <Typography sx={{ p: 2, fontStyle: 'italic', color: 'text.secondary' }}>
+              {hasActiveFilters ? 'Không tìm thấy kết quả phù hợp.' : 'Chưa có quản trị viên nào.'}
+            </Typography>
           ) : (
-            // --- CẬP NHẬT: Dùng mảng đã phân trang (paginatedAdmins) ---
             paginatedAdmins.map((admin) => {
               const roleInfo = roleMap[admin.role_id || 3] || roleMap[3];
-
-              // --- LOGIC HIỂN THỊ TÊN ---
-              // Ưu tiên full_name nếu có và không rỗng, ngược lại dùng username
               const displayName = (admin.full_name && admin.full_name.trim() !== "")
                 ? admin.full_name
                 : admin.username;
@@ -229,7 +482,7 @@ export default function AdminList() {
 
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="h6">
-                        {displayName} {/* Hiển thị tên thật nếu có, ko thì username */}
+                        {displayName}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                         ID: {admin.id} | Email: {admin.email}
@@ -255,13 +508,13 @@ export default function AdminList() {
         </Grid>
       )}
 
-      {/* --- CẬP NHẬT: Pagination Component --- */}
+      {/* PHÂN TRANG */}
       {!isLoading && !error && totalRows > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
           <Pagination
-            count={totalPages}      // Tổng số trang tính toán được
-            page={page}             // Trang hiện tại
-            onChange={handlePageChange} // Hàm xử lý khi đổi trang
+            count={totalPages}
+            page={page}
+            onChange={handlePageChange}
             color="primary"
             showFirstButton
             showLastButton

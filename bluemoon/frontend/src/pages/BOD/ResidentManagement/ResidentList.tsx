@@ -8,17 +8,27 @@ import {
   Chip,
   Pagination,
   Grid,
-  CircularProgress, // Thêm icon loading
-  Alert, // Thêm Alert lỗi
+  CircularProgress,
+  Alert,
+  Modal,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useRef, type ChangeEvent, useState } from 'react';
+import { useRef, type ChangeEvent, useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useQuery } from '@tanstack/react-query'; // Import React Query
 import { residentApi, type Resident } from '../../../api/residentApi';
 
 // Icons
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 // Định nghĩa màu cho vai trò (Giữ nguyên)
@@ -27,7 +37,34 @@ const roleMap = {
   member: { label: 'Thành viên', color: 'secondary' },
 };
 
-const ROWS_PER_PAGE = 10; // Số dòng mỗi trang
+const ROWS_PER_PAGE = 10;
+
+// Interface cho filter state
+interface FilterState {
+  name: string;
+  apartmentCode: string;
+  role: string;
+  status: string;
+}
+
+// Interface cho sort state
+interface SortState {
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
+
+// Modal style
+const modalStyle = {
+  position: 'absolute' as const,
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  width: 500,
+  bgcolor: 'background.paper',
+  borderRadius: 2,
+  boxShadow: 24,
+  p: 4,
+};
 
 export default function ResidentList() {
   const navigate = useNavigate();
@@ -35,18 +72,85 @@ export default function ResidentList() {
   const isCQCN = location.pathname.startsWith('/cqcn');
   const basePath = isCQCN ? '/cqcn' : '/bod';
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [page, setPage] = useState(1); // State phân trang
+  const [page, setPage] = useState(1);
 
-  // --- 1. GỌI API LẤY DANH SÁCH ---
+  // --- STATE CHO ADVANCED SEARCH ---
+  const [openAdvancedSearch, setOpenAdvancedSearch] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    name: '',
+    apartmentCode: '',
+    role: '',
+    status: '',
+  });
+  const [sort, setSort] = useState<SortState>({
+    sortBy: 'full_name',
+    sortOrder: 'asc',
+  });
+  const [tempFilters, setTempFilters] = useState<FilterState>(filters);
+  const [tempSort, setTempSort] = useState<SortState>(sort);
+
+  // --- API CALL ---
   const { data: residentList = [], isLoading, error } = useQuery({
     queryKey: ['residents'],
     queryFn: () => residentApi.getAll(),
   });
 
-  // --- 2. XỬ LÝ PHÂN TRANG (Client-side) ---
-  const totalRows = residentList.length;
+  // --- LOGIC FILTER VÀ SORT ---
+  const filteredAndSortedResidents = useMemo(() => {
+    let result = [...residentList];
+
+    // Apply filters
+    if (filters.name) {
+      result = result.filter(r =>
+        r.full_name.toLowerCase().includes(filters.name.toLowerCase())
+      );
+    }
+    if (filters.apartmentCode) {
+      result = result.filter(r =>
+        (r.apartment_code || '').toLowerCase().includes(filters.apartmentCode.toLowerCase())
+      );
+    }
+    if (filters.role) {
+      result = result.filter(r => r.role === filters.role);
+    }
+    if (filters.status) {
+      result = result.filter(r => r.status === filters.status);
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+
+      switch (sort.sortBy) {
+        case 'full_name':
+          aVal = a.full_name.toLowerCase();
+          bVal = b.full_name.toLowerCase();
+          break;
+        case 'apartment_code':
+          aVal = (a.apartment_code || '').toLowerCase();
+          bVal = (b.apartment_code || '').toLowerCase();
+          break;
+        case 'id':
+          aVal = a.id;
+          bVal = b.id;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aVal < bVal) return sort.sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sort.sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [residentList, filters, sort]);
+
+  // --- PHÂN TRANG ---
+  const totalRows = filteredAndSortedResidents.length;
   const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
-  const paginatedResidents = residentList.slice(
+  const paginatedResidents = filteredAndSortedResidents.slice(
     (page - 1) * ROWS_PER_PAGE,
     page * ROWS_PER_PAGE
   );
@@ -55,6 +159,38 @@ export default function ResidentList() {
     setPage(value);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // --- HANDLERS CHO MODAL ---
+  const handleOpenAdvancedSearch = () => {
+    setTempFilters(filters);
+    setTempSort(sort);
+    setOpenAdvancedSearch(true);
+  };
+
+  const handleCloseAdvancedSearch = () => {
+    setOpenAdvancedSearch(false);
+  };
+
+  const handleApplyFilters = () => {
+    setFilters(tempFilters);
+    setSort(tempSort);
+    setPage(1);
+    setOpenAdvancedSearch(false);
+  };
+
+  const handleClearFilters = () => {
+    const clearedFilters = { name: '', apartmentCode: '', role: '', status: '' };
+    const defaultSort = { sortBy: 'full_name', sortOrder: 'asc' as const };
+    setTempFilters(clearedFilters);
+    setTempSort(defaultSort);
+    setFilters(clearedFilters);
+    setSort(defaultSort);
+    setPage(1);
+    setOpenAdvancedSearch(false);
+  };
+
+  // Check if có filter đang active
+  const hasActiveFilters = filters.name || filters.apartmentCode || filters.role || filters.status;
 
   // --- Handlers cho Navigation (Yêu cầu 3) ---
   const handleCreateResident = () => {
@@ -67,17 +203,29 @@ export default function ResidentList() {
 
   // --- Logic Import/Export (Giữ cấu trúc) ---
   const handleExport = () => {
-    // Export dữ liệu thật từ API
-    const dataToExport = residentList.map((res: Resident) => ({
+    // Export dữ liệu đã lọc
+    const dataToExport = filteredAndSortedResidents.map((res: Resident) => ({
       'ID': res.id,
-      'Họ và Tên': res.full_name, // Mapping field từ API
-      'Căn hộ': res.apartment_code || res.apartment_id, // Ưu tiên mã căn hộ
-      'Quyền hạn': roleMap[res.role as keyof typeof roleMap]?.label || res.role
+      'Họ và Tên': res.full_name,
+      'Căn hộ': res.apartment_code || res.apartment_id,
+      'Quyền hạn': roleMap[res.role as keyof typeof roleMap]?.label || res.role,
+      'Trạng thái': res.status || 'Đang sinh sống',
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DanhSachCuDan');
-    XLSX.writeFile(wb, 'DanhSachCuDan.xlsx');
+
+    // Tạo file và download thủ công để đảm bảo đúng tên file
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'DanhSachCuDan.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleImportClick = () => {
@@ -158,7 +306,12 @@ export default function ResidentList() {
   };
 
   return (
-    <Box>
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      alignItems: 'stretch'  // Đảm bảo tất cả children đều full width
+    }}>
       {/* Input ẩn để Import */}
       <input
         type="file"
@@ -179,13 +332,22 @@ export default function ResidentList() {
       >
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
           DANH SÁCH CƯ DÂN
+          {hasActiveFilters && (
+            <Chip
+              label="Đang lọc"
+              size="small"
+              color="info"
+              sx={{ ml: 2 }}
+              onDelete={handleClearFilters}
+            />
+          )}
         </Typography>
 
         <Box>
           <Button
             variant="outlined"
             startIcon={<FileUploadIcon />}
-            sx={{ mr: 1, backgroundColor: 'white', /* ... */ }}
+            sx={{ mr: 1, backgroundColor: 'white' }}
             onClick={handleImportClick}
           >
             Import
@@ -193,19 +355,145 @@ export default function ResidentList() {
           <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
-            sx={{ mr: 1, backgroundColor: 'white', /* ... */ }}
+            sx={{ mr: 1, backgroundColor: 'white' }}
             onClick={handleExport}
           >
             Export
           </Button>
           <Button
+            variant="outlined"
+            startIcon={<SearchIcon />}
+            sx={{ mr: 1, backgroundColor: 'white' }}
+            onClick={handleOpenAdvancedSearch}
+          >
+            Tìm kiếm nâng cao
+          </Button>
+          <Button
             variant="contained"
-            onClick={handleCreateResident} // <-- CẬP NHẬT
+            onClick={handleCreateResident}
           >
             Thêm cư dân
           </Button>
         </Box>
       </Box>
+
+      {/* MODAL TÌM KIẾM NÂNG CAO */}
+      <Modal
+        open={openAdvancedSearch}
+        onClose={handleCloseAdvancedSearch}
+        aria-labelledby="advanced-search-modal"
+      >
+        <Box sx={modalStyle}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h6" fontWeight="bold">
+              Tìm kiếm nâng cao
+            </Typography>
+            <IconButton onClick={handleCloseAdvancedSearch} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {/* Filters */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Tên cư dân"
+              value={tempFilters.name}
+              onChange={(e) => setTempFilters({ ...tempFilters, name: e.target.value })}
+              size="small"
+              fullWidth
+              placeholder="Nhập tên để tìm kiếm..."
+            />
+
+            <TextField
+              label="Mã căn hộ"
+              value={tempFilters.apartmentCode}
+              onChange={(e) => setTempFilters({ ...tempFilters, apartmentCode: e.target.value })}
+              size="small"
+              fullWidth
+              placeholder="Ví dụ: A-101"
+            />
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Vai trò</InputLabel>
+              <Select
+                value={tempFilters.role}
+                label="Vai trò"
+                onChange={(e) => setTempFilters({ ...tempFilters, role: e.target.value })}
+              >
+                <MenuItem value="">Tất cả</MenuItem>
+                <MenuItem value="owner">Chủ hộ</MenuItem>
+                <MenuItem value="member">Thành viên</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl size="small" fullWidth>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select
+                value={tempFilters.status}
+                label="Trạng thái"
+                onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value })}
+              >
+                <MenuItem value="">Tất cả</MenuItem>
+                <MenuItem value="Đang sinh sống">Đang sinh sống</MenuItem>
+                <MenuItem value="Đã chuyển đi">Đã chuyển đi</MenuItem>
+                <MenuItem value="Tạm vắng">Tạm vắng</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Sorting */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Sắp xếp theo</InputLabel>
+                <Select
+                  value={tempSort.sortBy}
+                  label="Sắp xếp theo"
+                  onChange={(e) => setTempSort({ ...tempSort, sortBy: e.target.value })}
+                >
+                  <MenuItem value="full_name">Tên</MenuItem>
+                  <MenuItem value="apartment_code">Mã căn hộ</MenuItem>
+                  <MenuItem value="id">ID</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Thứ tự</InputLabel>
+                <Select
+                  value={tempSort.sortOrder}
+                  label="Thứ tự"
+                  onChange={(e) => setTempSort({ ...tempSort, sortOrder: e.target.value as 'asc' | 'desc' })}
+                >
+                  <MenuItem value="asc">Tăng dần</MenuItem>
+                  <MenuItem value="desc">Giảm dần</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </Box>
+
+          {/* Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+            <Button
+              variant="outlined"
+              startIcon={<FilterAltOffIcon />}
+              onClick={handleClearFilters}
+            >
+              Xóa bộ lọc
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleApplyFilters}
+            >
+              Áp dụng
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Hiển thị số lượng kết quả khi có filter */}
+      {!isLoading && !error && hasActiveFilters && (
+        <Alert severity="info" sx={{ mb: 2, width: '100%' }}>
+          Tìm thấy {totalRows} kết quả phù hợp
+        </Alert>
+      )}
 
       {/* --- 3. HIỂN THỊ TRẠNG THÁI LOADING / ERROR --- */}
       {isLoading && (
@@ -222,7 +510,7 @@ export default function ResidentList() {
 
       {/* HÀNG 2: Danh sách cư dân (dạng thẻ) */}
       {!isLoading && !error && (
-        <Grid container spacing={2}>
+        <Grid container spacing={2} sx={{ width: '100%' }}>
           {paginatedResidents.map((res: Resident) => {
             const roleInfo = roleMap[res.role as keyof typeof roleMap] || { label: res.role, color: 'default' };
 

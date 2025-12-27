@@ -533,6 +533,7 @@ export default function MainLayout() {
           component="main"
           sx={{
             flexGrow: 1,
+            flexShrink: 0,  // KHÔNG cho phép co lại
             p: 3,
             backgroundColor: 'background.default',
             minHeight: '100vh',

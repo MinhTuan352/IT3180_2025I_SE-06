@@ -42,6 +42,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 // 2. ROUTES (Định tuyến)
 // =======================
 
+app.use('/api/audit', require('./routes/auditRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/residents', require('./routes/residentRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));

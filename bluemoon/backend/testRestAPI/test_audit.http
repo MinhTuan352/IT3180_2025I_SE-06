@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+### 1. Đăng nhập BAN QUẢN TRỊ (BOD) - Quyền cao nhất
+# User: admin.a
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+    "username": "admin.a",
+    "password": "password123"
+}
+
+###
+# -> Copy Token vào @bodToken
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY4NDQ4OTQsImV4cCI6MTc2Njg0ODQ5NH0.9BbeVMYzavN1lAUAkNS5cokEKIecc161AjF7TdWWZeI
+
+### 2. Xem toàn bộ nhật ký
+GET {{baseUrl}}/audit
+Authorization: {{bodToken}}
+
+### 3. Lọc xem ai đã TẠO dữ liệu
+GET {{baseUrl}}/audit?action_type=CREATE
+Authorization: {{bodToken}}
+
+### 4. Lọc xem các thay đổi về PHÍ (fees)
+GET {{baseUrl}}/audit?entity_name=fees
+Authorization: {{bodToken}}

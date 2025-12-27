@@ -40,8 +40,8 @@ const AuditLog = {
                 action_type, 
                 entity_name, 
                 String(entity_id), // Ép kiểu về string cho an toàn
-                oldValStr, 
-                newValStr, 
+                old_values ? JSON.stringify(old_values) : null, 
+                new_values ? JSON.stringify(new_values) : null,
                 ip_address || null, 
                 user_agent || null
             ]);

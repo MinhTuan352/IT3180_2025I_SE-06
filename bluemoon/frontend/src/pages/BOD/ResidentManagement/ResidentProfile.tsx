@@ -32,7 +32,7 @@ export default function ResidentProfile() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [changeHistory, setChangeHistory] = useState<any[]>([]);
   const [editRequests, setEditRequests] = useState<ProfileEditRequest[]>([]);
-  const [pendingRequestCount, setPendingRequestCount] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +64,6 @@ export default function ResidentProfile() {
         setVehicles(vehiclesData);
         setChangeHistory(historyData);
         setEditRequests(requestsResponse.data);
-        setPendingRequestCount(requestsResponse.pendingCount);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
@@ -128,22 +127,26 @@ export default function ResidentProfile() {
     }
   };
 
+  const [deleting, setDeleting] = useState(false);
+
   const handleDeleteResident = async () => {
     if (!id) return;
 
-    if (!window.confirm('Bạn có chắc chắn muốn xóa cư dân này?')) return;
+    if (!window.confirm(`CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn hồ sơ cư dân ${userData?.full_name}.\n\nDữ liệu không thể khôi phục. Bạn có chắc chắn không?`)) return;
 
+    setDeleting(true);
     try {
       await residentApi.delete(id);
-      setSnackbar({ open: true, message: 'Đã xóa cư dân!', severity: 'success' });
+      setSnackbar({ open: true, message: 'Đã xóa cư dân thành công!', severity: 'success' });
       setTimeout(() => navigate('/bod/resident/list'), 1500);
     } catch (err: any) {
       console.error('Error deleting resident:', err);
       setSnackbar({
         open: true,
-        message: err.response?.data?.message || 'Không thể xóa cư dân.',
+        message: err.response?.data?.message || 'Không thể xóa cư dân. Có thể do dữ liệu ràng buộc.',
         severity: 'error'
       });
+      setDeleting(false); // Only set false on error, success will navigate away
     }
   };
 
@@ -583,7 +586,6 @@ export default function ResidentProfile() {
                                 // Reload data
                                 const newData = await profileEditRequestApi.getRequestsByResidentId(id!);
                                 setEditRequests(newData.data);
-                                setPendingRequestCount(newData.pendingCount);
                                 // Reload profile to show updated info
                                 const resResponse = await residentApi.getById(id!);
                                 setUserData((resResponse as any).data || resResponse);
@@ -605,7 +607,6 @@ export default function ResidentProfile() {
                                 setSnackbar({ open: true, message: 'Đã từ chối yêu cầu.', severity: 'success' });
                                 const newData = await profileEditRequestApi.getRequestsByResidentId(id!);
                                 setEditRequests(newData.data);
-                                setPendingRequestCount(newData.pendingCount);
                               } catch (err: any) {
                                 setSnackbar({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra.', severity: 'error' });
                               }
@@ -633,8 +634,10 @@ export default function ResidentProfile() {
           variant="outlined"
           color="error"
           onClick={handleDeleteResident}
+          disabled={deleting}
+          startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : null}
         >
-          Xóa cư dân
+          {deleting ? 'Đang xóa...' : 'Xóa cư dân'}
         </Button>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button

@@ -195,6 +195,38 @@ const userController = {
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
+
+    /**
+     * [DELETE] /api/users/:id
+     * Xóa vĩnh viễn user (Cascade xóa Admin Profile)
+     */
+    deleteUser: async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            // 1. Không cho tự xóa
+            if (id === req.user.id) {
+                return res.status(400).json({ message: 'Bạn không thể tự xóa tài khoản của chính mình.' });
+            }
+
+            // 2. Không cho xóa Super Admin (Nếu có quy định - ở đây giả sử role_id 1 là BOD)
+            // Tạm thời cho phép BOD xóa lẫn nhau.
+
+            // 3. Xóa User (Trigger Cascade xóa Admin)
+            await User.deleteUser(id);
+
+            res.json({
+                success: true,
+                message: 'Đã xóa tài khoản vĩnh viễn.'
+            });
+        } catch (error) {
+            console.error('Delete user error:', error);
+            if (error.errno === 1451) {
+                return res.status(400).json({ message: 'Không thể xóa vì user này đang có dữ liệu ràng buộc (ví dụ Lịch sử thao tác, Token...). Vui lòng Khóa thay vì Xóa.' });
+            }
+            res.status(500).json({ message: 'Lỗi server khi xóa user.', error: error.message });
+        }
     }
 };
 

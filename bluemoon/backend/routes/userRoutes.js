@@ -43,4 +43,7 @@ router.get('/:id', userController.getAdminById);
 // [PUT] /api/users/:id - Cập nhật thông tin admin
 router.put('/:id', userController.updateAdmin);
 
+// [DELETE] /api/users/:id - Xóa admin vĩnh viễn
+router.delete('/:id', userController.deleteUser);
+
 module.exports = router;

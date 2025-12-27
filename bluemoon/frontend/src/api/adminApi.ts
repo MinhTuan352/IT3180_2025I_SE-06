@@ -180,4 +180,11 @@ export const adminApi = {
     const response = await axiosClient.put(url, { is_active });
     return response.data;
   },
+
+  // Xóa tài khoản vĩnh viễn
+  delete: async (id: string): Promise<any> => {
+    const url = `/users/${id}`;
+    const response = await axiosClient.delete(url);
+    return response.data;
+  },
 };

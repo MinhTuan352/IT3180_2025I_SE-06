@@ -35,12 +35,14 @@ axiosClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (localStorage.getItem('token') || window.location.pathname !== '/signin') {
+    if (error.response && error.response.status === 401) {
+      if (localStorage.getItem('token') || window.location.pathname !== '/signin') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.replace('/signin');
       }
-   
+    }
+
     return Promise.reject(error);
   }
 );

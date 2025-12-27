@@ -31,6 +31,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 // Định nghĩa màu cho vai trò (Giữ nguyên)
 const roleMap = {
@@ -90,6 +93,10 @@ export default function ResidentList() {
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   const [tempSort, setTempSort] = useState<SortState>(sort);
   const [openEditRequestsModal, setOpenEditRequestsModal] = useState(false);
+
+  // --- BULK SELECTION STATE ---
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // --- API CALL ---
   const { data: residentList = [], isLoading, error } = useQuery({
@@ -202,6 +209,79 @@ export default function ResidentList() {
   // Check if có filter đang active
   const hasActiveFilters = filters.name || filters.apartmentCode || filters.role || filters.status;
 
+  // --- BULK ACTIONS LOGIC ---
+
+  // Toggle selection for one item
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  // Toggle selection for all items on CURRENT PAGE
+  const handleSelectAllPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      // Select all IDs on current page that are not already selected
+      const pageIds = paginatedResidents.map(r => r.id);
+      setSelectedIds(prev => {
+        const uniqueIds = new Set([...prev, ...pageIds]);
+        return Array.from(uniqueIds);
+      });
+    } else {
+      // Deselect all IDs on current page
+      const pageIds = paginatedResidents.map(r => r.id);
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    }
+  };
+
+  // Helper to check if item is selected
+  const isSelected = (id: string) => selectedIds.includes(id);
+
+  // Check state for "Select All" checkbox
+  const pageIds = paginatedResidents.map(r => r.id);
+  const isAllPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+  const isSomePageSelected = pageIds.some(id => selectedIds.includes(id));
+
+  // Handle Bulk Delete
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} cư dân đã chọn?\n\nLƯU Ý: Những cư dân có dữ liệu ràng buộc (Hóa đơn, Xe, Sự cố...) sẽ KHÔNG thể xóa.`)) return;
+
+    setDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    // Loop through selected items
+    for (const id of selectedIds) {
+      try {
+        await residentApi.delete(id);
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        // Try to extract resident name for better error message
+        const resName = residentList.find(r => r.id === id)?.full_name || id;
+        // Only log unique error types or generic message
+        console.error(`Failed to delete ${id}:`, err);
+        errors.push(`${resName}: ${err.response?.data?.message || 'Lỗi không xác định'}`);
+      }
+    }
+
+    setDeleting(false);
+
+    // Show summary
+    if (failCount === 0) {
+      alert(`Đã xóa thành công ${successCount} cư dân.`);
+      // Refresh data
+      window.location.reload(); // Simple reload or invalidate query
+    } else {
+      alert(`Đã xóa ${successCount} cư dân.\nThất bại ${failCount} cư dân.\n\nChi tiết lỗi (3 lỗi đầu):\n${errors.slice(0, 3).join('\n')}${errors.length > 3 ? '\n...' : ''}`);
+      // Optionally generic reload or just refetch
+      navigate(0);
+    }
+  };
+
   // --- Handlers cho Navigation (Yêu cầu 3) ---
   const handleCreateResident = () => {
     navigate(`${basePath}/resident/profile/create`);
@@ -213,8 +293,15 @@ export default function ResidentList() {
 
   // --- Logic Import/Export (Giữ cấu trúc) ---
   const handleExport = () => {
-    // Export dữ liệu đã lọc
-    const dataToExport = filteredAndSortedResidents.map((res: Resident) => ({
+    // Export dữ liệu đã lọc HOẶC dữ liệu đã chọn
+    let dataToProcess = filteredAndSortedResidents;
+
+    // Nếu có chọn ít nhất 1 item -> Chỉ export những item đó
+    if (selectedIds.length > 0) {
+      dataToProcess = residentList.filter(r => selectedIds.includes(r.id));
+    }
+
+    const dataToExport = dataToProcess.map((res: Resident) => ({
       'ID': res.id,
       'Họ và Tên': res.full_name,
       'Căn hộ': res.apartment_code || res.apartment_id,
@@ -618,6 +705,23 @@ export default function ResidentList() {
         </Alert>
       )}
 
+      {/* Bulk Actions Indicator & Select All */}
+      {!isLoading && !error && paginatedResidents.length > 0 && (
+        <Box sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isAllPageSelected}
+                indeterminate={!isAllPageSelected && isSomePageSelected}
+                onChange={handleSelectAllPage}
+                color="primary"
+              />
+            }
+            label={selectedIds.length > 0 ? `Đã chọn ${selectedIds.length} cư dân` : "Chọn tất cả trang này"}
+          />
+        </Box>
+      )}
+
       {/* HÀNG 2: Danh sách cư dân (dạng thẻ) */}
       {!isLoading && !error && (
         <Grid container spacing={2} sx={{ width: '100%' }}>
@@ -628,7 +732,13 @@ export default function ResidentList() {
               <Grid
                 size={{ xs: 12 }}
                 key={res.id}>
-                <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+                <Card sx={{ display: 'flex', alignItems: 'center', p: 2, border: isSelected(res.id) ? '1px solid #1976d2' : 'none' }}>
+                  {/* Tickbox cho mỗi thẻ */}
+                  <Checkbox
+                    checked={isSelected(res.id)}
+                    onChange={() => handleSelectOne(res.id)}
+                    sx={{ mr: 1 }}
+                  />
 
                   <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
                     {res.full_name.charAt(0).toUpperCase()}
@@ -685,6 +795,44 @@ export default function ResidentList() {
             showFirstButton
             showLastButton
           />
+        </Box>
+      )}
+      {/* Bulk Action Footer */}
+      {selectedIds.length > 0 && (
+        <Box sx={{
+          position: 'fixed',
+          bottom: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bgcolor: 'white',
+          boxShadow: 3,
+          borderRadius: 2,
+          p: 2,
+          zIndex: 1000,
+          display: 'flex',
+          gap: 2,
+          alignItems: 'center',
+          border: '1px solid #ddd'
+        }}>
+          <Typography variant="body1" fontWeight="bold">
+            Đang chọn: {selectedIds.length}
+          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            onClick={handleBulkDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Đang xóa...' : 'Xóa đã chọn'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExport}
+          >
+            Export đã chọn
+          </Button>
         </Box>
       )}
     </Box>

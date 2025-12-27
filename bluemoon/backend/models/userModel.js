@@ -350,6 +350,17 @@ const User = {
         } finally {
             connection.release();
         }
+    },
+
+    /**
+     * [DELETE] Xóa user vĩnh viễn
+     */
+    deleteUser: async (id) => {
+        try {
+            await db.execute(`DELETE FROM users WHERE id = ?`, [id]);
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

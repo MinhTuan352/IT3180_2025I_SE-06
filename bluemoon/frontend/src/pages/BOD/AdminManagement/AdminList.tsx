@@ -29,6 +29,9 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import DeleteIcon from '@mui/icons-material/Delete';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import * as XLSX from 'xlsx';
 
 // Định nghĩa màu cho các vai trò
@@ -90,6 +93,10 @@ export default function AdminList() {
   // Temp states cho modal
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   const [tempSort, setTempSort] = useState<SortState>(sort);
+
+  // --- BULK SELECTION STATE ---
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // --- KẾT NỐI API ---
   const { data: adminList = [], isLoading, error } = useQuery({
@@ -210,9 +217,74 @@ export default function AdminList() {
     navigate(`/bod/admin/profile/${adminId}`);
   };
 
-  // --- EXPORT (dùng dữ liệu đã filter) ---
+  // --- BULK ACTIONS LOGIC ---
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const pageIds = paginatedAdmins.map(a => a.id);
+      setSelectedIds(prev => {
+        const uniqueIds = new Set([...prev, ...pageIds]);
+        return Array.from(uniqueIds);
+      });
+    } else {
+      const pageIds = paginatedAdmins.map(a => a.id);
+      setSelectedIds(prev => prev.filter(id => !pageIds.includes(id)));
+    }
+  };
+
+  const isSelected = (id: string) => selectedIds.includes(id);
+
+  const pageIds = paginatedAdmins.map(a => a.id);
+  const isAllPageSelected = pageIds.length > 0 && pageIds.every(id => selectedIds.includes(id));
+  const isSomePageSelected = pageIds.some(id => selectedIds.includes(id));
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    if (!window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${selectedIds.length} quản trị viên đã chọn?`)) return;
+
+    setDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const id of selectedIds) {
+      try {
+        await adminApi.delete(id);
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        const name = adminList.find(a => a.id === id)?.username || id;
+        console.error(`Failed to delete ${id}:`, err);
+        errors.push(`${name}: ${err.response?.data?.message || 'Lỗi không xác định'}`);
+      }
+    }
+
+    setDeleting(false);
+
+    if (failCount === 0) {
+      alert(`Đã xóa thành công ${successCount} tài khoản.`);
+      window.location.reload();
+    } else {
+      alert(`Đã xóa ${successCount}.\nThất bại ${failCount}.\n\nLỗi:\n${errors.slice(0, 3).join('\n')}`);
+      navigate(0);
+    }
+  };
+
+  // --- EXPORT (dùng dữ liệu đã filter HOẶC chọn) ---
   const handleExport = () => {
-    const dataToExport = filteredAndSortedAdmins.map((admin: UserData) => ({
+    let dataToProcess = filteredAndSortedAdmins;
+
+    if (selectedIds.length > 0) {
+      dataToProcess = adminList.filter(a => selectedIds.includes(a.id));
+    }
+
+    const dataToExport = dataToProcess.map((admin: UserData) => ({
       'ID': admin.id,
       'Username': admin.username,
       'Họ và Tên': admin.full_name || '',
@@ -452,6 +524,23 @@ export default function AdminList() {
         </Alert>
       )}
 
+      {/* Bulk Actions Indicator & Select All */}
+      {!isLoading && !error && paginatedAdmins.length > 0 && (
+        <Box sx={{ mb: 1, display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={isAllPageSelected}
+                indeterminate={!isAllPageSelected && isSomePageSelected}
+                onChange={handleSelectAllPage}
+                color="primary"
+              />
+            }
+            label={selectedIds.length > 0 ? `Đã chọn ${selectedIds.length} người` : "Chọn tất cả trang này"}
+          />
+        </Box>
+      )}
+
       {/* Hiển thị số lượng kết quả khi có filter */}
       {!isLoading && !error && hasActiveFilters && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -475,7 +564,12 @@ export default function AdminList() {
 
               return (
                 <Grid size={{ xs: 12 }} key={admin.id}>
-                  <Card sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+                  <Card sx={{ display: 'flex', alignItems: 'center', p: 2, border: isSelected(admin.id) ? '1px solid #1976d2' : 'none' }}>
+                    <Checkbox
+                      checked={isSelected(admin.id)}
+                      onChange={() => handleSelectOne(admin.id)}
+                      sx={{ mr: 1 }}
+                    />
                     <Avatar sx={{ width: 56, height: 56, mr: 2, bgcolor: roleInfo.color === 'primary' ? 'primary.main' : 'secondary.main' }}>
                       {displayName.charAt(0).toUpperCase()}
                     </Avatar>
@@ -519,6 +613,44 @@ export default function AdminList() {
             showFirstButton
             showLastButton
           />
+        </Box>
+      )}
+      {/* Bulk Action Footer */}
+      {selectedIds.length > 0 && (
+        <Box sx={{
+          position: 'fixed',
+          bottom: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bgcolor: 'white',
+          boxShadow: 3,
+          borderRadius: 2,
+          p: 2,
+          zIndex: 1000,
+          display: 'flex',
+          gap: 2,
+          alignItems: 'center',
+          border: '1px solid #ddd'
+        }}>
+          <Typography variant="body1" fontWeight="bold">
+            Đang chọn: {selectedIds.length}
+          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+            onClick={handleBulkDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Đang xóa...' : 'Xóa đã chọn'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExport}
+          >
+            Export đã chọn
+          </Button>
         </Box>
       )}
     </Box>

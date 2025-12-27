@@ -12,9 +12,6 @@ import { residentApi } from '../../../api/residentApi';
 //import * as XLSX from 'xlsx';
 
 // Icons
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import BusinessIcon from '@mui/icons-material/Business';
 import LayersIcon from '@mui/icons-material/Layers';
 import HomeIcon from '@mui/icons-material/Home';
@@ -56,11 +53,6 @@ export default function ResidentApartmentLookup() {
     }));
   }, [dbApartments, dbResidents]);
 
-  // --- HEADER ACTIONS (GIỮ NGUYÊN TỪ RESIDENT LIST) ---
-  const handleExport = () => { alert("Export excel từ view Căn hộ"); };
-  const handleImportClick = () => { alert("Import excel vào view Căn hộ"); };
-  const handleCreateResident = () => { navigate(`${basePath}/resident/profile/create`); };
-
   // --- NAVIGATION HANDLERS ---
   const handleSelectBuilding = (b: 'A' | 'B') => setSelectedBuilding(b);
   const handleSelectFloor = (f: number) => setSelectedFloor(f);
@@ -83,27 +75,28 @@ export default function ResidentApartmentLookup() {
 
   // --- RENDER CONTENT ---
   const renderContent = () => {
-    if (loadingApt || loadingRes) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
+    if (loadingApt || loadingRes) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5, width: '100%' }}><CircularProgress /></Box>;
 
     // 1. CẤP ĐỘ 1: CHỌN TÒA NHÀ
     if (!selectedBuilding) {
       return (
-        <Grid container spacing={4} justifyContent="center" sx={{ mt: 2 }}>
+        <Grid container spacing={4} justifyContent="center" sx={{ width: '100%' }}>
           {['A', 'B'].map((building) => (
-            <Grid sx={{ xs: 12, sm: 5 }} key={building}>
-              <Card sx={{ borderRadius: 4, bgcolor: building === 'A' ? '#e3f2fd' : '#f3e5f5', height: 200 }}>
+            <Grid key={building} size={{ xs: 12, sm: 6 }}>
+              <Card sx={{ borderRadius: 4, bgcolor: building === 'A' ? '#e3f2fd' : '#f3e5f5', height: 400 }}>
                 <CardActionArea
                   sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
                   onClick={() => handleSelectBuilding(building as 'A' | 'B')}
                 >
-                  <BusinessIcon sx={{ fontSize: 60, mb: 2, color: building === 'A' ? 'primary.main' : 'secondary.main' }} />
+                  <BusinessIcon sx={{ fontSize: 70, mb: 2, color: building === 'A' ? 'primary.main' : 'secondary.main' }} />
                   <Typography variant="h3" fontWeight="bold">TÒA {building}</Typography>
-                  <Typography variant="body2" color="text.secondary">{FLOORS} Tầng • {FLOORS * APARTMENTS_PER_FLOOR} Căn hộ</Typography>
+                  <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>{FLOORS} Tầng • {FLOORS * APARTMENTS_PER_FLOOR} Căn hộ</Typography>
                 </CardActionArea>
               </Card>
             </Grid>
           ))}
         </Grid>
+
       );
     }
 
@@ -244,9 +237,9 @@ export default function ResidentApartmentLookup() {
   };
 
   return (
-    <Box>
-      {/* 1. HEADER + ACTIONS (GIỮ NGUYÊN) */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ width: { xs: 400, sm: 600, md: 900, lg: 980 } }}>
+      {/* 1. HEADER */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 'bold' }}>TRA CỨU THEO CĂN HỘ</Typography>
           {/* Breadcrumbs Navigation */}
@@ -265,23 +258,10 @@ export default function ResidentApartmentLookup() {
             )}
           </Breadcrumbs>
         </Box>
-
-        {/* Các nút chức năng (Giữ nguyên như ResidentList) */}
-        <Box>
-          <Button variant="outlined" startIcon={<FileUploadIcon />} onClick={handleImportClick} sx={{ mr: 1, bgcolor: 'white' }}>
-            Import
-          </Button>
-          <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleExport} sx={{ mr: 1, bgcolor: 'white' }}>
-            Export
-          </Button>
-          <Button variant="contained" startIcon={<AddCircleOutlineIcon />} onClick={handleCreateResident}>
-            Thêm cư dân
-          </Button>
-        </Box>
       </Box>
 
       {/* 2. MAIN CONTENT AREA */}
-      <Paper sx={{ p: 3, borderRadius: 3, minHeight: 600, bgcolor: '#fafafa' }}>
+      <Paper sx={{ p: 3, borderRadius: 3, bgcolor: '#fafafa', width: '100%' }}>
         {selectedFloor && (
           <Button startIcon={<ArrowBackIcon />} onClick={backToFloorSelection} sx={{ mb: 2 }}>
             Quay lại danh sách tầng

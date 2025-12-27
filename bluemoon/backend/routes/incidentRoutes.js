@@ -2,45 +2,10 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
 const incidentController = require('../controllers/incidentController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
-
-// ===============================
-// CẤU HÌNH MULTER (UPLOAD ẢNH SỰ CỐ)
-// ===============================
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        // Lưu vào folder uploads/incidents
-        cb(null, 'uploads/incidents/');
-    },
-    filename: function (req, file, cb) {
-        // Đặt tên file unique để tránh trùng lặp
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const fileFilter = (req, file, cb) => {
-    // Chỉ chấp nhận file ảnh (jpg, png, jpeg)
-    const allowedTypes = /jpeg|jpg|png/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (extname && mimetype) {
-        return cb(null, true);
-    } else {
-        cb(new Error('Chỉ chấp nhận file ảnh (JPG, PNG)!'));
-    }
-};
-
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Giới hạn 5MB/file
-    fileFilter: fileFilter
-});
+const upload = require('../middleware/uploadMiddleware');
 
 // ===============================
 // ĐỊNH TUYẾN API

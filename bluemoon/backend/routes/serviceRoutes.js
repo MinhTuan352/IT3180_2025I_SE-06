@@ -2,28 +2,10 @@
 
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path'); // [MỚI] Import path
 const serviceController = require('../controllers/serviceController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
-
-// [MỚI] CẤU HÌNH UPLOAD ẢNH
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/services/'),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-const upload = multer({ 
-    storage, 
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) cb(null, true);
-        else cb(new Error('Chỉ chấp nhận file ảnh!'));
-    }
-});
+const upload = require('../middleware/uploadMiddleware');
 
 router.use(checkAuth);
 

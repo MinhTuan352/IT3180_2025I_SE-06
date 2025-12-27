@@ -2,10 +2,11 @@
 
 const Fee = require('../models/feeModel');
 const Vehicle = require('../models/vehicleModel'); // [MỚI] Import để lấy danh sách xe
-const invoiceNotifier = require('../jobs/cronJob');
+const cronJob = require('../jobs/cronJob');
 const db = require('../config/db');
 const emailService = require('../services/emailService');
 const idGenerator = require('../utils/idGenerator');
+const AuditLog = require('../models/auditModel');
 
 // Helper: Tìm Resident ID từ User ID (Fix lỗi lệch ID)
 const getResidentIdFromUser = async (userId) => {
@@ -13,13 +14,6 @@ const getResidentIdFromUser = async (userId) => {
     const [rows] = await db.execute(query, [userId]);
     if (rows.length > 0) return rows[0].id;
     return null;
-};
-
-// Helper: Làm sạch chuỗi kỳ thanh toán để tạo ID
-// VD: "T12/2025" -> "122025", "2025-12" -> "122025"
-const sanitizePeriod = (period) => {
-    if (!period) return 'NODATE';
-    return period.replace(/[^0-9]/g, ''); // Chỉ giữ lại số
 };
 
 const feeController = {
@@ -30,7 +24,7 @@ const feeController = {
     getFeeTypes: async (req, res) => {
         try {
             const types = await Fee.getAllFeeTypes();
-            res.json({ success: true, data: types });
+            res.status(200).json({ success: true, data: types });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
@@ -42,7 +36,21 @@ const feeController = {
             if (!fee_name || !fee_code) {
                 return res.status(400).json({ message: 'Tên phí và Mã phí là bắt buộc.' });
             }
+            if (default_price < 0) {
+                return res.status(400).json({ message: 'Đơn giá không được là số âm.' });
+            }
             const newType = await Fee.createFeeType(req.body);
+
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'CREATE',
+                entity_name: 'fee_types',
+                entity_id: newType.fee_code, // Hoặc ID nếu hàm create trả về
+                old_values: null,
+                new_values: req.body,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
             res.status(201).json({ success: true, message: 'Thêm loại phí thành công!', data: newType });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
@@ -128,6 +136,11 @@ const feeController = {
     createInvoice: async (req, res) => {
         try {
             const { apartment_id, resident_id, fee_type_id, billing_period, due_date, items } = req.body;
+
+            // [FIX REQ 20] Validate Items
+            if (items && items.some(i => i.unit_price < 0 || i.amount < 0)) {
+                return res.status(400).json({ message: 'Số tiền trong hóa đơn không được âm.' });
+            }
             
             const [meta] = await db.execute(`SELECT ft.fee_code, a.apartment_code FROM fee_types ft, apartments a WHERE ft.id = ? AND a.id = ?`, [fee_type_id, apartment_id]);
             if (meta.length === 0) return res.status(404).json({ message: 'Dữ liệu không hợp lệ.' });
@@ -153,6 +166,17 @@ const feeController = {
             };
 
             await Fee.createInvoice(invoiceData, processedItems);
+
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'CREATE',
+                entity_name: 'fees',
+                entity_id: invoiceId,
+                new_values: invoiceData,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
+
             res.status(201).json({ success: true, message: 'Tạo thành công!', data: invoiceData });
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -202,8 +226,28 @@ const feeController = {
                 return res.status(400).json({ message: 'Tên phí và Mã phí là bắt buộc.' });
             }
 
+            if (default_price !== undefined && default_price < 0) {
+                return res.status(400).json({ message: 'Đơn giá không được là số âm.' });
+            }
+
+            // Lấy dữ liệu cũ để ghi log
+            const [oldData] = await db.execute('SELECT * FROM fee_types WHERE id = ?', [id]);
+            if (oldData.length === 0) return res.status(404).json({ message: 'Loại phí không tồn tại.' });
+
             // Gọi Model update
             await Fee.updateFeeType(id, { ...req.body, transfer_syntax });
+
+            // [FIX REQ 17] Ghi Audit Log
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'UPDATE',
+                entity_name: 'fee_types',
+                entity_id: id,
+                old_values: oldData[0],
+                new_values: req.body,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
 
             res.json({
                 success: true,
@@ -226,9 +270,21 @@ const feeController = {
     deleteFeeType: async (req, res) => {
         try {
             const { id } = req.params;
+            const [oldData] = await db.execute('SELECT * FROM fee_types WHERE id = ?', [id]);
+            if (oldData.length === 0) return res.status(404).json({ message: 'Loại phí không tồn tại.' });
 
             await Fee.deleteFeeType(id);
 
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'DELETE',
+                entity_name: 'fee_types',
+                entity_id: id,
+                old_values: oldData[0],
+                new_values: null,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
             res.json({ success: true, message: 'Đã xóa loại phí thành công.' });
 
         } catch (error) {
@@ -247,7 +303,7 @@ const feeController = {
     triggerLateFeeScan: async (req, res) => {
         try {
             // Chạy hàm logic của Cron Job
-            await invoiceNotifier.checkAndNotify();
+            await cronJob.scanOverdueInvoices();
             res.json({ success: true, message: 'Đã thực hiện quét công nợ thủ công. Kiểm tra Terminal để xem kết quả.' });
         } catch (error) {
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
@@ -259,6 +315,7 @@ const feeController = {
      * POST /api/fees/:id/remind
      */
     sendReminder: async (req, res) => {
+        const connection = await db.getConnection();
         try {
             const { id } = req.params;
 
@@ -289,7 +346,7 @@ const feeController = {
             const amountDue = feeDetail.total_amount - feeDetail.amount_paid;
 
             // 3. Tạo thông báo trong hệ thống
-            const notiId = `TB${Date.now().toString().slice(-8)}`;
+            const notiId = await idGenerator.generateDateBasedId('notifications', 'TB', 'id', connection);
             const title = `Nhắc nhở thanh toán: ${feeDetail.fee_name || 'Công nợ'}`;
             const content = `Kính gửi ${resident.full_name},\n\nBạn có hóa đơn chưa thanh toán:\n- Mã HĐ: ${feeDetail.id}\n- Loại phí: ${feeDetail.fee_name}\n- Kỳ: ${feeDetail.billing_period}\n- Số tiền còn nợ: ${amountDue.toLocaleString('vi-VN')} VNĐ\n- Hạn thanh toán: ${new Date(feeDetail.due_date).toLocaleDateString('vi-VN')}\n\nVui lòng thanh toán sớm để tránh phát sinh phí phạt.\n\nTrân trọng,\nBan Quản Lý Chung Cư BlueMoon`;
 
@@ -352,6 +409,7 @@ const feeController = {
     sendBatchReminder: async (req, res) => {
         try {
             const { invoice_ids, filter } = req.body;
+            const connection = await db.getConnection();
 
             let invoices = [];
 
@@ -420,7 +478,7 @@ const feeController = {
                         `- ${inv.fee_name} (${inv.billing_period}): ${(inv.total_amount - (inv.amount_paid || 0)).toLocaleString('vi-VN')} VNĐ`
                     ).join('\n');
 
-                    const notiId = `TB${Date.now().toString().slice(-8)}-${residentId.toString().slice(-3)}`;
+                    const notiId = await idGenerator.generateDateBasedId('notifications', 'TB', 'id', connection);
                     const title = `Nhắc nhở thanh toán công nợ`;
                     const content = `Kính gửi ${data.resident_name} (${data.apartment_code}),\n\nBạn có ${data.invoices.length} hóa đơn chưa thanh toán:\n${invoiceLines}\n\n💰 Tổng cộng: ${totalDue.toLocaleString('vi-VN')} VNĐ\n\nVui lòng thanh toán sớm để tránh phát sinh phí phạt.\n\nTrân trọng,\nBan Quản Lý`;
 
@@ -493,14 +551,13 @@ const feeController = {
     // [ĐÃ SỬA] Đổi tên thành importUtilityReadings và thêm lưu chỉ số
     importUtilityReadings: async (req, res) => {
         try {
-            const { fee_code = 'PN', billingPeriod, readings } = req.body;
+            const { fee_code, billingPeriod, readings } = req.body;
             if (!billingPeriod || !readings) return res.status(400).json({ message: 'Thiếu dữ liệu.' });
 
             const [feeTypes] = await db.execute("SELECT id, fee_name, default_price, unit FROM fee_types WHERE fee_code = ?", [fee_code]);
             if (feeTypes.length === 0) return res.status(400).json({ message: `Mã phí ${fee_code} không tồn tại.` });
             
             const feeType = feeTypes[0];
-            const cleanPeriod = sanitizePeriod(billingPeriod);
             const now = new Date();
             const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
 
@@ -508,12 +565,10 @@ const feeController = {
             const errors = [];
 
             for (const reading of readings) {
-                // [QUAN TRỌNG] Khai báo biến bên ngoài khối try/catch
-                // Điều này giúp catch block có thể truy cập apartmentCode để báo lỗi
+                // Khai báo biến bên ngoài try/catch
                 const { apartmentCode, oldIndex, newIndex, usage, amount } = reading;
 
                 try {
-                    // Tìm thông tin căn hộ và chủ hộ
                     const [data] = await db.execute(
                         `SELECT a.id as apartment_id, r.id as resident_id 
                          FROM apartments a 
@@ -529,9 +584,21 @@ const feeController = {
 
                     const { apartment_id, resident_id } = data[0];
                     const actualUsage = usage !== undefined ? usage : (newIndex - oldIndex);
+                    
+                    // [CHECK] Usage không được âm
+                    if (actualUsage < 0) {
+                        errors.push({ apartmentCode, error: 'Chỉ số mới nhỏ hơn chỉ số cũ.' });
+                        continue;
+                    }
+
                     const actualAmount = amount !== undefined ? amount : (actualUsage * (feeType.default_price || 0));
 
-                    const invoiceId = `${fee_code}-${apartmentCode}-${cleanPeriod}`;
+                    // Sinh ID
+                    const invoiceId = await idGenerator.generateInvoiceId(
+                        fee_code, 
+                        apartmentCode, 
+                        billingPeriod
+                    );
 
                     const invoiceData = {
                         id: invoiceId, apartment_id, resident_id,
@@ -549,7 +616,6 @@ const feeController = {
                         unit_price: feeType.default_price || 0, amount: actualAmount
                     }];
 
-                    // Lưu chỉ số vào bảng utility_readings (Sử dụng hàm model mới)
                     const readingData = {
                         fee_code,
                         old_index: oldIndex || 0,
@@ -560,7 +626,6 @@ const feeController = {
                     results.push({ apartmentCode, status: 'OK' });
 
                 } catch (err) {
-                    // Biến apartmentCode giờ đã truy cập được ở đây
                     if (err.code === 'ER_DUP_ENTRY') {
                         errors.push({ apartmentCode, error: 'Đã tồn tại hóa đơn kỳ này.' });
                     } else {
@@ -714,7 +779,6 @@ const feeController = {
             const defaultFeeCode = feeTypes.length > 0 ? feeTypes[0].fee_code : 'PQL';
             const defaultFeeId = feeTypes.length > 0 ? feeTypes[0].id : 1;
             
-            const cleanPeriod = sanitizePeriod(billing_period);
             const now = new Date();
             const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
 
@@ -724,7 +788,11 @@ const feeController = {
             for (const inv of invoices) {
                 try {
                     // ID: PQL-A101-122025
-                    const invoiceId = `${defaultFeeCode}-${inv.apartment_code}-${cleanPeriod}`;
+                    const invoiceId = await idGenerator.generateInvoiceId(
+                        defaultFeeCode, 
+                        inv.apartment_code, 
+                        billing_period
+                    );
                     
                     const invoiceData = {
                         id: invoiceId,
@@ -791,11 +859,14 @@ const feeController = {
             });
 
             let successCount = 0, skipCount = 0;
-            const cleanPeriod = sanitizePeriod(billing_period);
 
             for (const aptId in vehicleMap) {
                 const { code: aptCode, list: vehicles } = vehicleMap[aptId];
-                const invoiceId = `PGX-${aptCode}-${cleanPeriod}`;
+                const invoiceId = await idGenerator.generateInvoiceId(
+                    'PGX', 
+                    aptCode, 
+                    billing_period
+                );
                 const feeItems = [];
                 let totalAmount = 0;
 

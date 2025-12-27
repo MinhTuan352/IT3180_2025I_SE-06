@@ -3,6 +3,7 @@
 const Service = require('../models/serviceModel');
 const AuditLog = require('../models/auditModel');
 const db = require('../config/db');
+const idGenerator = require('../utils/idGenerator');
 
 // Helper: Tìm Resident ID từ User ID
 const getResidentIdFromUser = async (userId) => {
@@ -228,7 +229,7 @@ const serviceController = {
             const booking = await Service.getBookingDetail(id);
             if (booking) {
                 // Tạo ID thông báo (dùng timestamp để unique)
-                const notiId = `TB-DV-${Date.now()}`;
+                const notiId = await idGenerator.generateDateBasedId('notifications', 'TB', 'id');
                 const title = `Cập nhật trạng thái đặt dịch vụ: ${booking.service_name}`;
                 const content = `Đơn đặt dịch vụ "${booking.service_name}" vào ngày ${new Date(booking.booking_date).toLocaleDateString('vi-VN')} của bạn đã chuyển sang trạng thái: ${status.toUpperCase()}.`;
 

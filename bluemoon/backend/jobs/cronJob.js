@@ -97,7 +97,7 @@ const CronJob = {
                 `);
 
                 for (const item of schedules) {
-                    const notiId = `AUTO-MAIN-${Date.now()}-${item.id}`;
+                    const notiId = await idGenerator.generateDateBasedId('notifications', 'TB', 'id', connection);
                     const title = `🛠️ Nhắc lịch bảo trì: ${item.asset_name}`;
                     const content = `Hôm nay có lịch bảo trì cho "${item.asset_name}" tại ${item.location}.\nĐơn vị: ${item.technician_name || 'Nội bộ'}.`;
 

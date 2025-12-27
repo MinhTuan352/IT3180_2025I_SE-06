@@ -28,8 +28,8 @@ Content-Type: {{contentType}}
 ###
 
 # --- CẤU HÌNH TOKEN ---
-@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjY4MzM5NSwiZXhwIjoxNzY2Njg2OTk1fQ.s3c8L7DAiKEgJfLpQBprA9JZ7KhRj6ncDN5tGU9V7VE
-@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2NjgzNDEwLCJleHAiOjE3NjY2ODcwMTB9.sdGXf5xcWfdS_e-23EUGBFyrDzApZQNzY_qMvnuzjgE
+@accToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMiIsInJvbGUiOiJhY2NvdW50YW5jZSIsImlhdCI6MTc2NjgyNzc0NywiZXhwIjoxNzY2ODMxMzQ3fQ.cZ_t-hzTu1tzmqfx2Tcb6rxLJdvh8YH7gR7JdyXWYZ0
+@resToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IlIwMDAxIiwicm9sZSI6InJlc2lkZW50IiwiaWF0IjoxNzY2ODI1NDc2LCJleHAiOjE3NjY4MjkwNzZ9.B27QxkmSBim8uXyXr3wa1Xz786zOzCstFiHlun-1PZs
 
 
 # ==================================================================

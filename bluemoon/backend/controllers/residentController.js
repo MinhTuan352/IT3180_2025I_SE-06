@@ -3,7 +3,8 @@
 const Resident = require('../models/residentModel');
 const db = require('../config/db');
 const idGenerator = require('../utils/idGenerator');
-const bcrypt = require('bcryptjs'); // [MỚI] Cần để hash password
+const bcrypt = require('bcryptjs');
+const AuditLog = require('../models/auditModel'); // [MỚI] Import AuditLog
 
 const residentController = {
 
@@ -18,7 +19,23 @@ const residentController = {
 
     updateMyProfile: async (req, res) => {
         try {
-            await Resident.updateMyProfile(req.user.id, req.body);
+            const userId = req.user.id;
+            const oldData = await Resident.findByUserId(userId);
+            
+            await Resident.updateMyProfile(userId, req.body);
+
+            // [FIX REQ 2] Ghi log khi cư dân tự sửa (nếu có logic duyệt sau này sẽ khác, giờ log trước)
+            AuditLog.create({
+                user_id: userId,
+                action_type: 'UPDATE',
+                entity_name: 'residents',
+                entity_id: oldData.id,
+                old_values: oldData,
+                new_values: req.body,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
+
             res.json({ success: true, message: 'Cập nhật thành công!' });
         } catch (e) { res.status(500).json({ message: e.message }); }
     },
@@ -51,7 +68,7 @@ const residentController = {
     },
 
     /**
-     * [CREATE] Thêm cư dân & Tạo tài khoản (nếu có) & Ghi lịch sử
+     * [CREATE] Thêm cư dân
      */
     createResident: async (req, res) => {
         const connection = await db.getConnection();
@@ -63,45 +80,36 @@ const residentController = {
                 dob, gender, cccd, phone, email, 
                 hometown, occupation, relationship_with_owner, 
                 identity_date, identity_place,
-                username, password // Thông tin tài khoản (optional)
+                username, password 
             } = req.body;
 
-            // 1. Sinh ID cư dân Rxxxx
             const newId = await idGenerator.generateIncrementalId('residents', 'R', 'id', 4, connection);
             let userId = null;
 
-            // 2. Xử lý tạo Tài khoản (Chỉ dành cho Chủ hộ)
             if (role === 'owner' && username && password) {
-                // Kiểm tra trùng username/email trong bảng users trước (để báo lỗi rõ ràng)
                 const [existing] = await connection.execute(
                     `SELECT id FROM users WHERE username = ? OR email = ?`, 
                     [username, email]
                 );
                 if (existing.length > 0) {
-                    throw new Error('Username hoặc Email đã được sử dụng trong hệ thống.');
+                    throw new Error('Username hoặc Email đã được sử dụng.');
                 }
 
-                // Hash password
                 const salt = await bcrypt.genSalt(10);
                 const hashedPassword = await bcrypt.hash(password, salt);
 
-                // Tạo User (Dùng ID giống Resident ID để dễ quản lý: R0001)
-                // Role ID = 3 (Resident)
                 await connection.execute(
                     `INSERT INTO users (id, username, password, email, phone, role_id, is_active) 
                      VALUES (?, ?, ?, ?, ?, 3, 1)`,
                     [newId, username, hashedPassword, email, phone]
                 );
                 
-                userId = newId; // Link User ID vào Resident
+                userId = newId; 
             }
 
-            // 3. Tạo Resident
-            // Chuẩn bị data để gọi Model (hoặc insert trực tiếp trong transaction này cho tiện)
-            // Lưu ý: residentModel.create đã hỗ trợ connection, ta dùng nó
             await Resident.create({
                 id: newId,
-                user_id: userId, // NULL nếu không tạo tk, hoặc Rxxxx nếu có
+                user_id: userId,
                 apartment_id,
                 full_name,
                 role,
@@ -112,7 +120,6 @@ const residentController = {
                 status: 'Đang sinh sống'
             }, connection);
 
-            // 4. Ghi lịch sử "Chuyển đến"
             await Resident.addHistory({
                 resident_id: newId,
                 apartment_id: apartment_id,
@@ -121,12 +128,21 @@ const residentController = {
                 note: 'Đăng ký mới vào hệ thống'
             }, connection);
 
-            // 5. Cập nhật trạng thái căn hộ -> 'Đang sinh sống' (nếu đang Trống)
-            // Logic phụ: Nếu thêm người vào nhà trống thì nhà thành có người
             await connection.execute(
                 `UPDATE apartments SET status = 'Đang sinh sống' WHERE id = ? AND status = 'Trống'`,
                 [apartment_id]
             );
+
+            // [FIX REQ 2] Ghi Log Create
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'CREATE',
+                entity_name: 'residents',
+                entity_id: newId,
+                new_values: req.body,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
 
             await connection.commit();
             res.status(201).json({ 
@@ -137,11 +153,10 @@ const residentController = {
 
         } catch (error) {
             await connection.rollback();
-            // Xử lý lỗi trùng lặp
             if (error.code === 'ER_DUP_ENTRY') {
                 if (error.message.includes('users.username')) return res.status(409).json({ message: 'Tên đăng nhập đã tồn tại.' });
                 if (error.message.includes('residents.cccd')) return res.status(409).json({ message: 'Số CCCD đã tồn tại.' });
-                if (error.message.includes('users.email')) return res.status(409).json({ message: 'Email đã được sử dụng.' });
+                if (error.message.includes('users.email')) return res.status(409).json({ message: 'Email đã tồn tại.' });
                 return res.status(409).json({ message: 'Dữ liệu bị trùng lặp.', detail: error.message });
             }
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
@@ -152,7 +167,24 @@ const residentController = {
 
     updateResident: async (req, res) => {
         try {
-            await Resident.update(req.params.id, req.body);
+            const { id } = req.params;
+            const oldData = await Resident.findById(id);
+            if (!oldData) return res.status(404).json({ message: 'Không tìm thấy cư dân.' });
+
+            await Resident.update(id, req.body);
+
+            // [FIX REQ 2] Ghi Log Update
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'UPDATE',
+                entity_name: 'residents',
+                entity_id: id,
+                old_values: oldData,
+                new_values: req.body,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
+
             res.json({ success: true, message: 'Cập nhật thành công.' });
         } catch (e) { 
             if (e.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: 'CCCD mới bị trùng.' });
@@ -160,9 +192,6 @@ const residentController = {
         }
     },
 
-    /**
-     * [MOVE-OUT] Chuyển đi (Thay vì xóa)
-     */
     moveOutResident: async (req, res) => {
         const connection = await db.getConnection();
         try {
@@ -173,15 +202,12 @@ const residentController = {
             const resident = await Resident.findById(id);
             if (!resident) throw new Error('Cư dân không tồn tại');
 
-            // 1. Cập nhật trạng thái thành 'Đã chuyển đi'
             await Resident.update(id, { ...resident, status: 'Đã chuyển đi' }, connection);
 
-            // 2. Nếu có tài khoản User -> Vô hiệu hóa
             if (resident.user_id) {
                 await connection.execute(`UPDATE users SET is_active = 0 WHERE id = ?`, [resident.user_id]);
             }
 
-            // 3. Ghi lịch sử "Chuyển đi"
             await Resident.addHistory({
                 resident_id: id,
                 apartment_id: resident.apartment_id,
@@ -189,6 +215,18 @@ const residentController = {
                 event_date: move_out_date || new Date(),
                 note: reason || 'Chuyển đi khỏi chung cư'
             }, connection);
+
+            // [FIX REQ 2] Ghi Log Move Out
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'UPDATE',
+                entity_name: 'residents',
+                entity_id: id,
+                old_values: { status: 'Đang sinh sống' },
+                new_values: { status: 'Đã chuyển đi', reason },
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
 
             await connection.commit();
             res.json({ success: true, message: 'Đã ghi nhận chuyển đi thành công.' });
@@ -202,16 +240,31 @@ const residentController = {
 
     deleteResident: async (req, res) => {
         try {
-            await Resident.delete(req.params.id);
+            const { id } = req.params;
+            const oldData = await Resident.findById(id);
+            if (!oldData) return res.status(404).json({ message: 'Không tồn tại.' });
+
+            await Resident.delete(id);
+
+            // [FIX REQ 2] Ghi Log Delete
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'DELETE',
+                entity_name: 'residents',
+                entity_id: id,
+                old_values: oldData,
+                new_values: null,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
+
             res.json({ success: true, message: 'Đã xóa hồ sơ vĩnh viễn.' });
         } catch (e) { 
-            if (e.errno === 1451) return res.status(400).json({ message: 'Không thể xóa vì dữ liệu ràng buộc (Hóa đơn, Sự cố...). Vui lòng dùng chức năng "Chuyển đi".' });
+            if (e.errno === 1451) return res.status(400).json({ message: 'Không thể xóa vì dữ liệu ràng buộc.' });
             res.status(500).json({ message: e.message }); 
         }
     },
 
-    // --- TẠM TRÚ / TẠM VẮNG ---
-    
     registerTemporary: async (req, res) => {
         try {
             if (!req.body.resident_id || !req.body.type || !req.body.start_date) {
@@ -234,7 +287,7 @@ const residentController = {
         try {
             await connection.beginTransaction();
             const { id } = req.params;
-            const { status } = req.body; // 'Đã duyệt' hoặc 'Từ chối'
+            const { status } = req.body; 
 
             await Resident.updateTemporaryStatus(id, status, req.user.id, connection);
 
@@ -244,7 +297,6 @@ const residentController = {
                     const [resInfo] = await connection.execute('SELECT * FROM residents WHERE id = ?', [temp.resident_id]);
                     if (resInfo.length > 0) {
                         await Resident.update(temp.resident_id, { ...resInfo[0], status: 'Tạm vắng' }, connection);
-                        
                         await Resident.addHistory({
                             resident_id: temp.resident_id,
                             apartment_id: resInfo[0].apartment_id,

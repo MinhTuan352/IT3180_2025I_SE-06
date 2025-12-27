@@ -112,26 +112,25 @@ const residentController = {
             const newId = await idGenerator.generateIncrementalId('residents', 'R', 'id', 4, connection);
             let userId = null;
 
-            // [LOGIC USER] Tạo user nếu là Owner
-            if (role === 'owner') {
-                if (username && password) {
-                    const [existing] = await connection.execute(
-                        `SELECT id FROM users WHERE username = ? OR email = ?`,
-                        [username, email]
-                    );
-                    if (existing.length > 0) throw new Error('Username hoặc Email đã được sử dụng.');
+            // [LOGIC USER] Tạo user nếu có username/password (không phụ thuộc role)
+            // Bất kỳ cư dân nào cũng có thể có tài khoản
+            if (username && password) {
+                const [existing] = await connection.execute(
+                    `SELECT id FROM users WHERE username = ? OR email = ?`,
+                    [username, email]
+                );
+                if (existing.length > 0) throw new Error('Username hoặc Email đã được sử dụng.');
 
-                    const salt = await bcrypt.genSalt(10);
-                    const hashedPassword = await bcrypt.hash(password, salt);
+                const salt = await bcrypt.genSalt(10);
+                const hashedPassword = await bcrypt.hash(password, salt);
 
-                    // User ID trùng Resident ID
-                    await connection.execute(
-                        `INSERT INTO users (id, username, password, email, phone, role_id, is_active) 
-                         VALUES (?, ?, ?, ?, ?, 3, 1)`,
-                        [newId, username, hashedPassword, email, phone]
-                    );
-                    userId = newId;
-                }
+                // User ID trùng Resident ID
+                await connection.execute(
+                    `INSERT INTO users (id, username, password, email, phone, role_id, is_active) 
+                     VALUES (?, ?, ?, ?, ?, 3, 1)`,
+                    [newId, username, hashedPassword, email, phone]
+                );
+                userId = newId;
             }
 
             // Tạo Resident
@@ -199,7 +198,7 @@ const residentController = {
         try {
             await connection.beginTransaction();
             const { id } = req.params;
-            const { role, username, password, apartment_id, status } = req.body; // status có thể là 'Đã chuyển đi'
+            const { role, username, password, apartment_id, status } = req.body;
 
             const oldData = await Resident.findById(id);
             if (!oldData) return res.status(404).json({ message: 'Không tìm thấy cư dân.' });
@@ -207,9 +206,8 @@ const residentController = {
             const currentAptId = apartment_id || oldData.apartment_id;
             let newUserId = oldData.user_id;
 
-            // [LOGIC 1] Chuyển đổi Vai trò (Role Switching)
+            // [LOGIC 1] Chuyển đổi Vai trò (Role Switching) - CHỈ XỬ LÝ ROLE
             if (role && role !== oldData.role) {
-
                 // A. Member -> Owner (Thăng chức)
                 if (role === 'owner') {
                     // Check xem đã có chủ hộ khác chưa
@@ -220,46 +218,51 @@ const residentController = {
                     if (owners.length > 0) {
                         throw new Error('Căn hộ đang có chủ hộ khác. Vui lòng hạ quyền chủ hộ cũ trước.');
                     }
-
-                    // Nếu có username/password -> Tạo hoặc active user
-                    if (username && password) {
-                        const hash = await bcrypt.hash(password, 10);
-                        if (newUserId) {
-                            // Reactivate old user
-                            await connection.execute(`UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`, [username, hash, newUserId]);
-                        } else {
-                            // Create new user (ID = Resident ID)
-                            newUserId = id;
-                            // Check collision
-                            const [uCheck] = await connection.execute('SELECT id FROM users WHERE id = ?', [newUserId]);
-                            if (uCheck.length === 0) {
-                                await connection.execute(
-                                    `INSERT INTO users (id, username, password, email, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, 3, 1)`,
-                                    [newUserId, username, hash, req.body.email || oldData.email, req.body.phone || oldData.phone]
-                                );
-                            } else {
-                                await connection.execute(`UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`, [username, hash, newUserId]);
-                            }
-                        }
-                    }
                 }
+                // B. Owner -> Member (Hạ chức) - Giữ nguyên tài khoản nếu có
+            }
 
-                // B. Owner -> Member (Hạ chức)
-                else if (role === 'member') {
-                    // Nếu status vẫn đang sống -> Phải đảm bảo đã có chủ hộ khác (hoặc sẽ có)
-                    // Tuy nhiên, vì thao tác này thường làm trước khi thăng chức người khác
-                    // Nên ta chỉ Cảnh báo hoặc cho phép nhưng Disable User.
+            // [LOGIC 2] Xử lý Tài khoản (TÁCH BIỆT KHỎI ROLE)
+            // Tạo tài khoản mới nếu có username/password và chưa có tài khoản
+            if (username && password && !newUserId) {
+                const hash = await bcrypt.hash(password, 10);
+                newUserId = id;
+                const [uCheck] = await connection.execute('SELECT id FROM users WHERE id = ?', [newUserId]);
+                if (uCheck.length === 0) {
+                    const [existing] = await connection.execute(
+                        `SELECT id FROM users WHERE username = ?`,
+                        [username]
+                    );
+                    if (existing.length > 0) throw new Error('Username đã được sử dụng.');
 
-                    // Logic chặt: Nếu căn hộ còn người khác đang sống, mà hạ chủ hộ này xuống -> Căn hộ mất chủ
-                    // Nhưng để linh hoạt cho FE, ta cho phép hạ, nhưng Disable User ngay lập tức.
-                    if (newUserId) {
-                        await connection.execute(`UPDATE users SET is_active = 0 WHERE id = ?`, [newUserId]);
-                        newUserId = null; // Unlink trong bảng resident
-                    }
+                    await connection.execute(
+                        `INSERT INTO users (id, username, password, email, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, 3, 1)`,
+                        [newUserId, username, hash, req.body.email || oldData.email, req.body.phone || oldData.phone]
+                    );
+                } else {
+                    await connection.execute(`UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`, [username, hash, newUserId]);
+                }
+            }
+            // Cập nhật tài khoản đã có (username và/hoặc password)
+            else if (newUserId) {
+                // Cập nhật username nếu có thay đổi
+                if (username) {
+                    // Kiểm tra username mới không trùng với người khác
+                    const [existing] = await connection.execute(
+                        `SELECT id FROM users WHERE username = ? AND id != ?`,
+                        [username, newUserId]
+                    );
+                    if (existing.length > 0) throw new Error('Username đã được sử dụng bởi người khác.');
+                    await connection.execute(`UPDATE users SET username=? WHERE id=?`, [username, newUserId]);
+                }
+                // Cập nhật password nếu có
+                if (password) {
+                    const hash = await bcrypt.hash(password, 10);
+                    await connection.execute(`UPDATE users SET password=? WHERE id=?`, [hash, newUserId]);
                 }
             }
 
-            // Thực hiện Update
+            // Thực hiện Update Resident
             await Resident.update(id, { ...req.body, user_id: newUserId }, connection);
 
             // [LOGIC 2] Nếu đổi Status -> Ghi history

@@ -646,7 +646,12 @@ export default function ResidentList() {
                       sx={{ mr: 1 }}
                     />
                     {res.status && res.status !== 'Đang sinh sống' && (
-                      <Chip label={res.status} size="small" variant="outlined" />
+                      <Chip label={res.status} size="small" variant="outlined" sx={{ mr: 1 }} />
+                    )}
+                    {res.has_account ? (
+                      <Chip label="Có TK" size="small" color="info" variant="outlined" />
+                    ) : (
+                      <Chip label="Chưa có TK" size="small" variant="outlined" sx={{ color: '#999' }} />
                     )}
                   </Box>
 

@@ -16,6 +16,8 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  FormControlLabel,
+  Checkbox,
   type SelectChangeEvent,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +39,8 @@ interface FormData {
   occupation: string;
   username?: string;
   password?: string;
-  apartment_code?: string; // Add this for display
+  apartment_code?: string;
+  create_account: boolean;  // NEW: Checkbox để quyết định tạo tài khoản
 }
 
 const initialFormData: FormData = {
@@ -55,7 +58,8 @@ const initialFormData: FormData = {
   occupation: '',
   username: '',
   password: '',
-  apartment_code: ''
+  apartment_code: '',
+  create_account: false  // Mặc định không tạo tài khoản
 };
 
 export default function ResidentCreate() {
@@ -134,10 +138,10 @@ export default function ResidentCreate() {
       return;
     }
 
-    // Validate Username/Password for Owner
-    if (formData.role === 'owner') {
+    // Validate Username/Password nếu chọn tạo tài khoản
+    if (formData.create_account) {
       if (!formData.username || !formData.password) {
-        setSnackbar({ open: true, message: 'Chủ hộ bắt buộc phải có Tên đăng nhập và Mật khẩu', severity: 'error' });
+        setSnackbar({ open: true, message: 'Vui lòng nhập Tên đăng nhập và Mật khẩu để tạo tài khoản', severity: 'error' });
         return;
       }
     }
@@ -341,12 +345,26 @@ export default function ResidentCreate() {
                 </FormControl>
               </Grid>
 
-              {/* Username/Password (Chỉ hiện nếu là Chủ hộ) */}
-              {formData.role === 'owner' && (
+              {/* Tạo tài khoản đăng nhập (Checkbox) */}
+              <Grid size={{ xs: 12 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={formData.create_account}
+                      onChange={(e) => setFormData(prev => ({ ...prev, create_account: e.target.checked }))}
+                      color="primary"
+                    />
+                  }
+                  label="Tạo tài khoản đăng nhập cho cư dân này"
+                />
+              </Grid>
+
+              {/* Username/Password (Hiện nếu chọn tạo tài khoản) */}
+              {formData.create_account && (
                 <>
                   <Grid size={{ xs: 12 }}>
                     <Typography variant="subtitle2" color="primary" sx={{ mt: 1, mb: 1, fontWeight: 'bold' }}>
-                      Tài khoản đăng nhập (Dành cho Chủ hộ)
+                      Thông tin Tài khoản
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>

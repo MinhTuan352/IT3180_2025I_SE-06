@@ -333,14 +333,39 @@ export default function ResidentProfile() {
                 </FormControl>
               </Grid>
 
-              {/* User account info (if owner) */}
-              {userData.role === 'owner' && userData.user_id && (
-                <Grid size={{ xs: 12 }}>
-                  <Alert severity="info" sx={{ mt: 1 }}>
-                    Tài khoản liên kết: User ID {userData.user_id}
+              {/* Trạng thái Tài khoản (Không phụ thuộc role) */}
+              <Grid size={{ xs: 12 }}>
+                {userData.user_id ? (
+                  <Alert severity="success" sx={{ mt: 1 }}>
+                    ✅ Có tài khoản đăng nhập | User ID: {userData.user_id}
                   </Alert>
-                </Grid>
-              )}
+                ) : (
+                  <Alert severity="warning" sx={{ mt: 1 }}>
+                    ⚠️ Chưa có tài khoản đăng nhập - Điền username và mật khẩu bên dưới để tạo
+                  </Alert>
+                )}
+              </Grid>
+
+              {/* Username và Password fields */}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label={userData.user_id ? "Tên đăng nhập" : "Tên đăng nhập mới"}
+                  fullWidth
+                  value={(userData as any).username || (userData as any).account_username || ''}
+                  onChange={(e) => setUserData({ ...userData, username: e.target.value } as any)}
+                  helperText={userData.user_id ? "Để trống nếu không muốn đổi" : "Nhập để tạo tài khoản mới"}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label={userData.user_id ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu"}
+                  type="password"
+                  fullWidth
+                  value={(userData as any).password || ''}
+                  onChange={(e) => setUserData({ ...userData, password: e.target.value } as any)}
+                  helperText={userData.user_id ? "Chỉ nhập nếu muốn đổi mật khẩu" : "Mật khẩu cho tài khoản mới"}
+                />
+              </Grid>
             </Grid>
           </Card>
         </Grid>

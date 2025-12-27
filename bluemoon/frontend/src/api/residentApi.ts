@@ -19,6 +19,7 @@ export interface Resident {
   hometown?: string;
   occupation?: string;
   user_id?: string | null;  // ID tài khoản User liên kết (nếu có)
+  has_account?: boolean;    // Computed field: true nếu có user_id
 }
 
 // Response chuẩn cho danh sách

@@ -15,7 +15,8 @@ const Resident = {
                     a.apartment_code, 
                     a.building, 
                     a.floor,
-                    u.username as account_username
+                    u.username as account_username,
+                    CASE WHEN r.user_id IS NOT NULL THEN 1 ELSE 0 END as has_account
                 FROM residents r
                 JOIN apartments a ON r.apartment_id = a.id
                 LEFT JOIN users u ON r.user_id = u.id
@@ -62,7 +63,8 @@ const Resident = {
                     a.apartment_code, 
                     a.building,
                     a.floor,
-                    u.email as account_email
+                    u.email as account_email,
+                    CASE WHEN r.user_id IS NOT NULL THEN 1 ELSE 0 END as has_account
                 FROM residents r
                 JOIN apartments a ON r.apartment_id = a.id
                 LEFT JOIN users u ON r.user_id = u.id
@@ -112,7 +114,9 @@ const Resident = {
                     r.*, 
                     a.apartment_code, 
                     a.building,
-                    u.email as account_email
+                    u.username as account_username,
+                    u.email as account_email,
+                    CASE WHEN r.user_id IS NOT NULL THEN 1 ELSE 0 END as has_account
                 FROM residents r
                 JOIN apartments a ON r.apartment_id = a.id
                 LEFT JOIN users u ON r.user_id = u.id
@@ -253,7 +257,7 @@ const Resident = {
      */
     getHistory: async (residentId) => {
         const [rows] = await db.execute(
-            `SELECT * FROM residence_history WHERE resident_id = ? ORDER BY event_date DESC`, 
+            `SELECT * FROM residence_history WHERE resident_id = ? ORDER BY event_date DESC`,
             [residentId]
         );
         return rows;
@@ -289,7 +293,7 @@ const Resident = {
             params.push(filters.status);
         }
         query += ` ORDER BY t.created_at DESC`;
-        
+
         const [rows] = await db.execute(query, params);
         return rows;
     },

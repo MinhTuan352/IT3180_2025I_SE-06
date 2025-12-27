@@ -21,12 +21,14 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { residentApi, type Resident } from '../../../api/residentApi';
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
+import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
 
 export default function ResidentProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [userData, setUserData] = useState<Resident | null>(null);
   const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,16 +44,18 @@ export default function ResidentProfile() {
         setLoading(true);
         setError(null);
 
-        // Fetch resident and apartments in parallel
-        const [resResponse, aptsData] = await Promise.all([
+        // Fetch resident, apartments and vehicles in parallel
+        const [resResponse, aptsData, vehiclesData] = await Promise.all([
           residentApi.getById(id),
-          apartmentApi.getAll()
+          apartmentApi.getAll(),
+          vehicleApi.getVehiclesByResidentId(id)
         ]);
 
         // Handle response structure
         const data = (resResponse as any).data || resResponse;
         setUserData(data);
         setApartments(aptsData);
+        setVehicles(vehiclesData);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
@@ -328,6 +332,53 @@ export default function ResidentProfile() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Section: Phương tiện */}
+      <Card sx={{ mt: 3, p: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Phương tiện đăng ký
+        </Typography>
+        {vehicles.length === 0 ? (
+          <Alert severity="info">Cư dân chưa đăng ký phương tiện nào.</Alert>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f5f5f5' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Loại xe</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Biển số</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Hãng / Model</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.map((v) => (
+                  <tr key={v.id}>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      {v.vehicle_type === 'Ô tô' ? '🚗' : '🏍️'} {v.vehicle_type}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
+                      {v.license_plate}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      {v.brand || 'N/A'} {v.model ? `- ${v.model}` : ''}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      <Box component="span" sx={{
+                        px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
+                        bgcolor: v.status === 'Đang sử dụng' ? '#e8f5e9' : v.status === 'Chờ duyệt' ? '#fff3e0' : '#f5f5f5',
+                        color: v.status === 'Đang sử dụng' ? '#2e7d32' : v.status === 'Chờ duyệt' ? '#e65100' : '#666'
+                      }}>
+                        {v.status}
+                      </Box>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        )}
+      </Card>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
         <Button

@@ -54,10 +54,10 @@ const vehicleController = {
             // 2. Lấy thông tin cư dân & căn hộ
             // Cần lấy cả apartment_id để lưu vào bảng vehicles
             const [residents] = await db.execute(
-                `SELECT id, apartment_id FROM residents WHERE user_id = ?`, 
+                `SELECT id, apartment_id FROM residents WHERE user_id = ?`,
                 [req.user.id]
             );
-            
+
             if (residents.length === 0) {
                 return res.status(403).json({ message: 'Bạn chưa có hồ sơ cư dân.' });
             }
@@ -155,7 +155,7 @@ const vehicleController = {
             };
 
             const vehicles = await Vehicle.getAll(filters);
-            
+
             res.json({
                 success: true,
                 count: vehicles.length,
@@ -205,6 +205,21 @@ const vehicleController = {
         } catch (error) {
             console.error('Error updateVehicleStatus:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [GET] /api/vehicles/resident/:residentId
+     * BOD/CQCN xem danh sách xe của một cư dân cụ thể
+     */
+    getVehiclesByResidentId: async (req, res) => {
+        try {
+            const { residentId } = req.params;
+            const vehicles = await Vehicle.getByResidentId(residentId);
+            res.json({ success: true, data: vehicles });
+        } catch (error) {
+            console.error('Error getVehiclesByResidentId:', error);
+            res.status(500).json({ success: false, message: error.message });
         }
     },
 

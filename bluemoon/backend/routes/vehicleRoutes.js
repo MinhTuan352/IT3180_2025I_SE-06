@@ -15,13 +15,13 @@ const upload = require('../middleware/uploadMiddleware'); // Bạn cần tạo f
 router.get('/me', checkAuth, checkRole(['resident']), vehicleController.getMyVehicles);
 
 // Đăng ký xe mới (Upload 2 file: Ảnh xe & Đăng ký xe)
-router.post('/register', 
-    checkAuth, 
-    checkRole(['resident']), 
+router.post('/register',
+    checkAuth,
+    checkRole(['resident']),
     upload.fields([
-        { name: 'vehicle_image', maxCount: 1 }, 
+        { name: 'vehicle_image', maxCount: 1 },
         { name: 'registration_cert', maxCount: 1 }
-    ]), 
+    ]),
     vehicleController.registerVehicle
 );
 
@@ -34,6 +34,9 @@ router.delete('/:id', checkAuth, checkRole(['resident']), vehicleController.canc
 
 // Xem danh sách tất cả xe (có bộ lọc)
 router.get('/', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.getAllVehicles);
+
+// Xem xe của một cư dân cụ thể (dùng cho Profile)
+router.get('/resident/:residentId', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.getVehiclesByResidentId);
 
 // Duyệt / Từ chối xe (Update status)
 router.put('/:id/status', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.updateVehicleStatus);

@@ -271,7 +271,7 @@ const authController = {
             const allHistory = await User.getAllLoginHistory();
             // Lọc chỉ lấy admin (BOD, ACCOUNTANT)
             const adminHistory = allHistory.filter(item =>
-                item.role_code === 'BOD' || item.role_code === 'ACCOUNTANT'
+                item.role_code === 'bod' || item.role_code === 'accountance'
             ).map(item => ({
                 id: item.id,
                 username: item.username,
@@ -302,12 +302,12 @@ const authController = {
             const allHistory = await User.getAllLoginHistory();
             // Lọc chỉ lấy cư dân (RESIDENT)
             const residentHistory = allHistory.filter(item =>
-                item.role_code === 'RESIDENT'
+                item.role_code === 'resident'
             ).map(item => ({
                 id: item.id,
                 username: item.username,
                 fullName: item.full_name,
-                apartment: item.apartment_id || 'N/A',
+                apartment: item.apartment_code || 'N/A',
                 time: item.login_time,
                 ip: item.ip_address,
                 device: item.user_agent,

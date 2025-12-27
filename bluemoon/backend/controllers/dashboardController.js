@@ -501,6 +501,95 @@ const dashboardController = {
             console.error('[DashboardController] getResidentStats error:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
+
+    /**
+     * Lấy thống kê cho Cơ Quan Chức Năng (Công an/Tổ dân phố)
+     * GET /api/dashboard/cqcn
+     */
+    getCQCNStats: async (req, res) => {
+        try {
+            // 1. Thống kê Nhân khẩu (Quan trọng nhất)
+            let demographics = { total: 0, permanent: 0, temporary_stay: 0, temporary_absence: 0 };
+            try {
+                // Tổng số cư dân hiện tại
+                const [total] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status != 'Đã chuyển đi'`);
+                
+                // Thường trú (Đang sinh sống)
+                const [permanent] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Đang sinh sống'`);
+                
+                // Tạm trú
+                const [tempStay] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Tạm trú'`);
+                
+                // Tạm vắng
+                const [tempAbsence] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Tạm vắng'`);
+
+                demographics = {
+                    total: total[0].count,
+                    permanent: permanent[0].count,
+                    temporary_stay: tempStay[0].count,
+                    temporary_absence: tempAbsence[0].count
+                };
+            } catch (e) { console.log('demographics error:', e.message); }
+
+            // 2. Biến động nhân khẩu gần đây (30 ngày)
+            let recentChanges = [];
+            try {
+                const [changes] = await db.execute(`
+                    SELECT rh.*, r.full_name, a.apartment_code
+                    FROM residence_history rh
+                    JOIN residents r ON rh.resident_id = r.id
+                    JOIN apartments a ON r.apartment_id = a.id
+                    WHERE rh.event_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+                    ORDER BY rh.event_date DESC
+                    LIMIT 10
+                `);
+                recentChanges = changes;
+            } catch (e) { console.log('recent changes error:', e.message); }
+
+            // 3. Cảnh báo An ninh (Xe lạ/Blacklist trong ngày)
+            let securityAlerts = [];
+            try {
+                const [alerts] = await db.execute(`
+                    SELECT al.*, a.apartment_code
+                    FROM access_logs al
+                    LEFT JOIN apartments a ON al.resident_id IS NOT NULL AND al.resident_id IN (SELECT id FROM residents WHERE apartment_id = a.id)
+                    WHERE al.status IN ('Warning', 'Alert') 
+                    AND al.created_at >= CURDATE()
+                    ORDER BY al.created_at DESC
+                `);
+                securityAlerts = alerts;
+            } catch (e) { console.log('security alerts error:', e.message); }
+
+            // 4. Danh sách tạm trú sắp hết hạn (trong 7 ngày tới)
+            let expiringTemporary = [];
+            try {
+                const [expiring] = await db.execute(`
+                    SELECT tr.*, r.full_name, a.apartment_code
+                    FROM temporary_residence tr
+                    JOIN residents r ON tr.resident_id = r.id
+                    JOIN apartments a ON r.apartment_id = a.id
+                    WHERE tr.type = 'Tạm trú' 
+                    AND tr.end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                    AND tr.status = 'Đã duyệt'
+                `);
+                expiringTemporary = expiring;
+            } catch (e) { console.log('expiring temp error:', e.message); }
+
+            res.json({
+                success: true,
+                data: {
+                    demographics,
+                    recentChanges,
+                    securityAlerts,
+                    expiringTemporary
+                }
+            });
+
+        } catch (error) {
+            console.error('[DashboardController] getCQCNStats error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
     }
 };
 

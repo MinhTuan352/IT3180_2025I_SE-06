@@ -162,15 +162,24 @@ const User = {
         try {
             const query = `
                 SELECT 
-                    lh.log_id as id, lh.user_id, lh.login_time, lh.ip_address, lh.user_agent,
-                    u.username, r.role_code, r.role_name,
+                    lh.log_id as id, 
+                    lh.user_id, 
+                    lh.login_time, 
+                    lh.ip_address, 
+                    lh.user_agent,
+                    u.username, 
+                    r.role_code, 
+                    r.role_name,
                     COALESCE(a.full_name, res.full_name, 'Unknown') as full_name,
-                    res.apartment_id
+                    res.apartment_id,
+                    apt.apartment_code,
+                    apt.building
                 FROM login_history lh
                 JOIN users u ON lh.user_id = u.id
                 JOIN roles r ON u.role_id = r.id
                 LEFT JOIN admins a ON u.id = a.user_id
                 LEFT JOIN residents res ON u.id = res.user_id
+                LEFT JOIN apartments apt ON res.apartment_id = apt.id
                 ORDER BY lh.login_time DESC
                 LIMIT 500
             `;

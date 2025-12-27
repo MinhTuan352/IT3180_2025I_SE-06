@@ -1,4 +1,4 @@
-@baseUrl = https://it3180-2025i-se-06.onrender.com/api/auth
+@baseUrl = http://localhost:3000/api/auth
 
 ### 1. Đăng nhập (Để ghi log lịch sử & lấy Token)
 # Username: admin.a
@@ -14,11 +14,11 @@ Content-Type: application/json
 ### ============================================
 ### COPY ACCESS TOKEN TỪ BƯỚC 1 DÁN VÀO DƯỚI ĐÂY
 ### ============================================
-@token = DÁN_TOKEN_VÀO_ĐÂY
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY4NDMyMTcsImV4cCI6MTc2Njg0NjgxN30.pqdOr4GZGtBXjXLxMldrKoRj7TARQtqhg-N_bhIkhkc
 
 
 ### 2. Xem lịch sử đăng nhập
-GET {{baseUrl}}/history
+GET {{baseUrl}}/history/resident
 Authorization: Bearer {{token}}
 
 

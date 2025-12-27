@@ -13,7 +13,8 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.use(checkAuth);
 
 // Tải file mẫu
-router.get('/template', checkRole(['bod', 'cqcn']), importController.downloadTemplate);
+router.get('/export-master-data', checkRole(['bod', 'cqcn']), importController.exportMasterData);
+router.get('/export-master-data/:sheet', checkRole(['bod', 'cqcn']), importController.exportMasterDataBySheet);
 
 // Import dữ liệu (Chỉ Admin/BOD)
 router.post('/master-data', 

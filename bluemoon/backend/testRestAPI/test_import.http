@@ -17,11 +17,11 @@ Content-Type: {{contentType}}
 
 ###
 # -> Copy Token vào biến @bodToken
-@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY4MTc5NzksImV4cCI6MTc2NjgyMTU3OX0.sIvkjK6nwm4OddDJ5fdA-Sn9B532kQgmklpLssRJUMo
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY4MjE2MjMsImV4cCI6MTc2NjgyNTIyM30.01MkiaeJ4qQuCJu6o6B-zRCqQ21Ih2Yx0ZY21dbbYdc
 # ==================================================================
 
 ### 1. Tải template (Để xem cấu trúc)
-GET {{baseUrl}}/import/template
+GET {{baseUrl}}/import/export-master-data/?sheet=Admins
 Authorization: {{bodToken}}
 
 ### 2. Import File (Multipart)
@@ -30,8 +30,8 @@ Authorization: {{bodToken}}
 Content-Type: multipart/form-data; boundary=boundaryExcel
 
 --boundaryExcel
-Content-Disposition: form-data; name="file"; filename="Data.xlsx"
+Content-Disposition: form-data; name="file"; filename="BlueMoon_Full_Data.xlsx"
 Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 
-< ./Data.xlsx
+< ./BlueMoon_Full_Data.xlsx
 --boundaryExcel--

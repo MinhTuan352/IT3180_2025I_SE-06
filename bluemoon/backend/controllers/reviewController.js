@@ -1,74 +1,66 @@
-const Review = require('../models/Review');
+// File: backend/controllers/reviewController.js
+
+const Review = require('../models/reviewModel'); // [FIXED] Import đúng tên file
 const Resident = require('../models/residentModel');
 
-exports.createReview = async (req, res) => {
-    try {
-        const userId = req.user.id; // Changed from req.user.userId
+const reviewController = {
+    
+    createReview: async (req, res) => {
+        try {
+            const userId = req.user.id; 
+            const resident = await Resident.findByUserId(userId);
+            if (!resident) return res.status(404).json({ message: 'Không tìm thấy thông tin cư dân.' });
 
-        // Find resident by user_id
-        const resident = await Resident.findByUserId(userId);
-        if (!resident) {
-            return res.status(404).json({ message: 'Không tìm thấy thông tin cư dân' });
+            await Review.create({
+                resident_id: resident.id,
+                rating: req.body.rating,
+                feedback: req.body.feedback,
+                survey_response: req.body.survey_response
+            });
+            res.status(201).json({ success: true, message: 'Cảm ơn bạn đã gửi đánh giá.' });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
+    },
 
-        const reviewData = {
-            resident_id: resident.id,
-            rating: req.body.rating,
-            feedback: req.body.feedback,
-            survey_response: req.body.survey_response
-        };
-
-        await Review.create(reviewData);
-        res.status(201).json({ message: 'Gửi đánh giá thành công' });
-    } catch (error) {
-        console.error('Error creating review:', error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
-};
-
-exports.getAllReviews = async (req, res) => {
-    try {
-        const reviews = await Review.getAll();
-        res.json(reviews);
-    } catch (error) {
-        console.error('Error fetching reviews:', error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
-};
-
-exports.getResidentReviews = async (req, res) => {
-    try {
-        const userId = req.user.userId;
-        const resident = await Resident.findByUserId(userId);
-        if (!resident) {
-            return res.status(404).json({ message: 'Không tìm thấy thông tin cư dân' });
+    getAllReviews: async (req, res) => {
+        try {
+            const reviews = await Review.getAll();
+            res.json({ success: true, count: reviews.length, data: reviews });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
+    },
 
-        const reviews = await Review.getByResidentId(resident.id);
-        res.json(reviews);
-    } catch (error) {
-        console.error('Error fetching resident reviews:', error);
-        res.status(500).json({ message: 'Lỗi server' });
+    getResidentReviews: async (req, res) => {
+        try {
+            const resident = await Resident.findByUserId(req.user.id);
+            if (!resident) return res.json({ success: true, data: [] });
+
+            const reviews = await Review.getByResidentId(resident.id);
+            res.json({ success: true, data: reviews });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    },
+
+    markAsViewed: async (req, res) => {
+        try {
+            await Review.markAsViewed(req.params.id);
+            res.json({ success: true, message: 'Đã đánh dấu đã xem.' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    },
+
+    getStats: async (req, res) => {
+        try {
+            const stats = await Review.getStats();
+            res.json({ success: true, data: stats });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
     }
 };
 
-exports.markAsViewed = async (req, res) => {
-    try {
-        const { id } = req.params;
-        await Review.markAsViewed(id);
-        res.json({ message: 'Đã đánh dấu đã xem' });
-    } catch (error) {
-        console.error('Error marking review as viewed:', error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
-};
-
-exports.getStats = async (req, res) => {
-    try {
-        const stats = await Review.getStats();
-        res.json(stats);
-    } catch (error) {
-        console.error('Error fetching review stats:', error);
-        res.status(500).json({ message: 'Lỗi server' });
-    }
-};
+module.exports = reviewController;

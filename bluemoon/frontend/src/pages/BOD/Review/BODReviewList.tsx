@@ -1,31 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
-    Box,
-    Paper,
-    Typography,
-    Table,
-    TableHead,
-    TableBody,
-    TableRow,
-    TableCell,
-    Chip,
-    Rating,
-    CircularProgress,
-    Stack,
-    IconButton,
-    Tooltip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    Button,
-    Grid,
-    Card,
-    CardContent,
-    Divider
+    Box, Paper, Typography, Table, TableHead, TableBody, TableRow, TableCell,
+    Chip, Rating, CircularProgress, Stack, IconButton, Dialog,
+    DialogTitle, DialogContent, Button, Card, CardContent, Divider
 } from '@mui/material';
-import {
-    Visibility as ViewIcon
-} from '@mui/icons-material';
+import { Visibility as ViewIcon } from '@mui/icons-material';
 import reviewApi from '../../../api/reviewApi';
 import type { Review, ReviewStats } from '../../../api/reviewApi';
 
@@ -38,12 +17,12 @@ export default function BODReviewList() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [reviewsResponse, statsResponse] = await Promise.all([
+            const [reviewsRes, statsRes] = await Promise.all([
                 reviewApi.getAll(),
                 reviewApi.getStats()
             ]);
-            setReviews(reviewsResponse.data);
-            setStats(statsResponse.data);
+            setReviews(reviewsRes.data.data);
+            setStats(statsRes.data.data);
         } catch (error) {
             console.error('Error fetching reviews:', error);
         } finally {
@@ -60,8 +39,8 @@ export default function BODReviewList() {
         if (review.status === 'Mới') {
             try {
                 await reviewApi.markAsViewed(review.id);
-                // Update local state
-                setReviews(reviews.map(r => r.id === review.id ? { ...r, status: 'Đã xem' } : r));
+                setReviews(prev => prev.map(r => r.id === review.id ? { ...r, status: 'Đã xem' } : r));
+                if (stats) setStats({ ...stats, new_reviews: stats.new_reviews - 1 });
             } catch (error) {
                 console.error('Error marking as viewed:', error);
             }
@@ -74,46 +53,36 @@ export default function BODReviewList() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-                <Typography variant="h5" fontWeight="bold">
-                    Đánh giá từ Cư dân
-                </Typography>
-            </Stack>
+            <Typography variant="h5" fontWeight="bold" mb={3}>Đánh giá từ Cư dân</Typography>
 
-            {/* Stats Cards */}
+            {/* Layout Stats dùng Flexbox thay cho Grid */}
             {stats && (
-                <Grid container spacing={3} mb={4}>
-                    <Grid sx={{ xs: 12, md: 4 }}>
-                        <Card sx={{ bgcolor: 'primary.main', color: 'white' }}>
+                <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: 3, 
+                    mb: 4 
+                }}>
+                    {[
+                        { label: 'Tổng số đánh giá', value: stats.total, color: 'primary.main' },
+                        { label: 'Điểm trung bình', value: Number(stats.avg_rating || 0).toFixed(1), color: 'secondary.main', isRating: true },
+                        { label: 'Đánh giá mới', value: stats.new_reviews, color: 'success.main' }
+                    ].map((item, index) => (
+                        <Card key={index} sx={{ bgcolor: item.color, color: 'white', flex: '1 1 300px' }}>
                             <CardContent>
-                                <Typography variant="h6">Tổng số đánh giá</Typography>
-                                <Typography variant="h3" fontWeight="bold">{stats.total}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid sx={{ xs: 12, md: 4 }}>
-                        <Card sx={{ bgcolor: 'secondary.main', color: 'white' }}>
-                            <CardContent>
-                                <Typography variant="h6">Điểm trung bình</Typography>
+                                <Typography variant="h6">{item.label}</Typography>
                                 <Stack direction="row" alignItems="center" spacing={1}>
-                                    <Typography variant="h3" fontWeight="bold">{Number(stats.avg_rating).toFixed(1)}</Typography>
-                                    <Rating value={Number(stats.avg_rating)} readOnly precision={0.5} sx={{ color: 'white' }} />
+                                    <Typography variant="h3" fontWeight="bold">{item.value}</Typography>
+                                    {item.isRating && (
+                                        <Rating value={Number(stats.avg_rating)} readOnly precision={0.5} sx={{ color: 'white' }} />
+                                    )}
                                 </Stack>
                             </CardContent>
                         </Card>
-                    </Grid>
-                    <Grid sx={{ xs: 12, md: 4 }}>
-                        <Card sx={{ bgcolor: 'success.main', color: 'white' }}>
-                            <CardContent>
-                                <Typography variant="h6">Đánh giá mới</Typography>
-                                <Typography variant="h3" fontWeight="bold">{stats.new_reviews}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                    ))}
+                </Box>
             )}
 
-            {/* Reviews Table */}
             <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <Table>
                     <TableHead sx={{ bgcolor: 'grey.100' }}>
@@ -138,33 +107,21 @@ export default function BODReviewList() {
                             reviews.map((review) => (
                                 <TableRow key={review.id} hover>
                                     <TableCell>{review.full_name}</TableCell>
-                                    <TableCell>
-                                        <Chip label={review.apartment_code} size="small" variant="outlined" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Rating value={review.rating} readOnly size="small" />
-                                    </TableCell>
+                                    <TableCell><Chip label={review.apartment_code} size="small" variant="outlined" /></TableCell>
+                                    <TableCell><Rating value={review.rating} readOnly size="small" /></TableCell>
                                     <TableCell sx={{ maxWidth: 300 }}>
-                                        <Typography noWrap variant="body2">
-                                            {review.feedback || <i>(Không có nội dung)</i>}
-                                        </Typography>
+                                        <Typography noWrap variant="body2">{review.feedback || <i>(Không nội dung)</i>}</Typography>
                                     </TableCell>
+                                    <TableCell>{new Date(review.created_at).toLocaleDateString('vi-VN')}</TableCell>
                                     <TableCell>
-                                        {new Date(review.created_at).toLocaleDateString('vi-VN')}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={review.status}
-                                            color={review.status === 'Mới' ? 'error' : 'success'}
-                                            size="small"
+                                        <Chip 
+                                            label={review.status} 
+                                            color={review.status === 'Mới' ? 'error' : 'success'} 
+                                            size="small" 
                                         />
                                     </TableCell>
                                     <TableCell align="center">
-                                        <Tooltip title="Xem chi tiết">
-                                            <IconButton onClick={() => handleViewDetail(review)} color="primary">
-                                                <ViewIcon />
-                                            </IconButton>
-                                        </Tooltip>
+                                        <IconButton onClick={() => handleViewDetail(review)} color="primary"><ViewIcon /></IconButton>
                                     </TableCell>
                                 </TableRow>
                             ))
@@ -173,85 +130,58 @@ export default function BODReviewList() {
                 </Table>
             </Paper>
 
-            {/* Detail Modal */}
-            <Dialog
-                open={!!selectedReview}
-                onClose={() => setSelectedReview(null)}
-                maxWidth="md"
-                fullWidth
-            >
+            <Dialog open={!!selectedReview} onClose={() => setSelectedReview(null)} maxWidth="md" fullWidth>
                 {selectedReview && (
                     <>
-                        <DialogTitle sx={{ borderBottom: '1px solid #eee' }}>
-                            Chi tiết đánh giá
-                        </DialogTitle>
+                        <DialogTitle sx={{ borderBottom: '1px solid #eee' }}>Chi tiết đánh giá</DialogTitle>
                         <DialogContent sx={{ p: 4 }}>
-                            <Grid container spacing={4}>
-                                <Grid sx={{ xs: 12, md: 6 }}>
-                                    <Typography variant="subtitle2" color="text.secondary">Người gửi</Typography>
-                                    <Typography variant="h6" gutterBottom>{selectedReview.full_name}</Typography>
+                            <Stack spacing={3}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                                    <Box>
+                                        <Typography variant="subtitle2" color="text.secondary">Người gửi</Typography>
+                                        <Typography variant="h6">{selectedReview.full_name}</Typography>
+                                        <Typography variant="body2">{selectedReview.apartment_code} - {selectedReview.building}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="subtitle2" color="text.secondary">Đánh giá</Typography>
+                                        <Rating value={selectedReview.rating} readOnly />
+                                        <Typography variant="body2" display="block">Trạng thái: {selectedReview.status}</Typography>
+                                    </Box>
+                                </Box>
 
-                                    <Typography variant="subtitle2" color="text.secondary">Căn hộ</Typography>
-                                    <Typography variant="body1" gutterBottom>{selectedReview.apartment_code} - {selectedReview.building}</Typography>
-
-                                    <Typography variant="subtitle2" color="text.secondary">Thời gian</Typography>
-                                    <Typography variant="body1" gutterBottom>
-                                        {new Date(selectedReview.created_at).toLocaleString('vi-VN')}
-                                    </Typography>
-                                </Grid>
-                                <Grid sx={{ xs: 12, md: 6 }}>
-                                    <Typography variant="subtitle2" color="text.secondary">Đánh giá chung</Typography>
-                                    <Rating value={selectedReview.rating} readOnly size="large" sx={{ mb: 2 }} />
-
-                                    <Typography variant="subtitle2" color="text.secondary">Trạng thái</Typography>
-                                    <Chip
-                                        label={selectedReview.status}
-                                        color={selectedReview.status === 'Mới' ? 'error' : 'success'}
-                                        sx={{ mt: 0.5 }}
-                                    />
-                                </Grid>
-
-                                <Grid sx={{ xs: 12 }}>
-                                    <Divider sx={{ my: 1 }} />
-                                    <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
-                                        Nội dung góp ý
-                                    </Typography>
-                                    <Paper sx={{ p: 2, bgcolor: 'grey.50' }} variant="outlined">
-                                        <Typography variant="body1">
-                                            {selectedReview.feedback || 'Không có nội dung'}
-                                        </Typography>
+                                <Box>
+                                    <Divider sx={{ mb: 2 }} />
+                                    <Typography variant="subtitle1" fontWeight="bold">Nội dung góp ý</Typography>
+                                    <Paper sx={{ p: 2, bgcolor: 'grey.50', mt: 1 }} variant="outlined">
+                                        <Typography variant="body1">{selectedReview.feedback || 'Không có nội dung'}</Typography>
                                     </Paper>
-                                </Grid>
+                                </Box>
 
-                                {selectedReview.survey_response && Object.keys(selectedReview.survey_response).length > 0 && (
-                                    <Grid sx={{ xs: 12 }}>
-                                        <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
-                                            Khảo sát
-                                        </Typography>
-                                        <Paper variant="outlined">
-                                            <Table size="small">
-                                                <TableBody>
-                                                    <TableRow>
-                                                        <TableCell>Thái độ nhân viên</TableCell>
-                                                        <TableCell>{getSurveyLabel(selectedReview.survey_response.satisfaction)}</TableCell>
-                                                    </TableRow>
-                                                    <TableRow>
-                                                        <TableCell>An ninh</TableCell>
-                                                        <TableCell>{getSurveyLabel(selectedReview.survey_response.security)}</TableCell>
-                                                    </TableRow>
-                                                    <TableRow>
-                                                        <TableCell>Vệ sinh</TableCell>
-                                                        <TableCell>{getSurveyLabel(selectedReview.survey_response.cleanliness)}</TableCell>
-                                                    </TableRow>
-                                                </TableBody>
-                                            </Table>
-                                        </Paper>
-                                    </Grid>
+                                {selectedReview.survey_response && (
+                                    <Box>
+                                        <Typography variant="subtitle1" fontWeight="bold" mb={1}>Khảo sát dịch vụ</Typography>
+                                        <Table size="small" sx={{ border: '1px solid #eee' }}>
+                                            <TableBody>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>Thái độ nhân viên</TableCell>
+                                                    <TableCell>{getSurveyLabel(selectedReview.survey_response.satisfaction)}</TableCell>
+                                                </TableRow>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>An ninh</TableCell>
+                                                    <TableCell>{getSurveyLabel(selectedReview.survey_response.security)}</TableCell>
+                                                </TableRow>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>Vệ sinh</TableCell>
+                                                    <TableCell>{getSurveyLabel(selectedReview.survey_response.cleanliness)}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </Box>
                                 )}
-                            </Grid>
+                            </Stack>
                         </DialogContent>
-                        <Box sx={{ p: 2, borderTop: '1px solid #eee', display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button onClick={() => setSelectedReview(null)}>Đóng</Button>
+                        <Box sx={{ p: 2, textAlign: 'right', borderTop: '1px solid #eee' }}>
+                            <Button variant="contained" onClick={() => setSelectedReview(null)}>Đóng</Button>
                         </Box>
                     </>
                 )}
@@ -265,6 +195,6 @@ function getSurveyLabel(value: string) {
         case 'good': return <Chip label="Tốt" color="success" size="small" />;
         case 'normal': return <Chip label="Bình thường" color="info" size="small" />;
         case 'bad': return <Chip label="Cần cải thiện" color="warning" size="small" />;
-        default: return value;
+        default: return value || 'N/A';
     }
 }

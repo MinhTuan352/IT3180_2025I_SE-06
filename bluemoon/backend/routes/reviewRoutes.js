@@ -1,16 +1,20 @@
+// File: backend/routes/reviewRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const reviewController = require('../controllers/reviewController');
-const authMiddleware = require('../middleware/checkAuth');
-const roleMiddleware = require('../middleware/checkRole');
+const checkAuth = require('../middleware/checkAuth'); // [FIXED] Tên chuẩn
+const checkRole = require('../middleware/checkRole'); // [FIXED] Tên chuẩn
 
-// Public or Resident routes
-router.post('/', authMiddleware, roleMiddleware(['resident']), reviewController.createReview);
-router.get('/my-reviews', authMiddleware, roleMiddleware(['resident']), reviewController.getResidentReviews);
+router.use(checkAuth);
 
-// BOD routes
-router.get('/', authMiddleware, roleMiddleware(['bod']), reviewController.getAllReviews);
-router.get('/stats', authMiddleware, roleMiddleware(['bod']), reviewController.getStats);
-router.put('/:id/view', authMiddleware, roleMiddleware(['bod']), reviewController.markAsViewed);
+// Cư dân gửi đánh giá
+router.post('/', checkRole(['resident']), reviewController.createReview);
+router.get('/my-reviews', checkRole(['resident']), reviewController.getResidentReviews);
+
+// BQT xem đánh giá
+router.get('/', checkRole(['bod']), reviewController.getAllReviews);
+router.get('/stats', checkRole(['bod']), reviewController.getStats);
+router.put('/:id/view', checkRole(['bod']), reviewController.markAsViewed);
 
 module.exports = router;

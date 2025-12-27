@@ -5,69 +5,43 @@ const db = require('../config/db');
 const apartmentController = {
 
     // [GET] /api/apartments
-    // Dùng cho trang ResidentApartmentLookup (Sơ đồ tòa nhà)
     getAllApartments: async (req, res) => {
         try {
-            // Lấy tất cả căn hộ
-            // Sắp xếp theo Tòa (A,B...) -> Tầng (1,2...) -> Mã căn (A-101...) để frontend dễ xử lý
             const query = `
                 SELECT * FROM apartments 
                 ORDER BY building ASC, floor ASC, apartment_code ASC
             `;
-            
             const [rows] = await db.query(query);
-
-            res.json({
-                success: true,
-                count: rows.length,
-                data: rows
-            });
+            res.json({ success: true, count: rows.length, data: rows });
         } catch (error) {
-            console.error("Error getting apartments:", error);
-            res.status(500).json({ 
-                message: 'Lỗi server khi lấy danh sách căn hộ.', 
-                error: error.message 
-            });
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     },
 
     // [GET] /api/apartments/:id
-    // Dùng cho trang ResidentApartmentDetail (Khi click vào 1 căn hộ)
     getApartmentDetail: async (req, res) => {
         try {
             const { id } = req.params;
 
-            // 1. Lấy thông tin cơ bản của căn hộ
+            // 1. Thông tin căn hộ
             const [aptRows] = await db.query(`SELECT * FROM apartments WHERE id = ?`, [id]);
+            if (aptRows.length === 0) return res.status(404).json({ message: 'Không tồn tại.' });
             
-            if (aptRows.length === 0) {
-                return res.status(404).json({ message: 'Căn hộ không tồn tại.' });
-            }
-            const apartment = aptRows[0];
-
-            // 2. Lấy danh sách thành viên (Cư dân) đang sống trong căn hộ này
-            // Join với bảng users để lấy username nếu cần, hoặc chỉ lấy bảng residents
+            // 2. Thành viên (Chỉ lấy thông tin cần thiết để hiển thị công khai nội bộ)
             const [members] = await db.query(`
-                SELECT * FROM residents 
-                WHERE apartment_id = ? AND status = 'Đang sinh sống'
-                ORDER BY role ASC -- Chủ hộ lên trước
+                SELECT id, full_name, role, status 
+                FROM residents 
+                WHERE apartment_id = ? AND status IN ('Đang sinh sống', 'Tạm vắng')
+                ORDER BY role ASC
             `, [id]);
 
-            // Trả về dữ liệu gộp
             res.json({
                 success: true,
-                data: {
-                    ...apartment,
-                    members: members // Frontend sẽ map mảng này để hiển thị list cư dân
-                }
+                data: { ...aptRows[0], members }
             });
 
         } catch (error) {
-            console.error("Error getting apartment detail:", error);
-            res.status(500).json({ 
-                message: 'Lỗi server khi lấy chi tiết căn hộ.', 
-                error: error.message 
-            });
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     }
 };

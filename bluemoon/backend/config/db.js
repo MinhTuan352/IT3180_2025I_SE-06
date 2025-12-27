@@ -4,12 +4,12 @@ require('dotenv').config();
 
 // Cấu hình SSL cho TiDB (Render)
 // Nếu đang chạy local (XAMPP) thì không cần SSL
-const sslConfig = process.env.DB_HOST === 'localhost' 
-    ? null 
+const sslConfig = process.env.DB_HOST === 'localhost'
+    ? null
     : {
         minVersion: 'TLSv1.2',
         rejectUnauthorized: true
-      };
+    };
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
@@ -21,7 +21,9 @@ const pool = mysql.createPool({
     connectionLimit: 10,
     queueLimit: 0,
     charset: 'utf8mb4',
-    ssl: sslConfig // <--- QUAN TRỌNG: Thêm dòng này
+    ssl: sslConfig, // <--- QUAN TRỌNG: Thêm dòng này
+    // Fix timezone: Trả DATE/DATETIME dạng string để tránh bị shift timezone
+    dateStrings: ['DATE', 'DATETIME']
 });
 
 // Kiểm tra kết nối ngay khi khởi động

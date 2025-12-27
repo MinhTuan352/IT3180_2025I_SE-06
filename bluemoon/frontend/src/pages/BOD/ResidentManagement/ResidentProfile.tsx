@@ -81,11 +81,13 @@ export default function ResidentProfile() {
   };
 
   // Helper formatting Date for Input (YYYY-MM-DD)
-  // Không dùng new Date() để tránh lỗi timezone khi parse date-only string
+  // Fix timezone: MySQL trả về date dạng "1979-12-29T17:00:00.000Z" (UTC)
+  // Khi browser parse, nó chuyển về local time, có thể lùi 1 ngày
   const formatDateForInput = (isoDate?: string) => {
     if (!isoDate) return '';
     try {
-      // Nếu là ISO string với time component (có chữ T), lấy phần date
+      // Nếu là ISO string với time component (có chữ T), chỉ lấy phần date TRƯỚC chữ T
+      // Đây là date gốc từ database, không bị ảnh hưởng timezone
       if (isoDate.includes('T')) {
         return isoDate.split('T')[0];
       }
@@ -93,6 +95,8 @@ export default function ResidentProfile() {
       if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
         return isoDate;
       }
+      // Fallback: Nếu là date object string, thử parse khác
+      // Tránh dùng new Date() vì sẽ bị timezone shift
       return '';
     } catch (e) {
       return '';
@@ -409,17 +413,37 @@ export default function ResidentProfile() {
                     full_name: 'Họ tên', phone: 'SĐT', email: 'Email', dob: 'Ngày sinh',
                     gender: 'Giới tính', cccd: 'CCCD', hometown: 'Quê quán', occupation: 'Nghề nghiệp',
                     role: 'Vai trò', status: 'Trạng thái', apartment_id: 'Căn hộ',
-                    relationship_with_owner: 'Quan hệ với chủ hộ'
+                    relationship_with_owner: 'Quan hệ với chủ hộ', identity_date: 'Ngày cấp CCCD'
                   };
 
-                  const changes: { field: string; oldVal: any; newVal: any }[] = [];
+                  // Format giá trị - đặc biệt xử lý date không bị lệch timezone
+                  const formatValue = (val: any, key: string): string => {
+                    if (val === null || val === undefined) return '(trống)';
+                    // Nếu là date field (dob, identity_date) hoặc chuỗi giống date YYYY-MM-DD
+                    if ((key === 'dob' || key === 'identity_date') && typeof val === 'string') {
+                      // Nếu có chứa T (ISO string), lấy phần date
+                      if (val.includes('T')) {
+                        const [datePart] = val.split('T');
+                        const [y, m, d] = datePart.split('-');
+                        return `${d}/${m}/${y}`;
+                      }
+                      // Nếu đã là YYYY-MM-DD
+                      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                        const [y, m, d] = val.split('-');
+                        return `${d}/${m}/${y}`;
+                      }
+                    }
+                    return String(val);
+                  };
+
+                  const changes: { field: string; oldVal: string; newVal: string }[] = [];
                   if (log.old_values && log.new_values && log.action_type === 'UPDATE') {
                     Object.keys(log.new_values).forEach(key => {
                       if (!hiddenFields.includes(key) && log.old_values[key] !== log.new_values[key]) {
                         changes.push({
                           field: fieldLabels[key] || key,
-                          oldVal: log.old_values[key] ?? '(trống)',
-                          newVal: log.new_values[key] ?? '(trống)'
+                          oldVal: formatValue(log.old_values[key], key),
+                          newVal: formatValue(log.new_values[key], key)
                         });
                       }
                     });

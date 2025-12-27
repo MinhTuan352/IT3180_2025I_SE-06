@@ -38,6 +38,8 @@ interface LoginLog {
   role_code: string;
   role_name: string;
   apartment_id: string | null;
+  apartment_code: string | null;  // Mã căn hộ
+  building: string | null;        // Tòa nhà
   login_time: string;
   ip_address: string;
   user_agent: string;
@@ -180,7 +182,12 @@ export default function LoginManagement() {
         </Stack>
       )
     },
-    { field: 'apartment_id', headerName: 'Căn hộ', width: 100 },
+    {
+      field: 'apartment_code',
+      headerName: 'Căn hộ',
+      width: 120,
+      valueGetter: (_value, row) => row.apartment_code || `#${row.apartment_id}` || '---'
+    },
     {
       field: 'login_time',
       headerName: 'Thời gian',
@@ -222,7 +229,7 @@ export default function LoginManagement() {
       'Tài khoản': row.username,
       'Họ tên': row.full_name,
       'Vai trò': row.role_name,
-      'Căn hộ': row.apartment_id || '---',
+      'Căn hộ': row.apartment_code || `#${row.apartment_id}` || '---',
       'Thời gian': formatDate(row.login_time),
       'IP': row.ip_address,
       'Thiết bị': parseUserAgent(row.user_agent),

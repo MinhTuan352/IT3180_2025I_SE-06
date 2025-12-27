@@ -131,59 +131,6 @@ const userController = {
     },
 
     /**
-     * [POST] /api/users/create-resident
-     * Tạo tài khoản cư dân
-     */
-    createResidentAccount: async (req, res) => {
-        try {
-            const {
-                username, password, email, phone,
-                full_name, gender, dob, cccd,
-                apartment_id, role, hometown, occupation
-            } = req.body;
-
-            // 1. Validate
-            if (!username || !password || !email || !full_name || !cccd || !apartment_id || !role) {
-                return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin cư dân và căn hộ.' });
-            }
-
-            // 2. Check trùng lặp
-            const duplicateError = await User.checkDuplicate(username, email, cccd, 'residents');
-            if (duplicateError) {
-                return res.status(409).json({ message: duplicateError });
-            }
-
-            // [MỚI] Sinh ID cư dân (R0001...)
-            // ID này sẽ dùng chung cho bảng users và residents
-            const newId = await idGenerator.generateIncrementalId('residents', 'R', 'id', 4);
-
-            // 3. Hash Password
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(password, salt);
-
-            // 4. Gọi Model thực hiện Transaction
-            const newUser = await User.createResidentAccount({
-                id: newId,
-                ...req.body,
-                password: hashedPassword
-            });
-
-            res.status(201).json({
-                success: true,
-                message: 'Tạo tài khoản cư dân thành công!',
-                data: { id: newUser.id, username, apartment_id }
-            });
-
-        } catch (error) {
-            // Bắt lỗi khóa ngoại nếu apartment_id không tồn tại
-            if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-                return res.status(400).json({ message: 'Mã căn hộ không tồn tại.' });
-            }
-            res.status(500).json({ message: 'Lỗi server khi tạo tài khoản.', error: error.message });
-        }
-    },
-
-    /**
      * [PUT] /api/users/:id
      * Cập nhật thông tin admin
      */

@@ -2,22 +2,6 @@
 
 const db = require('../config/db');
 
-// --- HELPER: Sinh ID ngẫu nhiên và kiểm tra trùng ---
-// Logic: Prefix + 4 số ngẫu nhiên (VD: ID1234, R9876)
-const generateUniqueId = async (prefix) => {
-    const randomNum = Math.floor(1000 + Math.random() * 9000); // 1000-9999
-    const newId = `${prefix}${randomNum}`;
-
-    // Kiểm tra trong bảng users xem ID này có chưa
-    const [rows] = await db.execute('SELECT id FROM users WHERE id = ?', [newId]);
-
-    // Nếu trùng thì đệ quy gọi lại chính nó để sinh số khác
-    if (rows.length > 0) {
-        return await generateUniqueId(prefix);
-    }
-    return newId;
-};
-
 const User = {
     /**
      * Tìm user theo username
@@ -316,41 +300,24 @@ const User = {
      * Transaction: Tạo tài khoản Quản trị (Admin/Kế toán)
      * Insert đồng thời vào users và admins
      */
-    createManagementAccount: async (data) => {
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+    createManagementAccount: async (data, connection = null) => {
+        const dbConn = connection || db;
+        const { id, username, password, email, phone, role_id, full_name, dob, gender, cccd } = data;
 
-            const { username, password, email, phone, role_id, full_name, dob, gender, cccd } = data;
+        // 1. Insert Users
+        await dbConn.execute(
+            `INSERT INTO users (id, username, password, email, phone, role_id) VALUES (?, ?, ?, ?, ?, ?)`,
+            [id, username, password, email, phone, role_id]
+        );
 
-            // 1. Sinh ID (VD: ID1234)
-            const newId = await generateUniqueId('ID');
+        // 2. Insert Admins Profile
+        await dbConn.execute(
+            `INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, id, full_name, dob, gender, cccd, phone, email]
+        );
 
-            // 2. Insert Users
-            await connection.execute(
-                `INSERT INTO users (id, username, password, email, phone, role_id) VALUES (?, ?, ?, ?, ?, ?)`,
-                [newId, username, password, email, phone, role_id]
-            );
-
-            // 3. Insert Admins (Profile)
-            // Yêu cầu: admins.id = admins.user_id = newId
-            await connection.execute(
-                `INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [newId, newId, full_name, dob, gender, cccd, phone, email]
-            );
-
-            await connection.commit();
-            return { id: newId, username, role_id };
-
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
-        }
+        return { id, username };
     },
-
     /**
      * Transaction: Cập nhật thông tin Admin
      * Update đồng thời vào users và admins
@@ -376,54 +343,6 @@ const User = {
 
             await connection.commit();
             return { success: true };
-
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
-        }
-    },
-
-    /**
-     * Transaction: Tạo tài khoản Cư dân
-     * Insert đồng thời vào users và residents
-     */
-    createResidentAccount: async (data) => {
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
-
-            const {
-                username, password, email, phone,
-                full_name, gender, dob, cccd,
-                apartment_id, role, hometown, occupation
-            } = data;
-
-            // 1. Sinh ID (VD: R9999) hoặc dùng ID được truyền vào
-            let newId = data.id;
-            if (!newId) {
-                newId = await generateUniqueId('R');
-            }
-            const roleIdResident = 3; // Mặc định role resident là 3
-
-            // 2. Insert Users
-            await connection.execute(
-                `INSERT INTO users (id, username, password, email, phone, role_id) VALUES (?, ?, ?, ?, ?, ?)`,
-                [newId, username, password, email, phone, roleIdResident]
-            );
-
-            // 3. Insert Residents (Profile)
-            // Yêu cầu: residents.id = residents.user_id = newId
-            // Status mặc định: 'Đang sinh sống'
-            await connection.execute(
-                `INSERT INTO residents (id, user_id, apartment_id, full_name, role, dob, gender, cccd, phone, email, status, hometown, occupation) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đang sinh sống', ?, ?)`,
-                [newId, newId, apartment_id, full_name, role, dob, gender, cccd, phone, email, hometown, occupation]
-            );
-
-            await connection.commit();
-            return { id: newId, username, apartment_id };
 
         } catch (error) {
             await connection.rollback();

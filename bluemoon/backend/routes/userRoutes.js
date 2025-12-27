@@ -37,10 +37,6 @@ router.post('/:id/reset-password', userController.resetPassword);
 // Tạo tài khoản quản trị (Admin hoặc Kế toán)
 router.post('/create-admin', userController.createManagementAccount);
 
-// [POST] /api/users/create-resident
-// Tạo tài khoản cư dân (Kèm thông tin căn hộ)
-router.post('/create-resident', userController.createResidentAccount);
-
 // [GET] /api/users/:id - Lấy chi tiết một user (admin) theo ID
 router.get('/:id', userController.getAdminById);
 

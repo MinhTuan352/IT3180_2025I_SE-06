@@ -7,6 +7,7 @@ export interface ProfileEditRequest {
     id: number;
     resident_id: string;
     resident_name?: string;
+    apartment_code?: string;
     requested_changes: Record<string, any>;
     reason?: string;
     status: 'Chờ duyệt' | 'Đã duyệt' | 'Từ chối';
@@ -40,6 +41,16 @@ export const profileEditRequestApi = {
     getMyRequests: async (): Promise<ProfileEditRequest[]> => {
         const response = await axiosClient.get<RequestListResponse>('/profile-requests/me');
         return (response.data as any).data || [];
+    },
+
+    // BOD xem tất cả yêu cầu (pending + đã xử lý)
+    getAllRequests: async (): Promise<{ data: ProfileEditRequest[]; totalCount: number; pendingCount: number }> => {
+        const response = await axiosClient.get<any>('/profile-requests/all');
+        return {
+            data: (response.data as any).data || [],
+            totalCount: (response.data as any).totalCount || 0,
+            pendingCount: (response.data as any).pendingCount || 0
+        };
     },
 
     // BOD xem yêu cầu của 1 cư dân

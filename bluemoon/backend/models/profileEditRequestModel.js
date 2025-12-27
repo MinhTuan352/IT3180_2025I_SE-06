@@ -67,6 +67,38 @@ const ProfileEditRequest = {
     },
 
     /**
+     * Lấy TẤT CẢ yêu cầu (cho BOD xem tổng quan)
+     */
+    getAll: async () => {
+        const query = `
+            SELECT 
+                per.*,
+                r.full_name as resident_name,
+                a.apartment_code
+            FROM profile_edit_requests per
+            JOIN residents r ON per.resident_id = r.id
+            LEFT JOIN apartments a ON r.apartment_id = a.id
+            ORDER BY per.created_at DESC
+        `;
+        const [rows] = await db.execute(query);
+        return rows.map(row => ({
+            ...row,
+            requested_changes: typeof row.requested_changes === 'string'
+                ? JSON.parse(row.requested_changes)
+                : row.requested_changes
+        }));
+    },
+
+    /**
+     * Đếm tổng số yêu cầu chờ duyệt (toàn hệ thống)
+     */
+    getTotalPendingCount: async () => {
+        const query = `SELECT COUNT(*) as count FROM profile_edit_requests WHERE status = 'Chờ duyệt'`;
+        const [rows] = await db.execute(query);
+        return rows[0].count;
+    },
+
+    /**
      * Đếm số yêu cầu chờ duyệt của 1 cư dân
      */
     getPendingCount: async (residentId) => {

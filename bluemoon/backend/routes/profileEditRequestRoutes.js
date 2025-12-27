@@ -22,6 +22,9 @@ router.get('/me', checkRole(['resident']), profileEditRequestController.getMyReq
 // 2. DÀNH CHO BAN QUẢN TRỊ (BOD)
 // ==========================================
 
+// Xem tất cả yêu cầu (pending + đã xử lý)
+router.get('/all', checkRole(['bod']), profileEditRequestController.getAllRequests);
+
 // Xem yêu cầu của 1 cư dân
 router.get('/resident/:id', checkRole(['bod']), profileEditRequestController.getRequestsByResidentId);
 

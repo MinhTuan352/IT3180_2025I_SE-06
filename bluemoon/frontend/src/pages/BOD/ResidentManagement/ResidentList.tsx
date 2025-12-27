@@ -23,6 +23,7 @@ import { useRef, type ChangeEvent, useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useQuery } from '@tanstack/react-query'; // Import React Query
 import { residentApi, type Resident } from '../../../api/residentApi';
+import { profileEditRequestApi, type ProfileEditRequest } from '../../../api/profileEditRequestApi';
 
 // Icons
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -88,12 +89,21 @@ export default function ResidentList() {
   });
   const [tempFilters, setTempFilters] = useState<FilterState>(filters);
   const [tempSort, setTempSort] = useState<SortState>(sort);
+  const [openEditRequestsModal, setOpenEditRequestsModal] = useState(false);
 
   // --- API CALL ---
   const { data: residentList = [], isLoading, error } = useQuery({
     queryKey: ['residents'],
     queryFn: () => residentApi.getAll(),
   });
+
+  // Fetch all edit requests
+  const { data: editRequestsData } = useQuery({
+    queryKey: ['allEditRequests'],
+    queryFn: () => profileEditRequestApi.getAllRequests(),
+  });
+  const allRequests: ProfileEditRequest[] = editRequestsData?.data || [];
+  const pendingCount = editRequestsData?.pendingCount || 0;
 
   // --- LOGIC FILTER VÀ SORT ---
   const filteredAndSortedResidents = useMemo(() => {
@@ -369,6 +379,14 @@ export default function ResidentList() {
             Tìm kiếm nâng cao
           </Button>
           <Button
+            variant="outlined"
+            color="warning"
+            sx={{ mr: 1, backgroundColor: 'white' }}
+            onClick={() => setOpenEditRequestsModal(true)}
+          >
+            Yêu cầu chỉnh sửa {pendingCount > 0 && `(${pendingCount})`}
+          </Button>
+          <Button
             variant="contained"
             onClick={handleCreateResident}
           >
@@ -376,6 +394,98 @@ export default function ResidentList() {
           </Button>
         </Box>
       </Box>
+
+      {/* Alert yêu cầu chờ duyệt */}
+      {pendingCount > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Có <strong>{pendingCount}</strong> yêu cầu chỉnh sửa thông tin từ cư dân đang chờ duyệt.
+          <Button size="small" sx={{ ml: 1 }} onClick={() => setOpenEditRequestsModal(true)}>
+            Xem ngay
+          </Button>
+        </Alert>
+      )}
+
+      {/* Modal Danh sách yêu cầu chỉnh sửa */}
+      <Modal open={openEditRequestsModal} onClose={() => setOpenEditRequestsModal(false)}>
+        <Box sx={{
+          ...modalStyle,
+          width: { xs: '95%', md: 700 },
+          maxHeight: '80vh',
+          overflow: 'auto'
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6" fontWeight="bold">
+              Tất cả yêu cầu chỉnh sửa ({allRequests.length})
+            </Typography>
+            <IconButton onClick={() => setOpenEditRequestsModal(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          {allRequests.length === 0 ? (
+            <Alert severity="info">Chưa có yêu cầu nào.</Alert>
+          ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ background: '#f5f5f5' }}>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Cư dân</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Căn hộ</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Nội dung</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
+                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Ngày gửi</th>
+                    <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #ddd' }}>Xem</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allRequests.map((req) => (
+                    <tr key={req.id}>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontWeight: 500 }}>
+                        {req.resident_name}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        {req.apartment_code || '-'}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
+                        {Object.entries(req.requested_changes || {}).slice(0, 2).map(([key, val]) => (
+                          <div key={key}><strong>{key}:</strong> {String(val)}</div>
+                        ))}
+                        {Object.keys(req.requested_changes || {}).length > 2 && (
+                          <span style={{ color: '#666' }}>+{Object.keys(req.requested_changes).length - 2} trường khác</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                        <Box component="span" sx={{
+                          px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.8rem',
+                          bgcolor: req.status === 'Đã duyệt' ? '#e8f5e9' : req.status === 'Chờ duyệt' ? '#fff3e0' : '#ffebee',
+                          color: req.status === 'Đã duyệt' ? '#2e7d32' : req.status === 'Chờ duyệt' ? '#e65100' : '#c62828'
+                        }}>
+                          {req.status}
+                        </Box>
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                        {req.created_at ? new Date(req.created_at).toLocaleDateString('vi-VN') : ''}
+                      </td>
+                      <td style={{ padding: '10px', borderBottom: '1px solid #eee', textAlign: 'center' }}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => {
+                            setOpenEditRequestsModal(false);
+                            navigate(`${basePath}/resident/profile/${req.resident_id}`);
+                          }}
+                        >
+                          Xem Profile
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
+          )}
+        </Box>
+      </Modal>
 
       {/* MODAL TÌM KIẾM NÂNG CAO */}
       <Modal

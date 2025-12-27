@@ -177,16 +177,6 @@ export default function ResidentProfile() {
         Hồ sơ Cư dân
       </Typography>
 
-      {/* Alert nếu có yêu cầu chờ duyệt */}
-      {pendingRequestCount > 0 && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          ⚠️ Cư dân này có <strong>{pendingRequestCount}</strong> yêu cầu chỉnh sửa thông tin đang chờ duyệt.
-          <Box component="span" sx={{ ml: 1 }}>
-            Xem bên dưới để xử lý.
-          </Box>
-        </Alert>
-      )}
-
       <Grid container spacing={3}>
         {/* CỘT BÊN TRÁI: Avatar và ID */}
         <Grid size={{ xs: 12, md: 4 }}>

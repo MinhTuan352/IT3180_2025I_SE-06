@@ -330,6 +330,39 @@ export default function ResidentProfileEdit() {
                     <Grid container spacing={2}>
                         <Grid size={12}>
                             <TextField
+                                label="Họ và tên mới"
+                                fullWidth
+                                placeholder={profileData?.full_name || ''}
+                                value={editFormData.full_name || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <TextField
+                                label="Ngày sinh mới"
+                                fullWidth
+                                type="date"
+                                InputLabelProps={{ shrink: true }}
+                                value={editFormData.dob || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, dob: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <FormControl fullWidth>
+                                <InputLabel>Giới tính mới</InputLabel>
+                                <Select
+                                    value={editFormData.gender || ''}
+                                    label="Giới tính mới"
+                                    onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+                                >
+                                    <MenuItem value="">-- Không thay đổi --</MenuItem>
+                                    <MenuItem value="Nam">Nam</MenuItem>
+                                    <MenuItem value="Nữ">Nữ</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField
                                 label="Số điện thoại mới"
                                 fullWidth
                                 placeholder={profileData?.phone || ''}
@@ -362,6 +395,15 @@ export default function ResidentProfileEdit() {
                                 placeholder={profileData?.occupation || ''}
                                 value={editFormData.occupation || ''}
                                 onChange={(e) => setEditFormData({ ...editFormData, occupation: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField
+                                label="CCCD mới"
+                                fullWidth
+                                placeholder={profileData?.cccd || ''}
+                                value={editFormData.cccd || ''}
+                                onChange={(e) => setEditFormData({ ...editFormData, cccd: e.target.value })}
                             />
                         </Grid>
                         <Grid size={12}>

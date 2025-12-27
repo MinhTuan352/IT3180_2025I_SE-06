@@ -61,6 +61,28 @@ const profileEditRequestController = {
     },
 
     /**
+     * [GET] /api/profile-requests/all
+     * BOD xem tất cả yêu cầu (pending + đã xử lý)
+     */
+    getAllRequests: async (req, res) => {
+        try {
+            const [requests, pendingCount] = await Promise.all([
+                ProfileEditRequest.getAll(),
+                ProfileEditRequest.getTotalPendingCount()
+            ]);
+            res.json({
+                success: true,
+                data: requests,
+                totalCount: requests.length,
+                pendingCount
+            });
+        } catch (error) {
+            console.error('Error getAllRequests:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    },
+
+    /**
      * [GET] /api/profile-requests/resident/:id
      * BOD xem yêu cầu của 1 cư dân
      */

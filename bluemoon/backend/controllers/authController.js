@@ -271,7 +271,7 @@ const authController = {
             const allHistory = await User.getAllLoginHistory();
             // Lọc chỉ lấy admin (BOD, ACCOUNTANT)
             const adminHistory = allHistory.filter(item =>
-                item.role_code === 'bod' || item.role_code === 'accountance'
+                item.role_code === 'bod' || item.role_code === 'accountance' || item.role_code === 'cqcn'
             ).map(item => ({
                 id: item.id,
                 username: item.username,

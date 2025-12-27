@@ -237,7 +237,7 @@ export default function ResidentApartmentLookup() {
   };
 
   return (
-    <Box sx={{ width: { xs: 400, sm: 600, md: 900, lg: 980 } }}>
+    <Box sx={{ width: { xs: 400, sm: 600, md: 900, lg: 990 } }}>
       {/* 1. HEADER */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>

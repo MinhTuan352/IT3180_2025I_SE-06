@@ -22,6 +22,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { residentApi, type Resident } from '../../../api/residentApi';
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
 import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
+import { profileEditRequestApi, type ProfileEditRequest } from '../../../api/profileEditRequestApi';
 
 export default function ResidentProfile() {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +31,8 @@ export default function ResidentProfile() {
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [changeHistory, setChangeHistory] = useState<any[]>([]);
+  const [editRequests, setEditRequests] = useState<ProfileEditRequest[]>([]);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +48,13 @@ export default function ResidentProfile() {
         setLoading(true);
         setError(null);
 
-        // Fetch resident, apartments and vehicles in parallel
-        const [resResponse, aptsData, vehiclesData, historyData] = await Promise.all([
+        // Fetch resident, apartments, vehicles and edit requests in parallel
+        const [resResponse, aptsData, vehiclesData, historyData, requestsResponse] = await Promise.all([
           residentApi.getById(id),
           apartmentApi.getAll(),
           vehicleApi.getVehiclesByResidentId(id),
-          residentApi.getResidentChangeHistory(id)
+          residentApi.getResidentChangeHistory(id),
+          profileEditRequestApi.getRequestsByResidentId(id)
         ]);
 
         // Handle response structure
@@ -59,6 +63,8 @@ export default function ResidentProfile() {
         setApartments(aptsData);
         setVehicles(vehiclesData);
         setChangeHistory(historyData);
+        setEditRequests(requestsResponse.data);
+        setPendingRequestCount(requestsResponse.pendingCount);
       } catch (err: any) {
         console.error('Error fetching data:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin cư dân.');
@@ -170,6 +176,16 @@ export default function ResidentProfile() {
       <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
         Hồ sơ Cư dân
       </Typography>
+
+      {/* Alert nếu có yêu cầu chờ duyệt */}
+      {pendingRequestCount > 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          ⚠️ Cư dân này có <strong>{pendingRequestCount}</strong> yêu cầu chỉnh sửa thông tin đang chờ duyệt.
+          <Box component="span" sx={{ ml: 1 }}>
+            Xem bên dưới để xử lý.
+          </Box>
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* CỘT BÊN TRÁI: Avatar và ID */}
@@ -490,6 +506,107 @@ export default function ResidentProfile() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </Box>
+        )}
+      </Card>
+
+      {/* Section: Yêu cầu chỉnh sửa từ cư dân */}
+      <Card sx={{ mt: 3, p: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+          Yêu cầu chỉnh sửa thông tin
+        </Typography>
+        {editRequests.length === 0 ? (
+          <Alert severity="info">Không có yêu cầu chỉnh sửa nào.</Alert>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+              <thead>
+                <tr style={{ background: '#f5f5f5' }}>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Ngày gửi</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Nội dung yêu cầu</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Lý do</th>
+                  <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
+                  <th style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #ddd' }}>Hành động</th>
+                </tr>
+              </thead>
+              <tbody>
+                {editRequests.map((req) => (
+                  <tr key={req.id}>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                      {req.created_at ? new Date(req.created_at).toLocaleString('vi-VN') : ''}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontSize: '0.85rem' }}>
+                      {Object.entries(req.requested_changes || {}).map(([key, val]) => (
+                        <div key={key}><strong>{key}:</strong> {String(val)}</div>
+                      ))}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eee', color: '#666' }}>
+                      {req.reason || '-'}
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                      <Box component="span" sx={{
+                        px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
+                        bgcolor: req.status === 'Đã duyệt' ? '#e8f5e9' : req.status === 'Chờ duyệt' ? '#fff3e0' : '#ffebee',
+                        color: req.status === 'Đã duyệt' ? '#2e7d32' : req.status === 'Chờ duyệt' ? '#e65100' : '#c62828'
+                      }}>
+                        {req.status}
+                      </Box>
+                    </td>
+                    <td style={{ padding: '10px', borderBottom: '1px solid #eee', textAlign: 'center' }}>
+                      {req.status === 'Chờ duyệt' ? (
+                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="success"
+                            onClick={async () => {
+                              try {
+                                await profileEditRequestApi.updateRequestStatus(req.id, 'Đã duyệt');
+                                setSnackbar({ open: true, message: 'Đã duyệt và cập nhật thông tin!', severity: 'success' });
+                                // Reload data
+                                const newData = await profileEditRequestApi.getRequestsByResidentId(id!);
+                                setEditRequests(newData.data);
+                                setPendingRequestCount(newData.pendingCount);
+                                // Reload profile to show updated info
+                                const resResponse = await residentApi.getById(id!);
+                                setUserData((resResponse as any).data || resResponse);
+                              } catch (err: any) {
+                                setSnackbar({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra.', severity: 'error' });
+                              }
+                            }}
+                          >
+                            Duyệt
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={async () => {
+                              const note = prompt('Nhập lý do từ chối (tùy chọn):');
+                              try {
+                                await profileEditRequestApi.updateRequestStatus(req.id, 'Từ chối', note || undefined);
+                                setSnackbar({ open: true, message: 'Đã từ chối yêu cầu.', severity: 'success' });
+                                const newData = await profileEditRequestApi.getRequestsByResidentId(id!);
+                                setEditRequests(newData.data);
+                                setPendingRequestCount(newData.pendingCount);
+                              } catch (err: any) {
+                                setSnackbar({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra.', severity: 'error' });
+                              }
+                            }}
+                          >
+                            Từ chối
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          {req.processed_by_name && `Bởi: ${req.processed_by_name}`}
+                        </Typography>
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </Box>

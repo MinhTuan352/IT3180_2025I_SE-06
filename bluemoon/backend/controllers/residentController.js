@@ -178,6 +178,7 @@ const residentController = {
 
         } catch (error) {
             await connection.rollback();
+            console.error('[CREATE RESIDENT ERROR]', error); // DEBUG
             if (error.code === 'ER_DUP_ENTRY') {
                 if (error.message.includes('users.username')) return res.status(409).json({ message: 'Tên đăng nhập đã tồn tại.' });
                 if (error.message.includes('residents.cccd')) return res.status(409).json({ message: 'Số CCCD đã tồn tại.' });

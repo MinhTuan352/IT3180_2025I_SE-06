@@ -132,8 +132,10 @@ const Resident = {
 
     /**
      * Thêm mới cư dân
+     * @param {Object} data - Dữ liệu cư dân
+     * @param {Object} connection - Connection từ transaction (optional)
      */
-    create: async (data) => {
+    create: async (data, connection = null) => {
         try {
             const {
                 id, user_id, apartment_id, full_name, role,
@@ -147,13 +149,19 @@ const Resident = {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
-            // Dùng (variable || null) để đảm bảo không bao giờ truyền undefined vào SQL
-            await db.execute(query, [
+            const params = [
                 id, user_id || null, apartment_id, full_name, role,
                 dob || null, gender || null, cccd || null, phone || null, email || null,
                 status || 'Đang sinh sống', hometown || null, occupation || null,
                 relationship_with_owner || 'Chủ hộ', identity_date || null, identity_place || null
-            ]);
+            ];
+
+            // Dùng connection nếu có (cho transaction), nếu không thì dùng db
+            if (connection) {
+                await connection.execute(query, params);
+            } else {
+                await db.execute(query, params);
+            }
 
             return { id, ...data };
         } catch (error) {
@@ -250,7 +258,14 @@ const Resident = {
             INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note)
             VALUES (?, ?, ?, ?, ?)
         `;
-        await db.execute(query, [resident_id, apartment_id, event_type, event_date, note]);
+        const params = [resident_id, apartment_id, event_type, event_date, note];
+
+        // Dùng connection nếu có (cho transaction), nếu không thì dùng db
+        if (connection) {
+            await connection.execute(query, params);
+        } else {
+            await db.execute(query, params);
+        }
     },
 
     /**

@@ -67,7 +67,8 @@ export default function BarrierSimulator() {
 
             await simulateAccess({
                 plate_number: vehicle.license_plate,
-                direction
+                direction,
+                gate: 'Cổng A' // Default gate
             });
 
             setSnackbar({
@@ -75,12 +76,16 @@ export default function BarrierSimulator() {
                 message: `✅ Đã ghi nhận xe ${vehicle.license_plate} ${direction === 'In' ? 'VÀO' : 'RA'}`,
                 severity: 'success'
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error simulating access:', error);
+
+            // Hiển thị message từ backend (anti-passback, blacklist, etc.)
+            const errorMessage = error.response?.data?.message || 'Lỗi khi mô phỏng ra vào';
+
             setSnackbar({
                 open: true,
-                message: 'Lỗi khi mô phỏng ra vào',
-                severity: 'error'
+                message: errorMessage,
+                severity: error.response?.data?.error === 'ANTI_PASSBACK_VIOLATION' ? 'warning' : 'error'
             });
         } finally {
             setSimulating(null);

@@ -1,7 +1,7 @@
 // File: backend/controllers/accessController.js
 
 const AccessLog = require('../models/accessModel');
-const db = require('../config/db'); 
+const db = require('../config/db');
 const xl = require('excel4node'); // Cần cài: npm install excel4node
 
 const accessController = {
@@ -90,48 +90,66 @@ const accessController = {
             let status = 'Normal';
             let note = '';
             let residentId = null;
-            let vehicleType = 'Ô tô'; 
+            let vehicleType = 'Ô tô';
 
-            // A. Kiểm tra xe trong DB (Req 12)
-            // Query trực tiếp bảng vehicles để lấy thông tin mới nhất
-            const [vehicles] = await db.query(`
-                SELECT v.*, r.id as resident_id, a.apartment_code 
-                FROM vehicles v
-                JOIN residents r ON v.resident_id = r.id
-                JOIN apartments a ON r.apartment_id = a.id
-                WHERE v.license_plate = ? AND v.status = 'Đang sử dụng'
-            `, [plate_number]);
+            // A. Kiểm tra xe trong BLACKLIST trước
+            const [blacklisted] = await db.query(
+                `SELECT * FROM vehicle_blacklist WHERE license_plate = ?`,
+                [plate_number]
+            );
 
-            if (vehicles.length > 0) {
-                const v = vehicles[0];
-                residentId = v.resident_id;
-                vehicleType = v.vehicle_type;
-                note = `Cư dân ${v.apartment_code}`;
+            if (blacklisted.length > 0) {
+                status = 'Alert';
+                note = `🚨 CẢNH BÁO: Xe trong danh sách đen! Lý do: ${blacklisted[0].reason || 'Không rõ'}`;
+                vehicleType = 'Ô tô'; // Default
             } else {
-                // Xe lạ hoặc Blacklist
-                if (plate_number.includes('BLACKLIST')) {
-                    status = 'Alert';
-                    note = 'CẢNH BÁO: Xe trong danh sách đen!';
+                // B. Kiểm tra xe trong DB đã đăng ký
+                const [vehicles] = await db.query(`
+                    SELECT v.*, r.id as resident_id, a.apartment_code 
+                    FROM vehicles v
+                    JOIN residents r ON v.resident_id = r.id
+                    JOIN apartments a ON r.apartment_id = a.id
+                    WHERE v.license_plate = ? AND v.status = 'Đang sử dụng'
+                `, [plate_number]);
+
+                if (vehicles.length > 0) {
+                    const v = vehicles[0];
+                    residentId = v.resident_id;
+                    vehicleType = v.vehicle_type;
+                    note = `Cư dân ${v.apartment_code}`;
                 } else {
+                    // Xe lạ không đăng ký
                     status = 'Warning';
                     note = 'Xe lạ chưa đăng ký';
                 }
             }
 
-            // B. [FIX REQ 11] Kiểm tra Ra vào theo cặp (Anti-passback)
+            // B. [ANTI-PASSBACK] Kiểm tra Ra vào theo cặp - CHẶN nếu vi phạm
             const lastLog = await AccessLog.getLastLogByPlate(plate_number);
-            
+
             if (lastLog) {
                 // Nếu lần trước là VÀO, lần này phải là RA (và ngược lại)
                 if (lastLog.direction === direction) {
-                    status = (status === 'Normal') ? 'Warning' : status; 
-                    note += ` | Lỗi: Xe đang ${direction === 'In' ? 'trong bãi' : 'bên ngoài'} (Trùng trạng thái)`;
+                    const errorMsg = direction === 'In'
+                        ? '❌ Xe này đã VÀO bãi trước đó, cần RA trước khi VÀO lại!'
+                        : '❌ Xe này đã RA khỏi bãi trước đó, cần VÀO trước khi RA lại!';
+
+                    return res.status(400).json({
+                        success: false,
+                        message: errorMsg,
+                        error: 'ANTI_PASSBACK_VIOLATION',
+                        lastDirection: lastLog.direction,
+                        lastTime: lastLog.created_at
+                    });
                 }
             } else {
                 // Lần đầu thấy xe này mà lại đi RA -> Vô lý
                 if (direction === 'Out') {
-                    status = (status === 'Normal') ? 'Warning' : status;
-                    note += ' | Lỗi: Xe chưa từng vào bãi';
+                    return res.status(400).json({
+                        success: false,
+                        message: '❌ Xe này chưa từng VÀO bãi, không thể RA!',
+                        error: 'NEVER_ENTERED'
+                    });
                 }
             }
 
@@ -158,19 +176,67 @@ const accessController = {
     // 4. Lấy danh sách xe cho Simulator (Dropdown)
     getSimulatorVehicles: async (req, res) => {
         try {
+            // Lấy xe thực từ database
             const [rows] = await db.query(`
-                SELECT v.license_plate, v.vehicle_type, a.apartment_code 
+                SELECT 
+                    v.id,
+                    v.license_plate, 
+                    v.vehicle_type, 
+                    v.brand,
+                    v.model,
+                    r.full_name as owner_name,
+                    a.apartment_code,
+                    0 as isSimulated,
+                    0 as isBlacklist
                 FROM vehicles v
                 JOIN residents r ON v.resident_id = r.id
                 JOIN apartments a ON v.apartment_id = a.id
                 WHERE v.status = 'Đang sử dụng'
+                ORDER BY v.created_at DESC
             `);
-            
-            rows.push({ license_plate: '30A-999.99', vehicle_type: 'Ô tô', apartment_code: 'XE LẠ' });
-            rows.push({ license_plate: 'BLACKLIST-01', vehicle_type: 'Xe máy', apartment_code: 'CẤM' });
+
+            // Thêm xe từ danh sách đen (từ database)
+            const [blacklistedVehicles] = await db.query(`
+                SELECT 
+                    id,
+                    license_plate,
+                    reason,
+                    created_at
+                FROM vehicle_blacklist
+                ORDER BY created_at DESC
+            `);
+
+            // Thêm các xe blacklist vào danh sách
+            blacklistedVehicles.forEach(bv => {
+                rows.push({
+                    id: `blacklist-${bv.id}`,
+                    license_plate: bv.license_plate,
+                    vehicle_type: 'Ô tô',
+                    brand: 'N/A',
+                    model: '',
+                    owner_name: `⚠️ ${bv.reason || 'Danh sách đen'}`,
+                    apartment_code: 'CẤM',
+                    isSimulated: true,
+                    isBlacklist: true
+                });
+            });
+
+            // Thêm xe lạ để test
+            rows.push({
+                id: 'test-stranger',
+                license_plate: '99X-123.45',
+                vehicle_type: 'Ô tô',
+                brand: 'N/A',
+                model: '',
+                owner_name: 'Xe lạ (Test)',
+                apartment_code: 'KHÁCH',
+                isSimulated: true,
+                isBlacklist: false
+            });
 
             res.json({ success: true, data: rows });
         } catch (error) {
+            console.error('Error getSimulatorVehicles:', error);
             res.status(500).json({ message: 'Lỗi server.' });
         }
     },
@@ -210,7 +276,7 @@ const accessController = {
                 ws.cell(r, 3).string(log.vehicle_type);
                 ws.cell(r, 4).string(log.gate);
                 ws.cell(r, 5).string(log.direction === 'In' ? 'Vào' : 'Ra');
-                
+
                 // Tô màu trạng thái
                 if (log.status === 'Alert') ws.cell(r, 6).string(log.status).style({ font: { color: 'red', bold: true } });
                 else if (log.status === 'Warning') ws.cell(r, 6).string(log.status).style({ font: { color: 'orange' } });

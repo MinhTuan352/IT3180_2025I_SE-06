@@ -131,7 +131,6 @@ export default function AccessControl() {
       width: 150,
       valueFormatter: (value: string) => value ? format(new Date(value), 'HH:mm:ss dd/MM') : ''
     },
-    { field: 'gate', headerName: 'Cổng', width: 100 },
     {
       field: 'direction', headerName: 'Hướng', width: 80,
       renderCell: (params: GridRenderCellParams) => (

@@ -449,6 +449,17 @@ CREATE TABLE access_logs (
     INDEX idx_created (created_at)
 ) ENGINE=InnoDB;
 
+-- 28b. VEHICLE_BLACKLIST (DANH SÁCH ĐEN XE)
+CREATE TABLE vehicle_blacklist (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    license_plate VARCHAR(20) NOT NULL UNIQUE COMMENT 'Biển số xe cấm',
+    reason VARCHAR(500) COMMENT 'Lý do đưa vào danh sách đen',
+    added_by VARCHAR(20) COMMENT 'User ID của người thêm',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_plate (license_plate)
+) ENGINE=InnoDB;
+
 -- 29. BUILDING_INFO (THÔNG TIN TÒA NHÀ)
 CREATE TABLE building_info (
     id INT PRIMARY KEY DEFAULT 1,
@@ -766,6 +777,12 @@ INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, re
 ('51G-99999', 'Ô tô', 'In', 'Cổng A', 'Warning', NULL, 'Xe lạ chưa đăng ký', NULL, NOW() - INTERVAL 1 HOUR),
 ('BLACKLIST', 'Xe máy', 'In', 'Cổng B', 'Alert', NULL, 'Biển số trong danh sách đen!', NULL, NOW() - INTERVAL 30 MINUTE),
 ('30G-98765', 'Ô tô', 'In', 'Cổng A', 'Normal', 'R0003', 'Cư dân B-205', NULL, NOW() - INTERVAL 15 MINUTE);
+
+-- Dữ liệu mẫu Danh sách đen xe (Blacklist)
+INSERT INTO vehicle_blacklist (license_plate, reason, added_by) VALUES
+('51G-999.99', 'Xe từng gây mất trật tự an ninh', 'ID0001'),
+('30A-FAKE', 'Biển số giả mạo, đã báo công an', 'ID0001'),
+('29H-123.45', 'Chủ xe nợ phí gửi xe 6 tháng', 'ID0002');
 
 -- Dữ liệu mẫu Thông tin Tòa nhà (Building Info)
 INSERT INTO building_info (id, name, investor, location, scale, apartments, description, total_area, start_date, finish_date, total_investment)

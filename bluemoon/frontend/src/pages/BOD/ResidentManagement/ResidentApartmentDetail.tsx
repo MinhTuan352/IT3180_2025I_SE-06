@@ -22,6 +22,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EditIcon from '@mui/icons-material/Edit';
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
+import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
 import type { Resident } from '../../../api/residentApi';
 
 interface ApartmentDetail extends Apartment {
@@ -37,6 +38,7 @@ export default function ResidentApartmentDetail() {
 
   const [apartment, setApartment] = useState<ApartmentDetail | null>(null);
   const [residents, setResidents] = useState<Resident[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,15 @@ export default function ResidentApartmentDetail() {
         // Backend trả về members trong response, sử dụng trực tiếp
         // (members là danh sách cư dân của căn hộ này)
         setResidents((apartmentData as any).members || []);
+
+        // Fetch vehicles cho căn hộ này
+        try {
+          const vehiclesData = await vehicleApi.getAllVehicles({ apartment_id: Number(id) });
+          setVehicles(vehiclesData);
+        } catch (vehicleErr) {
+          console.error('Error fetching vehicles:', vehicleErr);
+          // Không throw error, chỉ log - không hiển thị xe nếu lỗi
+        }
       } catch (err: any) {
         console.error('Error fetching apartment detail:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin căn hộ.');
@@ -230,6 +241,60 @@ export default function ResidentApartmentDetail() {
             )}
           </Grid>
         </Grid>
+
+        {/* Section: Phương tiện đăng ký */}
+        <Divider sx={{ my: 4 }} />
+        <Typography variant="h6" fontWeight="bold" gutterBottom>
+          Phương tiện đăng ký
+        </Typography>
+        {vehicles.length === 0 ? (
+          <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+            <Typography color="text.secondary">
+              Căn hộ này chưa có phương tiện nào được đăng ký.
+            </Typography>
+          </Paper>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f5f5f5' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Loại xe</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Biển số</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Hãng / Model</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Chủ xe</th>
+                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.map((v) => (
+                  <tr key={v.id}>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      {v.vehicle_type === 'Ô tô' ? '🚗' : '🏍️'} {v.vehicle_type}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
+                      {v.license_plate}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      {v.brand || 'N/A'} {v.model ? `- ${v.model}` : ''}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      {v.owner_name || 'N/A'}
+                    </td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
+                      <Box component="span" sx={{
+                        px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
+                        bgcolor: v.status === 'Đang sử dụng' ? '#e8f5e9' : v.status === 'Chờ duyệt' ? '#fff3e0' : '#f5f5f5',
+                        color: v.status === 'Đang sử dụng' ? '#2e7d32' : v.status === 'Chờ duyệt' ? '#e65100' : '#666'
+                      }}>
+                        {v.status}
+                      </Box>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Box>
+        )}
       </Paper>
     </Box>
   );

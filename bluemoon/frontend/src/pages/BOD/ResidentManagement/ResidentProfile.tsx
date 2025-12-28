@@ -21,7 +21,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { residentApi, type Resident } from '../../../api/residentApi';
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
-import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
+
 import { profileEditRequestApi, type ProfileEditRequest } from '../../../api/profileEditRequestApi';
 
 export default function ResidentProfile() {
@@ -29,7 +29,7 @@ export default function ResidentProfile() {
   const navigate = useNavigate();
   const [userData, setUserData] = useState<Resident | null>(null);
   const [apartments, setApartments] = useState<Apartment[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
   const [changeHistory, setChangeHistory] = useState<any[]>([]);
   const [editRequests, setEditRequests] = useState<ProfileEditRequest[]>([]);
 
@@ -48,11 +48,10 @@ export default function ResidentProfile() {
         setLoading(true);
         setError(null);
 
-        // Fetch resident, apartments, vehicles and edit requests in parallel
-        const [resResponse, aptsData, vehiclesData, historyData, requestsResponse] = await Promise.all([
+        // Fetch resident, apartments and edit requests in parallel
+        const [resResponse, aptsData, historyData, requestsResponse] = await Promise.all([
           residentApi.getById(id),
           apartmentApi.getAll(),
-          vehicleApi.getVehiclesByResidentId(id),
           residentApi.getResidentChangeHistory(id),
           profileEditRequestApi.getRequestsByResidentId(id)
         ]);
@@ -61,7 +60,6 @@ export default function ResidentProfile() {
         const data = (resResponse as any).data || resResponse;
         setUserData(data);
         setApartments(aptsData);
-        setVehicles(vehiclesData);
         setChangeHistory(historyData);
         setEditRequests(requestsResponse.data);
       } catch (err: any) {
@@ -373,53 +371,6 @@ export default function ResidentProfile() {
           </Card>
         </Grid>
       </Grid>
-
-      {/* Section: Phương tiện */}
-      <Card sx={{ mt: 3, p: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-          Phương tiện đăng ký
-        </Typography>
-        {vehicles.length === 0 ? (
-          <Alert severity="info">Cư dân chưa đăng ký phương tiện nào.</Alert>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f5f5f5' }}>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Loại xe</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Biển số</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Hãng / Model</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vehicles.map((v) => (
-                  <tr key={v.id}>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                      {v.vehicle_type === 'Ô tô' ? '🚗' : '🏍️'} {v.vehicle_type}
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
-                      {v.license_plate}
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                      {v.brand || 'N/A'} {v.model ? `- ${v.model}` : ''}
-                    </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #eee' }}>
-                      <Box component="span" sx={{
-                        px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
-                        bgcolor: v.status === 'Đang sử dụng' ? '#e8f5e9' : v.status === 'Chờ duyệt' ? '#fff3e0' : '#f5f5f5',
-                        color: v.status === 'Đang sử dụng' ? '#2e7d32' : v.status === 'Chờ duyệt' ? '#e65100' : '#666'
-                      }}>
-                        {v.status}
-                      </Box>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Box>
-        )}
-      </Card>
 
       {/* Section: Lịch sử thay đổi */}
       <Card sx={{ mt: 3, p: 3 }}>

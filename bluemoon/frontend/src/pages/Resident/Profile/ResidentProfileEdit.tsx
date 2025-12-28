@@ -2,13 +2,11 @@
 import { Typography, Paper, Grid, TextField, Button, Avatar, Alert, CircularProgress, Select, MenuItem, FormControl, InputLabel, Card, Box, Modal, Snackbar } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { residentApi, type Resident } from '../../../api/residentApi';
-import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
 import { profileEditRequestApi, type ProfileEditRequest } from '../../../api/profileEditRequestApi';
 
 export default function ResidentProfileEdit() {
     // State cho dữ liệu profile
     const [profileData, setProfileData] = useState<Resident | null>(null);
-    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [editRequests, setEditRequests] = useState<ProfileEditRequest[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -51,10 +49,6 @@ export default function ResidentProfileEdit() {
                 hometown: data.hometown || '',
                 occupation: data.occupation || ''
             });
-
-            // Fetch vehicles
-            const vehiclesData = await vehicleApi.getMyVehicles();
-            setVehicles(vehiclesData);
 
             // Fetch edit requests
             const requestsData = await profileEditRequestApi.getMyRequests();
@@ -265,53 +259,6 @@ export default function ResidentProfileEdit() {
             </Grid>
 
             {/* Save button removed */}
-
-            {/* Section: Xe của tôi */}
-            <Card sx={{ mt: 3, p: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Xe của tôi
-                </Typography>
-                {vehicles.length === 0 ? (
-                    <Alert severity="info">Bạn chưa đăng ký phương tiện nào.</Alert>
-                ) : (
-                    <Box sx={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ background: '#f5f5f5' }}>
-                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Loại xe</th>
-                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Biển số</th>
-                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Hãng / Model</th>
-                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {vehicles.map((v) => (
-                                    <tr key={v.id}>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                                            {v.vehicle_type === 'Ô tô' ? '🚗' : '🏍️'} {v.vehicle_type}
-                                        </td>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
-                                            {v.license_plate}
-                                        </td>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                                            {v.brand || 'N/A'} {v.model ? `- ${v.model}` : ''}
-                                        </td>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
-                                            <Box component="span" sx={{
-                                                px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
-                                                bgcolor: v.status === 'Đang sử dụng' ? '#e8f5e9' : v.status === 'Chờ duyệt' ? '#fff3e0' : '#f5f5f5',
-                                                color: v.status === 'Đang sử dụng' ? '#2e7d32' : v.status === 'Chờ duyệt' ? '#e65100' : '#666'
-                                            }}>
-                                                {v.status}
-                                            </Box>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </Box>
-                )}
-            </Card>
 
             {/* Nút yêu cầu chỉnh sửa */}
             <Box sx={{ mt: 3, textAlign: 'center' }}>

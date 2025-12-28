@@ -66,6 +66,8 @@ import LoginHistory from '../pages/Account/LoginHistory.tsx';
 
 import BuildingInfo from '../pages/Common/BuildingInfo.tsx';
 import AccessControl from '../pages/BOD/AccessControl/AccessControl';
+import AccessControlLanding from '../pages/BOD/AccessControl/AccessControlLanding';
+import VehicleList from '../pages/BOD/AccessControl/VehicleList';
 import AccessReport from '../pages/BOD/AccessControl/AccessReport';
 import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
 import CQCNDashboard from '../pages/CQCN/Dashboard/CQCNDashboard';
@@ -118,7 +120,9 @@ export default function AppRoutes() {
             <Route path="bod/resident/profile/:id" element={<ResidentProfile />} />
 
             <Route path="bod/login-management" element={<LoginManagement />} />
-            <Route path="bod/access-control" element={<AccessControl />} />
+            <Route path="bod/access-control" element={<AccessControlLanding />} />
+            <Route path="bod/access-control/live" element={<AccessControl />} />
+            <Route path="bod/access-control/vehicles" element={<VehicleList />} />
             <Route path="bod/access-report" element={<AccessReport />} />
 
             <Route path="bod/fee/list" element={<FeeList />} />
@@ -210,7 +214,9 @@ export default function AppRoutes() {
             <Route path="cqcn/resident/apartment/:id" element={<ResidentApartmentDetail />} />
             <Route path="cqcn/resident/profile/:id" element={<ResidentProfile />} />
             <Route path="cqcn/login-management" element={<LoginManagement />} />
-            <Route path="cqcn/access-control" element={<AccessControl />} />
+            <Route path="cqcn/access-control" element={<AccessControlLanding />} />
+            <Route path="cqcn/access-control/live" element={<AccessControl />} />
+            <Route path="cqcn/access-control/vehicles" element={<VehicleList />} />
             <Route path="cqcn/access-report" element={<AccessReport />} />
           </Route>
 

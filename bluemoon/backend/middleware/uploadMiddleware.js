@@ -4,11 +4,13 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Cấu hình nơi lưu trữ
+// Cấu hình nơi lưu trữ (cho ảnh)
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         // Tự động chọn thư mục dựa trên loại file hoặc field name
         const baseUrl = req.baseUrl || '';
+
+        let uploadPath = 'public/uploads';
 
         if (baseUrl.includes('/vehicles')) {
             uploadPath = 'public/uploads/vehicles';
@@ -23,10 +25,10 @@ const storage = multer.diskStorage({
         }
 
         // Tạo thư mục nếu chưa tồn tại
-        if (!fs.existsSync(uploadPath)){
+        if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
         }
-        
+
         cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
@@ -45,10 +47,41 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const upload = multer({ 
+const upload = multer({
     storage: storage,
     limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn 10MB
     fileFilter: fileFilter
 });
 
+// ==========================================
+// EXCEL UPLOAD (cho Import)
+// ==========================================
+
+// Sử dụng memoryStorage để đọc buffer
+const excelStorage = multer.memoryStorage();
+
+// Bộ lọc file Excel
+const excelFilter = (req, file, cb) => {
+    const allowedMimes = [
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/octet-stream'
+    ];
+    const allowedExts = ['.xlsx', '.xls'];
+    const ext = path.extname(file.originalname).toLowerCase();
+
+    if (allowedMimes.includes(file.mimetype) || allowedExts.includes(ext)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Chỉ chấp nhận file Excel (.xlsx, .xls)!'), false);
+    }
+};
+
+const excelUpload = multer({
+    storage: excelStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn 10MB
+    fileFilter: excelFilter
+});
+
 module.exports = upload;
+module.exports.excelUpload = excelUpload;

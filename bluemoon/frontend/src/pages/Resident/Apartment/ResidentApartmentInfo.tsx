@@ -4,7 +4,7 @@ import {
     List, ListItem, ListItemAvatar, ListItemText,
     CircularProgress, Alert, Button,
     Dialog, DialogContent, DialogActions,
-    IconButton, Stack
+    IconButton, Stack, Modal, TextField, FormControl, InputLabel, Select, MenuItem, Snackbar
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import ApartmentIcon from '@mui/icons-material/Apartment';
@@ -18,7 +18,11 @@ import CloseIcon from '@mui/icons-material/Close';
 import CakeIcon from '@mui/icons-material/Cake';
 import WcIcon from '@mui/icons-material/Wc';
 import BadgeIcon from '@mui/icons-material/Badge';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import { apartmentApi } from '../../../api/apartmentApi';
+import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
 
 interface Member {
     id: string;
@@ -234,9 +238,34 @@ export default function ResidentApartmentInfo() {
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
     const [memberModalOpen, setMemberModalOpen] = useState(false);
 
+    // Vehicle states
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [openVehicleModal, setOpenVehicleModal] = useState(false);
+    const [vehicleFormData, setVehicleFormData] = useState({
+        vehicle_type: 'Xe máy' as 'Ô tô' | 'Xe máy',
+        license_plate: '',
+        brand: '',
+        model: ''
+    });
+    const [vehicleFiles, setVehicleFiles] = useState<{ vehicle_image?: File; registration_cert?: File }>({});
+    const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+        open: false, message: '', severity: 'success'
+    });
+
     useEffect(() => {
         fetchApartment();
+        fetchVehicles();
     }, []);
+
+    const fetchVehicles = async () => {
+        try {
+            const vehiclesData = await vehicleApi.getMyVehicles();
+            setVehicles(vehiclesData);
+        } catch (err) {
+            console.error('Error fetching vehicles:', err);
+        }
+    };
 
     const fetchApartment = async () => {
         try {
@@ -482,7 +511,225 @@ export default function ResidentApartmentInfo() {
                 onClose={handleCloseMemberModal}
                 member={selectedMember}
             />
+
+            {/* Vehicle Section */}
+            <Paper sx={{ p: 3, borderRadius: 3, mt: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <DirectionsCarIcon color="primary" /> Xe của căn hộ
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<AddCircleOutlineIcon />}
+                        onClick={() => setOpenVehicleModal(true)}
+                    >
+                        Đăng ký xe
+                    </Button>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+
+                {vehicles.length === 0 ? (
+                    <Alert severity="info">Căn hộ chưa đăng ký phương tiện nào.</Alert>
+                ) : (
+                    <Box sx={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ background: '#f5f5f5' }}>
+                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Loại xe</th>
+                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Biển số</th>
+                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Hãng / Model</th>
+                                    <th style={{ padding: '10px', textAlign: 'left', borderBottom: '1px solid #ddd' }}>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {vehicles.map((v) => (
+                                    <tr key={v.id}>
+                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                                            {v.vehicle_type === 'Ô tô' ? <DirectionsCarIcon sx={{ verticalAlign: 'middle', mr: 0.5 }} color="primary" /> : <TwoWheelerIcon sx={{ verticalAlign: 'middle', mr: 0.5 }} color="secondary" />}
+                                            {v.vehicle_type}
+                                        </td>
+                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee', fontWeight: 'bold' }}>
+                                            {v.license_plate}
+                                        </td>
+                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                                            {v.brand || 'N/A'} {v.model ? `- ${v.model}` : ''}
+                                        </td>
+                                        <td style={{ padding: '10px', borderBottom: '1px solid #eee' }}>
+                                            <Box component="span" sx={{
+                                                px: 1.5, py: 0.5, borderRadius: 1, fontSize: '0.85rem',
+                                                bgcolor: v.status === 'Đang sử dụng' ? '#e8f5e9' : v.status === 'Chờ duyệt' ? '#fff3e0' : '#f5f5f5',
+                                                color: v.status === 'Đang sử dụng' ? '#2e7d32' : v.status === 'Chờ duyệt' ? '#e65100' : '#666'
+                                            }}>
+                                                {v.status}
+                                            </Box>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Vehicle Registration Modal */}
+            <Modal open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
+                <Box sx={{
+                    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                    width: { xs: '95%', sm: 500 }, bgcolor: 'background.paper', borderRadius: 2,
+                    boxShadow: 24, p: 4, maxHeight: '90vh', overflow: 'auto'
+                }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <DirectionsCarIcon color="primary" /> Đăng ký xe mới
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                        Điền đầy đủ thông tin để đăng ký phương tiện. Sau khi đăng ký, xe sẽ ở trạng thái "Chờ duyệt".
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                        <Grid size={12}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Loại xe *</InputLabel>
+                                <Select
+                                    value={vehicleFormData.vehicle_type}
+                                    label="Loại xe *"
+                                    onChange={(e) => setVehicleFormData({ ...vehicleFormData, vehicle_type: e.target.value as 'Ô tô' | 'Xe máy' })}
+                                >
+                                    <MenuItem value="Xe máy">
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <TwoWheelerIcon fontSize="small" /> Xe máy
+                                        </Box>
+                                    </MenuItem>
+                                    <MenuItem value="Ô tô">
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <DirectionsCarIcon fontSize="small" /> Ô tô
+                                        </Box>
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                        <Grid size={12}>
+                            <TextField
+                                label="Biển số xe *"
+                                fullWidth
+                                required
+                                placeholder="VD: 29A-12345"
+                                value={vehicleFormData.license_plate}
+                                onChange={(e) => setVehicleFormData({ ...vehicleFormData, license_plate: e.target.value.toUpperCase() })}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <TextField
+                                label="Hãng xe"
+                                fullWidth
+                                placeholder="VD: Honda, Toyota"
+                                value={vehicleFormData.brand}
+                                onChange={(e) => setVehicleFormData({ ...vehicleFormData, brand: e.target.value })}
+                            />
+                        </Grid>
+                        <Grid size={6}>
+                            <TextField
+                                label="Model"
+                                fullWidth
+                                placeholder="VD: Vios, Air Blade"
+                                value={vehicleFormData.model}
+                                onChange={(e) => setVehicleFormData({ ...vehicleFormData, model: e.target.value })}
+                            />
+                        </Grid>
+
+                        {/* File Upload */}
+                        <Grid size={12}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                Ảnh xe (không bắt buộc)
+                            </Typography>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                        setVehicleFiles({ ...vehicleFiles, vehicle_image: e.target.files[0] });
+                                    }
+                                }}
+                            />
+                            {vehicleFiles.vehicle_image && (
+                                <Typography variant="caption" color="success.main">
+                                    Đã chọn: {vehicleFiles.vehicle_image.name}
+                                </Typography>
+                            )}
+                        </Grid>
+                        <Grid size={12}>
+                            <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                                Ảnh đăng ký xe (không bắt buộc)
+                            </Typography>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                    if (e.target.files?.[0]) {
+                                        setVehicleFiles({ ...vehicleFiles, registration_cert: e.target.files[0] });
+                                    }
+                                }}
+                            />
+                            {vehicleFiles.registration_cert && (
+                                <Typography variant="caption" color="success.main">
+                                    Đã chọn: {vehicleFiles.registration_cert.name}
+                                </Typography>
+                            )}
+                        </Grid>
+                    </Grid>
+
+                    <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
+                        <Button variant="outlined" onClick={() => setOpenVehicleModal(false)}>Hủy</Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            disabled={vehicleSubmitting || !vehicleFormData.license_plate.trim()}
+                            onClick={async () => {
+                                try {
+                                    setVehicleSubmitting(true);
+
+                                    const formData = new FormData();
+                                    formData.append('vehicle_type', vehicleFormData.vehicle_type);
+                                    formData.append('license_plate', vehicleFormData.license_plate.trim());
+                                    if (vehicleFormData.brand) formData.append('brand', vehicleFormData.brand);
+                                    if (vehicleFormData.model) formData.append('model', vehicleFormData.model);
+                                    if (vehicleFiles.vehicle_image) formData.append('vehicle_image', vehicleFiles.vehicle_image);
+                                    if (vehicleFiles.registration_cert) formData.append('registration_cert', vehicleFiles.registration_cert);
+
+                                    await vehicleApi.registerVehicle(formData);
+
+                                    setSnackbar({ open: true, message: 'Đăng ký xe thành công! Vui lòng chờ BQL duyệt.', severity: 'success' });
+                                    setOpenVehicleModal(false);
+
+                                    // Reset form
+                                    setVehicleFormData({ vehicle_type: 'Xe máy', license_plate: '', brand: '', model: '' });
+                                    setVehicleFiles({});
+
+                                    // Reload vehicles
+                                    await fetchVehicles();
+                                } catch (err: any) {
+                                    setSnackbar({ open: true, message: err.response?.data?.message || 'Có lỗi xảy ra khi đăng ký xe.', severity: 'error' });
+                                } finally {
+                                    setVehicleSubmitting(false);
+                                }
+                            }}
+                        >
+                            {vehicleSubmitting ? <CircularProgress size={20} /> : 'Đăng ký'}
+                        </Button>
+                    </Box>
+                </Box>
+            </Modal>
+
+            {/* Snackbar */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+            >
+                <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }
-

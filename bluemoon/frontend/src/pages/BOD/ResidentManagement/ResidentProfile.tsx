@@ -404,6 +404,13 @@ export default function ResidentProfile() {
                   // Format giá trị - đặc biệt xử lý date không bị lệch timezone
                   const formatValue = (val: any, key: string): string => {
                     if (val === null || val === undefined) return '(trống)';
+
+                    // Nếu là apartment_id, tra cứu apartment_code
+                    if (key === 'apartment_id') {
+                      const apt = apartments.find(a => a.id === val || a.id === Number(val));
+                      return apt ? apt.apartment_code : String(val);
+                    }
+
                     // Nếu là date field (dob, identity_date) hoặc chuỗi giống date YYYY-MM-DD
                     if ((key === 'dob' || key === 'identity_date') && typeof val === 'string') {
                       // Nếu có chứa T (ISO string), lấy phần date

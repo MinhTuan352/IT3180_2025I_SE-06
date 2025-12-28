@@ -154,7 +154,13 @@ const profileEditRequestController = {
                 delete updateData.role;
 
                 if (Object.keys(updateData).length > 0) {
-                    await Resident.update(request.resident_id, updateData);
+                    // Lấy thông tin hiện tại của cư dân
+                    const currentResident = await Resident.findById(request.resident_id);
+                    if (currentResident) {
+                        // Merge dữ liệu hiện tại với dữ liệu thay đổi
+                        const mergedData = { ...currentResident, ...updateData };
+                        await Resident.update(request.resident_id, mergedData);
+                    }
                 }
             }
 

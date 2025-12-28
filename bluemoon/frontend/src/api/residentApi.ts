@@ -16,9 +16,14 @@ export interface Resident {
   dob?: string;
   gender?: string;
   cccd?: string;
+  identity_date?: string;
+  identity_place?: string;
   hometown?: string;
   occupation?: string;
+  relationship_with_owner?: string;
   user_id?: string | null;  // ID tài khoản User liên kết (nếu có)
+  account_username?: string;
+  account_password?: string;
   has_account?: boolean;    // Computed field: true nếu có user_id
 }
 

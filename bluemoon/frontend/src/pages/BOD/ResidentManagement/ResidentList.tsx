@@ -23,6 +23,7 @@ import { useRef, type ChangeEvent, useState, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useQuery } from '@tanstack/react-query'; // Import React Query
 import { residentApi, type Resident } from '../../../api/residentApi';
+import { apartmentApi } from '../../../api/apartmentApi';
 import { profileEditRequestApi, type ProfileEditRequest } from '../../../api/profileEditRequestApi';
 
 // Icons
@@ -305,8 +306,21 @@ export default function ResidentList() {
       'ID': res.id,
       'Họ và Tên': res.full_name,
       'Căn hộ': res.apartment_code || res.apartment_id,
+      'Ngày sinh': res.dob ? new Date(res.dob).toLocaleDateString('vi-VN') : '',
+      'Giới tính': res.gender || '',
+      'CCCD': res.cccd || '',
+      'Ngày cấp': res.identity_date ? new Date(res.identity_date).toLocaleDateString('vi-VN') : '',
+      'Nơi cấp': res.identity_place || '',
+      'SĐT': res.phone || '',
+      'Email': res.email || '',
+      'Quê quán': res.hometown || '',
+      'Nghề nghiệp': res.occupation || '',
+      'Quan hệ với chủ hộ': res.relationship_with_owner || '',
       'Quyền hạn': roleMap[res.role as keyof typeof roleMap]?.label || res.role,
       'Trạng thái': res.status || 'Đang sinh sống',
+      'Tài khoản': res.has_account ? 'Có' : 'Không',
+      'Username': res.account_username || '',
+      'Password': res.account_password || '',
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -340,13 +354,28 @@ export default function ResidentList() {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+        // Sử dụng raw: false để đảm bảo đọc ngày tháng dưới dạng chuỗi (text formatted) thay vì số
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
         console.log('Dữ liệu Cư dân Import từ Excel:', json);
+
+        // Fetch danh sách căn hộ để map Code -> ID
+        let apartmentMap = new Map<string, number>();
+        try {
+          const apartments = await apartmentApi.getAll();
+          apartments.forEach(a => {
+            if (a.apartment_code) apartmentMap.set(a.apartment_code, a.id);
+          });
+        } catch (err) {
+          console.error('Không thể lấy danh sách căn hộ:', err);
+          alert('Lỗi: Không thể lấy dữ liệu căn hộ để đối chiếu.');
+          return;
+        }
 
         // Duyệt qua từng dòng và gọi API tạo
         let successCount = 0;
         let failCount = 0;
+        const errors: string[] = [];
 
         // Hiển thị loading (tạm thời dùng alert hoặc console, nâng cao thì dùng state)
         // alert(`Đang xử lý ${json.length} bản ghi...`);
@@ -361,37 +390,73 @@ export default function ResidentList() {
             // => Đơn giản hoá: Ta gửi apartment_id nếu Excel có, hoặc map từ code.
             // (Để nhanh, giả sử Excel người dùng nhập sẵn Apartment ID hoặc Code đúng format)
 
+            // Helper parse Date dd/mm/yyyy -> yyyy-mm-dd
+            const parseDate = (val: any) => {
+              if (!val) return null;
+              if (typeof val === 'string') {
+                const parts = val.split('/'); // 20/12/1990
+                if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+              }
+              return val;
+            };
+
+            // Map Apartment Code -> ID
+            const aptCode = row['Mã Căn Hộ'] || row['apartment_id'] || row['Căn hộ'] || row['Can ho'];
+            const aptId = apartmentMap.get(aptCode);
+
+            if (!aptId && aptCode) {
+              throw new Error(`Mã căn hộ "${aptCode}" không tồn tại.`);
+            }
+
             const payload = {
-              id: row['ID'] || row['id'],
+              // ID tự sinh, ko lấy từ Excel
+              // id: row['ID'] || row['id'], 
               full_name: row['Họ và Tên'] || row['full_name'],
-              apartment_id: row['Mã Căn Hộ'] || row['apartment_id'], // Cần check lại nếu API yêu cầu ID số
-              role: (row['Quyền hạn'] || row['role']) === 'Chủ hộ' ? 'owner' : 'member',
+              apartment_id: aptId,  // Use mapped ID
+              role: (row['Quyền hạn'] || row['role'] || '').includes('Chủ') ? 'owner' : 'member',
               cccd: row['CCCD'] || row['cccd'],
-              phone: row['Điện thoại'] || row['phone'],
+              phone: row['SĐT'] || row['Điện thoại'] || row['phone'],
               email: row['Email'] || row['email'],
               gender: row['Giới tính'] || row['gender'],
-              dob: row['Ngày sinh'] || row['dob'],
+              dob: parseDate(row['Ngày sinh'] || row['dob']),
+
+              identity_date: parseDate(row['Ngày cấp'] || row['identity_date']),
+              identity_place: row['Nơi cấp'] || row['identity_place'],
+              hometown: row['Quê quán'] || row['hometown'],
+              occupation: row['Nghề nghiệp'] || row['occupation'],
+              relationship_with_owner: row['Quan hệ với chủ hộ'] || row['relationship_with_owner'],
+
+              account_username: row['Username'] || row['username'],
+              account_password: row['Password'] || row['password'],
+
               status: 'Đang sinh sống'
             };
 
             // Bỏ qua nếu thiếu key fields
             if (!payload.full_name || !payload.apartment_id) {
-              console.warn('Bỏ qua dòng thiếu dữ liệu:', row);
-              failCount++;
-              continue;
+              const missing = [];
+              if (!payload.full_name) missing.push('Họ tên');
+              if (!payload.apartment_id) missing.push('Căn hộ');
+              throw new Error(`Thiếu thông tin bắt buộc: ${missing.join(', ')}`);
             }
 
             await residentApi.create(payload as any);
             successCount++;
-          } catch (err) {
+          } catch (err: any) {
             console.error('Lỗi import dòng:', row, err);
             failCount++;
+            const name = row['Họ và Tên'] || `Dòng ${typeof json.indexOf === 'function' ? json.indexOf(row) + 2 : '?'}`;
+            errors.push(`${name}: ${err.response?.data?.message || err.message}`);
           }
         }
 
-        alert(`Hoàn tất import! Thành công: ${successCount}, Thất bại: ${failCount}`);
-        // Refresh lại trang
-        window.location.reload();
+        if (failCount === 0) {
+          alert(`Import thành công ${successCount} cư dân!`);
+          window.location.reload();
+        } else {
+          alert(`Hoàn tất import.\nThành công: ${successCount}\nThất bại: ${failCount}\n\nLỗi:\n${errors.slice(0, 5).join('\n')}`);
+          if (successCount > 0) window.location.reload();
+        }
 
       } catch (error) {
         console.error("Lỗi khi đọc file Excel:", error);

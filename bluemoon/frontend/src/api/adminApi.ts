@@ -29,6 +29,9 @@ export interface UserData {
 
   // Thông tin từ bảng admins (có thể null nếu chưa cập nhật profile)
   full_name?: string;
+  dob?: string;
+  gender?: string;
+  cccd?: string;
 
   // Thông tin Role (Backend thường populate bảng roles)
   role?: {
@@ -81,6 +84,9 @@ const normalizeUser = (u: any): UserData => {
     phone: u.phone,
     is_active: u.is_active,
     full_name: u.full_name,
+    dob: u.dob,
+    gender: u.gender,
+    cccd: u.cccd,
     role: roleCode ? { role_code: roleCode as 'bod' | 'accountance' | 'resident' | 'cqcn', role_name: roleName || '' } : undefined,
     role_id: roleId
   };

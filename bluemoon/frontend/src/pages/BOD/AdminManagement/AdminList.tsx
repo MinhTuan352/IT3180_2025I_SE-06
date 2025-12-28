@@ -289,6 +289,10 @@ export default function AdminList() {
       'Username': admin.username,
       'Họ và Tên': admin.full_name || '',
       'Email': admin.email,
+      'SĐT': admin.phone || '',
+      'Ngày sinh': admin.dob ? new Date(admin.dob).toLocaleDateString('vi-VN') : '',
+      'Giới tính': admin.gender || '',
+      'CCCD': admin.cccd || '',
       'Vai trò': roleMap[admin.role_id || 3]?.label || 'Không xác định',
       'Trạng thái': admin.is_active ? 'Hoạt động' : 'Đã khóa',
     }));
@@ -309,20 +313,78 @@ export default function AdminList() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet);
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
-        console.log('Dữ liệu Import từ Excel:', json);
-        alert('Đã đọc file Excel thành công! Xem dữ liệu ở Console (F12).');
+        console.log('Dữ liệu Admin Import:', json);
+        let successCount = 0;
+        let failCount = 0;
+        const errors: string[] = [];
+
+        // Helper parse Date
+        const parseDate = (val: any) => {
+          if (!val) return null;
+          if (typeof val === 'string') {
+            const parts = val.split('/');
+            if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+          return val;
+        };
+
+        // Helper map role
+        const getRoleId = (roleStr: string) => {
+          if (!roleStr) return 1; // Default BOD? No, maybe dangerous.
+          const r = roleStr.toLowerCase();
+          if (r.includes('kế toán')) return 2;
+          if (r.includes('cơ quan') || r.includes('cqcn')) return 4;
+          return 1; // Default BOD
+        };
+
+        for (const row of json) {
+          try {
+            const payload = {
+              username: row['Username'] || row['username'],
+              password: row['Password'] || row['password'],
+              email: row['Email'] || row['email'],
+              full_name: row['Họ và Tên'] || row['full_name'],
+              phone: row['SĐT'] || row['phone'],
+              role_id: getRoleId(row['Vai trò'] || row['role'] || ''),
+              dob: parseDate(row['Ngày sinh'] || row['dob']),
+              gender: row['Giới tính'] || row['gender'],
+              cccd: row['CCCD'] || row['cccd'],
+            };
+
+            if (!payload.username || !payload.password || !payload.email) {
+              console.warn('Skip invalid row:', row);
+              failCount++;
+              continue;
+            }
+
+            await adminApi.create(payload);
+            successCount++;
+          } catch (err: any) {
+            console.error('Import Error:', err);
+            failCount++;
+            errors.push(`${row['Username'] || 'Unknown'}: ${err.response?.data?.message || err.message}`);
+          }
+        }
+
+        if (failCount === 0) {
+          alert(`Import thành công ${successCount} tài khoản!`);
+          window.location.reload();
+        } else {
+          alert(`Import hoàn tất.\nThành công: ${successCount}\nThất bại: ${failCount}\n\nLỗi:\n${errors.slice(0, 3).join('\n')}`);
+          if (successCount > 0) window.location.reload();
+        }
 
       } catch (error) {
         console.error("Lỗi khi đọc file Excel:", error);
-        alert('Đã xảy ra lỗi khi đọc file. Vui lòng kiểm tra định dạng file.');
+        alert('Đã xảy ra lỗi khi đọc file.');
       }
     };
 

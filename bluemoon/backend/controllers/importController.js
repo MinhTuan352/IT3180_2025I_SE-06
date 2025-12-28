@@ -67,7 +67,7 @@ const importController = {
                         }));
                         xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(adminData), "Admins");
                     }
-                    
+
                     else if (sheet === 'FeeTypes') {
                         // 2. Sheet FeeTypes
                         const [fees] = await connection.execute('SELECT * FROM fee_types');
@@ -79,7 +79,7 @@ const importController = {
                         }));
                         xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(feeData), "FeeTypes");
                     }
-                    
+
                     else if (sheet === 'Residents') {
                         // 3. Sheet Residents
                         const [residents] = await connection.execute(`
@@ -102,7 +102,7 @@ const importController = {
                         }));
                         xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(resData), "Residents");
                     }
-                    
+
                     else if (sheet === 'Vehicles') {
                         // 4. Sheet Vehicles
                         const [vehicles] = await connection.execute(`
@@ -158,85 +158,85 @@ const importController = {
             const connection = await db.getConnection();
             try {
                 // Xuất tất cả các sheet
-                    // 1. Sheet Admins (Users + Admins)
-                    const [admins] = await connection.execute(`
+                // 1. Sheet Admins (Users + Admins)
+                const [admins] = await connection.execute(`
                         SELECT u.username, u.email, u.phone, a.full_name, a.cccd, r.role_code
                         FROM users u
                         JOIN roles r ON u.role_id = r.id
                         LEFT JOIN admins a ON u.id = a.user_id
                         WHERE r.role_code IN ('bod', 'accountance', 'cqcn')
                     `);
-                    const adminData = admins.map(a => ({
-                        "Username": a.username,
-                        "Email": a.email,
-                        "Họ tên": a.full_name,
-                        "SĐT": a.phone,
-                        "CCCD": a.cccd,
-                        "Vai trò": a.role_code // bod, accountance
-                    }));
-                    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(adminData), "Admins");
+                const adminData = admins.map(a => ({
+                    "Username": a.username,
+                    "Email": a.email,
+                    "Họ tên": a.full_name,
+                    "SĐT": a.phone,
+                    "CCCD": a.cccd,
+                    "Vai trò": a.role_code // bod, accountance
+                }));
+                xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(adminData), "Admins");
 
-                    // 2. Sheet FeeTypes
-                    const [fees] = await connection.execute('SELECT * FROM fee_types');
-                    const feeData = fees.map(f => ({
-                        "Mã phí": f.fee_code,
-                        "Tên phí": f.fee_name,
-                        "Đơn giá": f.default_price,
-                        "Đơn vị": f.unit
-                    }));
-                    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(feeData), "FeeTypes");
+                // 2. Sheet FeeTypes
+                const [fees] = await connection.execute('SELECT * FROM fee_types');
+                const feeData = fees.map(f => ({
+                    "Mã phí": f.fee_code,
+                    "Tên phí": f.fee_name,
+                    "Đơn giá": f.default_price,
+                    "Đơn vị": f.unit
+                }));
+                xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(feeData), "FeeTypes");
 
-                    // 3. Sheet Residents
-                    const [residents] = await connection.execute(`
+                // 3. Sheet Residents
+                const [residents] = await connection.execute(`
                         SELECT r.*, a.apartment_code, u.username 
                         FROM residents r
                         LEFT JOIN apartments a ON r.apartment_id = a.id
                         LEFT JOIN users u ON r.user_id = u.id
                     `);
-                    const resData = residents.map(r => ({
-                        "Mã căn hộ": r.apartment_code,
-                        "Họ và tên": r.full_name,
-                        "CCCD": r.cccd,
-                        "Vai trò": r.role === 'owner' ? 'Chủ hộ' : 'Thành viên',
-                        "SĐT": r.phone,
-                        "Email": r.email,
-                        "Username": r.username, // Để user biết ai đã có tk
-                        "Password": "", // Không export pass, để trống
-                        "Trạng thái": r.status,
-                        "Ngày biến động": "" // Để trống cho user điền nếu muốn ghi lịch sử
-                    }));
-                    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(resData), "Residents");
+                const resData = residents.map(r => ({
+                    "Mã căn hộ": r.apartment_code,
+                    "Họ và tên": r.full_name,
+                    "CCCD": r.cccd,
+                    "Vai trò": r.role === 'owner' ? 'Chủ hộ' : 'Thành viên',
+                    "SĐT": r.phone,
+                    "Email": r.email,
+                    "Username": r.username, // Để user biết ai đã có tk
+                    "Password": "", // Không export pass, để trống
+                    "Trạng thái": r.status,
+                    "Ngày biến động": "" // Để trống cho user điền nếu muốn ghi lịch sử
+                }));
+                xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(resData), "Residents");
 
-                    // 4. Sheet Vehicles
-                    const [vehicles] = await connection.execute(`
+                // 4. Sheet Vehicles
+                const [vehicles] = await connection.execute(`
                         SELECT v.*, r.cccd as owner_cccd, a.apartment_code
                         FROM vehicles v
                         LEFT JOIN residents r ON v.resident_id = r.id
                         LEFT JOIN apartments a ON v.apartment_id = a.id
                     `);
-                    const vehData = vehicles.map(v => ({
-                        "Biển số": v.license_plate,
-                        "Loại xe": v.vehicle_type,
-                        "CCCD Chủ xe": v.owner_cccd,
-                        "Hãng": v.brand,
-                        "Dòng xe": v.model,
-                        "Trạng thái": v.status
-                    }));
-                    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(vehData), "Vehicles");
+                const vehData = vehicles.map(v => ({
+                    "Biển số": v.license_plate,
+                    "Loại xe": v.vehicle_type,
+                    "CCCD Chủ xe": v.owner_cccd,
+                    "Hãng": v.brand,
+                    "Dòng xe": v.model,
+                    "Trạng thái": v.status
+                }));
+                xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(vehData), "Vehicles");
 
-                    // 5. Sheet Assets
-                    const [assets] = await connection.execute('SELECT * FROM assets');
-                    const assetData = assets.map(a => ({
-                        "Mã tài sản": a.asset_code,
-                        "Tên tài sản": a.name,
-                        "Vị trí": a.location,
-                        "Giá": a.price,
-                        "Ngày mua": formatDateForExcel(a.purchase_date),
-                        "Trạng thái": a.status
-                    }));
-                    xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(assetData), "Assets");
-                }
-                
+                // 5. Sheet Assets
+                const [assets] = await connection.execute('SELECT * FROM assets');
+                const assetData = assets.map(a => ({
+                    "Mã tài sản": a.asset_code,
+                    "Tên tài sản": a.name,
+                    "Vị trí": a.location,
+                    "Giá": a.price,
+                    "Ngày mua": formatDateForExcel(a.purchase_date),
+                    "Trạng thái": a.status
+                }));
+                xlsx.utils.book_append_sheet(wb, xlsx.utils.json_to_sheet(assetData), "Assets");
+            }
+
             finally {
                 connection.release();
             }
@@ -274,7 +274,7 @@ const importController = {
             const formatId = (seq, prefix, len) => `${prefix}${String(seq).padStart(len, '0')}`;
 
             // --- GIAI ĐOẠN 1: ADMINS & FEES ---
-            
+
             // 1. Admins
             if (workbook.Sheets['Admins']) {
                 const adminData = xlsx.utils.sheet_to_json(workbook.Sheets['Admins']);
@@ -283,13 +283,13 @@ const importController = {
                     try {
                         const username = cleanStr(row['Username']);
                         const roleCode = cleanStr(row['Vai trò']);
-                        
+
                         if (!username) throw new Error('Thiếu Username');
 
                         // Check Role
                         const [roles] = await connection.execute('SELECT id FROM roles WHERE role_code = ?', [roleCode]);
                         if (roles.length === 0) throw new Error(`Role "${roleCode}" không hợp lệ`);
-                        
+
                         // Check User
                         const [users] = await connection.execute('SELECT id FROM users WHERE username = ?', [username]);
                         let userId = users.length > 0 ? users[0].id : null;
@@ -329,7 +329,7 @@ const importController = {
                     try {
                         const feeCode = cleanStr(row['Mã phí']);
                         if (!feeCode) throw new Error('Thiếu Mã phí');
-                        
+
                         await connection.execute(`
                             INSERT INTO fee_types (fee_code, fee_name, default_price, unit)
                             VALUES (?, ?, ?, ?)
@@ -342,7 +342,7 @@ const importController = {
             }
 
             // --- GIAI ĐOẠN 2: CƯ DÂN (RESIDENTS) ---
-            
+
             // Load Maps để tra cứu nhanh
             const [aptRows] = await connection.execute('SELECT id, apartment_code, status FROM apartments');
             const apartmentMap = new Map();
@@ -354,12 +354,12 @@ const importController = {
 
             if (workbook.Sheets['Residents']) {
                 const rawData = xlsx.utils.sheet_to_json(workbook.Sheets['Residents']);
-                
+
                 // Group theo căn hộ
                 const apartmentGroups = {};
                 for (const [index, row] of rawData.entries()) {
                     if (isRowEmpty(row)) break; // Dừng nếu hết data
-                    
+
                     const aptCode = cleanStr(row['Mã căn hộ']);
                     if (!aptCode) {
                         summary.errors.push(`Resident dòng ${index + 2}: Thiếu mã căn hộ`);
@@ -388,11 +388,39 @@ const importController = {
                         let activeCount = 0;
 
                         for (const row of residents) {
-                            const cccd = cleanStr(row['CCCD']);
-                            const fullName = cleanStr(row['Họ và tên']);
-                            const role = cleanStr(row['Vai trò']) === 'Chủ hộ' ? 'owner' : 'member';
-                            const status = cleanStr(row['Trạng thái']) || 'Đang sinh sống';
-                            
+                            // Helper lấy giá trị linh hoạt - hỗ trợ nhiều biến thể tên cột
+                            const getVal = (keys) => {
+                                const rowKeys = Object.keys(row);
+                                for (const k of keys) {
+                                    if (row[k] !== undefined) return row[k];
+                                    // Tìm kiếm không phân biệt hoa/thường và trim khoảng trắng  
+                                    const found = rowKeys.find(rk => rk.trim().toLowerCase() === k.trim().toLowerCase());
+                                    if (found) return row[found];
+                                    // Tìm kiếm bằng contains (cho trường hợp có khoảng trắng hoặc ký tự đặc biệt)
+                                    const partialMatch = rowKeys.find(rk => rk.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(rk.toLowerCase()));
+                                    if (partialMatch) return row[partialMatch];
+                                }
+                                return null;
+                            };
+
+                            // LOG TẤT CẢ CÁC KEY trong dòng đầu tiên để debug
+                            if (row.rowIndex === 2) {
+                                console.log(`[Import Debug] === ALL COLUMN KEYS IN ROW ===`);
+                                Object.keys(row).forEach((key, i) => {
+                                    console.log(`   [${i}] "${key}" = "${row[key]}"`);
+                                });
+                            }
+
+                            const cccd = cleanStr(getVal(['CCCD', 'Căn cước', 'So CCCD', 'Can cuoc']));
+                            const fullName = cleanStr(getVal(['Họ và tên', 'Họ tên', 'Ho va ten', 'Ho ten', 'Full Name']));
+                            const roleRaw = cleanStr(getVal(['Vai trò', 'Quyền hạn', 'Quan hệ', 'Quan he', 'Role', 'Quyen han']));
+
+                            // Log debug
+                            console.log(`[Import Debug] Processing: ${fullName} (${cccd}) - RoleRaw: ${roleRaw}`);
+
+                            const role = (roleRaw === 'Chủ hộ') ? 'owner' : 'member';
+                            const status = cleanStr(getVal(['Trạng thái', 'Trang thai', 'Status', 'TT'])) || 'Đang sinh sống';
+
                             if (!cccd || !fullName) throw new Error(`Dòng ${row.rowIndex}: Thiếu Tên hoặc CCCD`);
                             if (status === 'Đang sinh sống') activeCount++;
 
@@ -407,45 +435,68 @@ const importController = {
                             }
                             if (existingRes) userId = existingRes.user_id;
 
-                            // Logic User Account (Chỉ Owner có quyền)
-                            if (role === 'owner') {
-                                const username = cleanStr(row['Username']);
-                                const password = cleanStr(row['Password']); // Có thể trống nếu ko đổi
-                                
-                                if (username) {
-                                    // Upsert User
-                                    const userExists = userId ? true : false;
-                                    const tempId = userId || residentId; // Dùng ID Resident làm ID User luôn
+                            // Logic User Account - ĐƠN GIẢN HÓA:
+                            // - Nếu có Username → tự động tạo/cập nhật tài khoản
+                            // - Chỉ disable nếu cột "Tài khoản" = "Không" một cách rõ ràng
 
-                                    // Nếu user chưa tồn tại trong bảng users (dù resident có user_id null)
-                                    // Check kỹ hơn trong DB users
-                                    const [uCheck] = await connection.execute('SELECT id FROM users WHERE id = ?', [tempId]);
-                                    
-                                    if (uCheck.length === 0) {
-                                        const hash = await bcrypt.hash(password || '123456', 10);
-                                        await connection.execute(
-                                            `INSERT INTO users (id, username, password, email, phone, role_id) VALUES (?, ?, ?, ?, ?, 3)`,
-                                            [tempId, username, hash, cleanStr(row['Email']), cleanStr(row['SĐT'])]
-                                        );
-                                        userId = tempId;
-                                    } else {
-                                        let updateQuery = `UPDATE users SET username=?, is_active=1 WHERE id=?`;
-                                        let params = [username, tempId];
-                                        if (password) {
-                                            const hash = await bcrypt.hash(password, 10);
-                                            updateQuery = `UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`;
-                                            params = [username, hash, tempId];
-                                        }
-                                        await connection.execute(updateQuery, params);
-                                        userId = tempId;
-                                    }
-                                }
-                            } else {
-                                // Member -> Disable user nếu có
+                            // Hỗ trợ nhiều biến thể tên cột
+                            const username = cleanStr(getVal(['Username', 'Tên đăng nhập', 'Ten dang nhap', 'User', 'UserName', 'TenDN']));
+                            const password = cleanStr(getVal(['Password', 'Mật khẩu', 'Mat khau', 'Pass', 'MK']));
+
+                            // Cột "Tài khoản" (optional - chỉ dùng để DISABLE tài khoản)
+                            const accVal = cleanStr(getVal(['Tài khoản', 'Tai khoan', 'Account', 'HasAccount', 'Has Account', 'TK']));
+                            const accLower = accVal ? accVal.toLowerCase().trim() : '';
+
+                            // Kiểm tra nếu cần DISABLE tài khoản (chỉ khi cột rõ ràng = "Không")
+                            const shouldDisableAccount = accLower === 'không' || accLower === 'khong' || accLower === 'no' || accLower === '0' || accLower === 'false';
+
+                            console.log(`   -> Username: "${username}", Password provided: ${!!password}`);
+                            console.log(`   -> Account Column: "${accVal}" (Should disable? ${shouldDisableAccount})`);
+
+                            if (shouldDisableAccount) {
+                                // Người dùng YÊU CẦU không có tài khoản → Disable nếu đang có
                                 if (userId) {
+                                    console.log(`   -> Disabling user account (Explicitly requested)`);
                                     await connection.execute('UPDATE users SET is_active=0 WHERE id=?', [userId]);
                                     userId = null;
                                 }
+                            } else if (username) {
+                                // Có Username → Tạo hoặc cập nhật tài khoản
+                                const tempId = userId || residentId; // Dùng ID Resident làm ID User
+
+                                // Log để debug
+                                console.log(`   -> Will create/update account for user ID: ${tempId}`);
+
+                                // Check trong DB users
+                                const [uCheck] = await connection.execute('SELECT id FROM users WHERE id = ?', [tempId]);
+
+                                if (uCheck.length === 0) {
+                                    // Tạo user MỚI
+                                    console.log(`   -> CREATING NEW USER: ${username}`);
+                                    const hash = await bcrypt.hash(password || '123456', 10);
+                                    await connection.execute(
+                                        `INSERT INTO users (id, username, password, email, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, 3, 1)`,
+                                        [tempId, username, hash, cleanStr(getVal(['Email'])), cleanStr(getVal(['SĐT', 'Số điện thoại', 'SDT']))]
+                                    );
+                                    userId = tempId;
+                                    console.log(`   -> User created successfully! userId = ${userId}`);
+                                } else {
+                                    // Cập nhật user có sẵn
+                                    console.log(`   -> UPDATING EXISTING USER: ${username}`);
+                                    let updateQuery = `UPDATE users SET username=?, is_active=1 WHERE id=?`;
+                                    let params = [username, tempId];
+                                    if (password) {
+                                        const hash = await bcrypt.hash(password, 10);
+                                        updateQuery = `UPDATE users SET username=?, password=?, is_active=1 WHERE id=?`;
+                                        params = [username, hash, tempId];
+                                    }
+                                    await connection.execute(updateQuery, params);
+                                    userId = tempId;
+                                    console.log(`   -> User updated successfully! userId = ${userId}`);
+                                }
+                            } else {
+                                // Không có Username, không yêu cầu disable → Giữ nguyên trạng thái hiện tại
+                                console.log(`   -> No username provided, keeping current state (userId = ${userId})`);
                             }
 
                             // Upsert Resident
@@ -455,12 +506,12 @@ const importController = {
                                     SET full_name=?, apartment_id=?, role=?, phone=?, email=?, status=?, user_id=? 
                                     WHERE cccd=?
                                 `, [fullName, aptInfo.id, role, cleanStr(row['SĐT']), cleanStr(row['Email']), status, userId, cccd]);
-                                
+
                                 // Ghi history nếu có ngày biến động
                                 if (row['Ngày biến động']) {
                                     const eventDate = parseExcelDate(row['Ngày biến động']);
                                     const eventType = status === 'Đang sinh sống' ? 'Chuyển đến' : 'Chuyển đi';
-                                    await connection.execute(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date) VALUES (?, ?, ?, ?)`, 
+                                    await connection.execute(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date) VALUES (?, ?, ?, ?)`,
                                         [existingRes.id, aptInfo.id, eventType, eventDate]);
                                 }
                             } else {
@@ -468,7 +519,7 @@ const importController = {
                                     INSERT INTO residents (id, user_id, apartment_id, full_name, role, cccd, phone, email, status) 
                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                                 `, [residentId, userId, aptInfo.id, fullName, role, cccd, cleanStr(row['SĐT']), cleanStr(row['Email']), status]);
-                                
+
                                 // Update Map để dùng cho xe cộ
                                 residentMap.set(cccd, { id: residentId, apartment_id: aptInfo.id });
                             }
@@ -531,7 +582,7 @@ const importController = {
                         if (!code) {
                             code = formatId(assetSeq++, 'TS', 3);
                         }
-                        
+
                         await connection.execute(`
                             INSERT INTO assets (asset_code, name, location, price, purchase_date, status)
                             VALUES (?, ?, ?, ?, ?, ?)

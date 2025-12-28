@@ -16,6 +16,7 @@ const Resident = {
                     a.building, 
                     a.floor,
                     u.username as account_username,
+                    u.password as account_password,
                     CASE WHEN r.user_id IS NOT NULL THEN 1 ELSE 0 END as has_account
                 FROM residents r
                 JOIN apartments a ON r.apartment_id = a.id

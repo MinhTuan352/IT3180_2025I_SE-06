@@ -623,6 +623,23 @@ INSERT INTO users (id, username, password, email, phone, role_id) VALUES
 ('R0001', 'chuho_a101', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'chuho.a@bluemoon.com', '0900000011', 3),
 ('ID0003', 'cqcn.c', '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa', 'cqcn.c@bluemoon.com', '0900000003', 4);
 
+
+-- Bảng Profile Edit Requests (Yêu cầu chỉnh sửa thông tin)
+-- (Thường bị thiếu do quá trình edit trước đó)
+CREATE TABLE IF NOT EXISTS profile_edit_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    resident_id CHAR(10) NOT NULL,
+    requested_changes JSON NOT NULL,
+    reason TEXT,
+    status ENUM('Chờ duyệt', 'Đã duyệt', 'Từ chối') DEFAULT 'Chờ duyệt',
+    admin_note TEXT,
+    processed_by CHAR(10),
+    processed_at DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,
+    FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 INSERT INTO admins (id, user_id, full_name, dob, gender, cccd, phone, email) VALUES
 ('ID0001', 'ID0001', 'Nguyễn Văn A', '1990-01-01', 'Nam', '012345678901', '0900000001', 'admin.a@bluemoon.com'),
 ('ID0002', 'ID0002', 'Nguyễn Văn B', '1992-05-10', 'Nam', '012345678902', '0900000002', 'ketoan.b@bluemoon.com'),

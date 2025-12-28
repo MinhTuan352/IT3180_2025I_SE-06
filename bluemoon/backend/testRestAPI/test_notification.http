@@ -17,7 +17,7 @@ Content-Type: {{contentType}}
 
 ###
 # -> Copy Token vào biến @bodToken
-@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY3Njk1NDksImV4cCI6MTc2Njc3MzE0OX0.R4guRt7e6qYaG3DzHf00Gm8DA0A_vk6ax8XViTmJytI
+@bodToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IklEMDAwMSIsInJvbGUiOiJib2QiLCJpYXQiOjE3NjY5MjQxOTksImV4cCI6MTc2NjkyNzc5OX0.0JIdVn9JR84E-1cdG0ZnZsXxbVZedl5r2wLHzxidMoI
 
 ### 1.2. Đăng nhập CƯ DÂN (Người nhận)
 # User: chuho_a101 (R0001)
@@ -115,7 +115,7 @@ Tất cả Cư dân
 --boundaryScheduled
 Content-Disposition: form-data; name="scheduled_at"
 
-2025-12-27 00:47:00
+2025-12-27 7:20:00
 --boundaryScheduled--
 
 
@@ -150,5 +150,5 @@ Authorization: {{bodToken}}
 # ==================================================================
 
 ### 4.1. Xóa thông báo (Nếu gửi nhầm)
-DELETE {{baseUrl}}/notifications/TB-1766769892373
+DELETE {{baseUrl}}/notifications/TB-28122025-0003
 Authorization: {{bodToken}}

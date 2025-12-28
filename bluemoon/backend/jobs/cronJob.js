@@ -9,7 +9,19 @@ const CronJob = {
     // =================================================================
     // 1. QUÉT HÓA ĐƠN ĐẾN HẠN (Chạy 08:00 mỗi ngày)
     // =================================================================
+    // Thêm flag để prevent race condition
+    isRunning: {
+        invoices: false,
+        maintenance: false,
+        notifications: false
+    },
+
     scanOverdueInvoices: async () => {
+        if (CronJob.isRunning.invoices) {
+            console.log('⚠️ [CRON-INVOICE] Đang chạy, bỏ qua lần này.');
+            return;
+        }
+        CronJob.isRunning.invoices = true;
         console.log('⏰ [CRON-INVOICE] Bắt đầu quét hóa đơn đến hạn...');
         const connection = await db.getConnection();
         
@@ -65,6 +77,7 @@ const CronJob = {
             console.error('❌ [CRON-INVOICE] Lỗi:', error.message);
         } finally {
             connection.release();
+            CronJob.isRunning.invoices = false;
         }
     },
 
@@ -72,6 +85,12 @@ const CronJob = {
     // 2. NHẮC LỊCH BẢO TRÌ (Chạy 07:00 mỗi ngày)
     // =================================================================
     scanMaintenanceSchedules: async () => {
+        if (CronJob.isRunning.maintenance) {
+            console.log('⚠️ [CRON-MAINTENANCE] Đang chạy, bỏ qua.');
+            return;
+        }
+
+        CronJob.isRunning.maintenance = true;
         console.log('⏰ [CRON-MAINTENANCE] Quét lịch bảo trì sắp tới...');
         const connection = await db.getConnection();
 
@@ -123,6 +142,7 @@ const CronJob = {
             console.error('❌ [CRON-MAINTENANCE] Lỗi:', error.message);
         } finally {
             connection.release();
+            CronJob.isRunning.maintenance = false;
         }
     },
 
@@ -130,39 +150,34 @@ const CronJob = {
     // 3. GỬI THÔNG BÁO HẸN GIỜ (Chạy mỗi 1 phút)
     // =================================================================
     scanScheduledNotifications: async () => {
+        if (CronJob.isRunning.notifications) {
+            // Không log để tránh spam console
+            return;
+        }
+
+        CronJob.isRunning.notifications = true;
         // Không log console để tránh spam terminal mỗi phút
         const connection = await db.getConnection();
 
         try {
-            // Lấy thông báo chưa gửi (is_sent = 0) và đã đến giờ (scheduled_at <= NOW)
-            const [notis] = await connection.execute(`
-                SELECT id, title, target 
-                FROM notifications 
+            // ✅ Dùng 1 query UPDATE thay vì loop
+            // Cập nhật và lấy ID trong 1 transaction
+            const [result] = await connection.execute(`
+                UPDATE notifications 
+                SET is_sent = TRUE 
                 WHERE is_sent = FALSE 
                 AND scheduled_at <= NOW()
             `);
 
-            if (notis.length > 0) {
-                console.log(`⏰ [CRON-NOTI] Phát hiện ${notis.length} thông báo hẹn giờ cần gửi.`);
-
-                for (const noti of notis) {
-                    // 1. Cập nhật trạng thái thành Đã gửi
-                    await connection.execute(
-                        `UPDATE notifications SET is_sent = TRUE WHERE id = ?`, 
-                        [noti.id]
-                    );
-
-                    // 2. Nếu logic gửi Email/Push Notification nằm ở đây thì gọi Service
-                    // Ví dụ: Nếu gửi cho Tất cả cư dân -> Query lấy email resident -> Gửi
-                    
-                    console.log(`   -> Đã publish thông báo: "${noti.title}"`);
-                }
+            if (result.affectedRows > 0) {
+                console.log(`⏰ [CRON-NOTI] Đã gửi ${result.affectedRows} thông báo hẹn giờ.`);
             }
 
         } catch (error) {
             console.error('❌ [CRON-NOTI] Lỗi:', error.message);
         } finally {
             connection.release();
+            CronJob.isRunning.notifications = false;
         }
     },
 
@@ -179,7 +194,7 @@ const CronJob = {
         cron.schedule('0 7 * * *', CronJob.scanMaintenanceSchedules, { timezone: "Asia/Ho_Chi_Minh" });
 
         // 3. Quét Thông báo hẹn giờ: Mỗi phút 1 lần
-        cron.schedule('* * * * *', CronJob.scanScheduledNotifications, { timezone: "Asia/Ho_Chi_Minh" });
+        cron.schedule('*/5 * * * *', CronJob.scanScheduledNotifications, { timezone: "Asia/Ho_Chi_Minh" });
     }
 };
 

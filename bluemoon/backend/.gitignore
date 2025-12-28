@@ -4,9 +4,10 @@ node_modules/
 .env
 
 # Bỏ qua tất cả file trong uploads
-uploads/*
+public/uploads/*
 
 # Nhưng giữ lại cấu trúc thư mục (để khi clone về máy khác vẫn có folder này)
-!uploads/.gitkeep
-!uploads/notifications/.gitkeep
-!uploads/incidents/.gitkeep
+!public/uploads/.gitkeep
+!public/uploads/notifications/.gitkeep
+!public/uploads/incidents/.gitkeep
+!public/uploads/vehicles/.gitkeep

@@ -171,25 +171,33 @@ const Resident = {
 
     /**
      * Cập nhật thông tin cư dân
+     * @param {Object} connection - Connection từ transaction (optional)
      */
-    update: async (id, data) => {
+    update: async (id, data, connection = null) => {
         try {
             const {
                 full_name, role, dob, gender, cccd, phone, email,
-                status, hometown, occupation, apartment_id
+                status, hometown, occupation, apartment_id, user_id
             } = data;
 
             const query = `
                 UPDATE residents 
                 SET full_name=?, role=?, dob=?, gender=?, cccd=?, phone=?, email=?, 
-                    status=?, hometown=?, occupation=?, apartment_id=?
+                    status=?, hometown=?, occupation=?, apartment_id=?, user_id=?
                 WHERE id=?
             `;
 
-            await db.execute(query, [
+            const params = [
                 full_name, role, dob, gender, cccd, phone, email,
-                status, hometown, occupation, apartment_id, id
-            ]);
+                status, hometown, occupation, apartment_id, user_id || null, id
+            ];
+
+            // Dùng connection nếu có (cho transaction), nếu không thì dùng db
+            if (connection) {
+                await connection.execute(query, params);
+            } else {
+                await db.execute(query, params);
+            }
 
             return { id, ...data };
         } catch (error) {

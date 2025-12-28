@@ -263,6 +263,63 @@ const residentController = {
                 }
             }
 
+            // [LOGIC 3] Xử lý Chuyển căn hộ (Apartment Transfer)
+            const isTransferringApartment = apartment_id && apartment_id !== oldData.apartment_id;
+
+            if (isTransferringApartment) {
+                const oldAptId = oldData.apartment_id;
+                const newAptId = apartment_id;
+
+                // A. Kiểm tra căn hộ mới có chủ hộ chưa (nếu đang chuyển với role = owner)
+                if ((role || oldData.role) === 'owner') {
+                    const [existingOwners] = await connection.execute(
+                        `SELECT id FROM residents WHERE apartment_id = ? AND role = 'owner' AND status = 'Đang sinh sống'`,
+                        [newAptId]
+                    );
+                    if (existingOwners.length > 0) {
+                        throw new Error('Căn hộ mới đã có chủ hộ. Vui lòng chọn vai trò thành viên hoặc chuyển chủ hộ hiện tại.');
+                    }
+                }
+
+                // B. Ghi lịch sử chuyển đi từ căn hộ cũ
+                await Resident.addHistory({
+                    resident_id: id,
+                    apartment_id: oldAptId,
+                    event_type: 'Chuyển căn hộ',
+                    event_date: new Date(),
+                    note: `Chuyển sang căn hộ mới (ID: ${newAptId})`
+                }, connection);
+
+                // C. Ghi lịch sử chuyển đến căn hộ mới
+                await Resident.addHistory({
+                    resident_id: id,
+                    apartment_id: newAptId,
+                    event_type: 'Chuyển đến',
+                    event_date: new Date(),
+                    note: `Chuyển từ căn hộ cũ (ID: ${oldAptId})`
+                }, connection);
+
+                // D. Cập nhật trạng thái căn hộ MỚI -> 'Đang sinh sống'
+                await connection.execute(
+                    `UPDATE apartments SET status = 'Đang sinh sống' WHERE id = ? AND status = 'Trống'`,
+                    [newAptId]
+                );
+
+                // E. Kiểm tra căn hộ CŨ còn ai không -> Nếu hết thì đặt 'Trống'
+                const [remainingResidents] = await connection.execute(
+                    `SELECT COUNT(*) as count FROM residents 
+                     WHERE apartment_id = ? AND status = 'Đang sinh sống' AND id != ?`,
+                    [oldAptId, id]
+                );
+
+                if (remainingResidents[0].count === 0) {
+                    await connection.execute(
+                        `UPDATE apartments SET status = 'Trống' WHERE id = ? AND status != 'Đang sửa chữa'`,
+                        [oldAptId]
+                    );
+                }
+            }
+
             // Thực hiện Update Resident
             await Resident.update(id, { ...req.body, user_id: newUserId }, connection);
 

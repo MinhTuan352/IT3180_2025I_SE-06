@@ -401,7 +401,11 @@ export default function ResidentList() {
             };
 
             // Map Apartment Code -> ID
-            const aptCode = row['Mã Căn Hộ'] || row['apartment_id'] || row['Căn hộ'] || row['Can ho'];
+            // Support multiple header variations
+            const aptCode =
+              row['Mã Căn Hộ'] || row['Mã căn hộ'] ||
+              row['apartment_id'] || row['Căn hộ'] || row['Can ho'];
+
             const aptId = apartmentMap.get(aptCode);
 
             if (!aptId && aptCode) {
@@ -411,9 +415,9 @@ export default function ResidentList() {
             const payload = {
               // ID tự sinh, ko lấy từ Excel
               // id: row['ID'] || row['id'], 
-              full_name: row['Họ và Tên'] || row['full_name'],
+              full_name: row['Họ và Tên'] || row['Họ và tên'] || row['full_name'],
               apartment_id: aptId,  // Use mapped ID
-              role: (row['Quyền hạn'] || row['role'] || '').includes('Chủ') ? 'owner' : 'member',
+              role: (row['Quyền hạn'] || row['Vai trò'] || row['role'] || '').includes('Chủ') ? 'owner' : 'member',
               cccd: row['CCCD'] || row['cccd'],
               phone: row['SĐT'] || row['Điện thoại'] || row['phone'],
               email: row['Email'] || row['email'],
@@ -426,8 +430,8 @@ export default function ResidentList() {
               occupation: row['Nghề nghiệp'] || row['occupation'],
               relationship_with_owner: row['Quan hệ với chủ hộ'] || row['relationship_with_owner'],
 
-              account_username: row['Username'] || row['username'],
-              account_password: row['Password'] || row['password'],
+              username: row['Username'] || row['username'],
+              password: row['Password'] || row['password'],
 
               status: 'Đang sinh sống'
             };

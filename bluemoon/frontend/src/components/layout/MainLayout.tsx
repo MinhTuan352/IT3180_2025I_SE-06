@@ -42,6 +42,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 // Import icons cho sidebar
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PeopleIcon from '@mui/icons-material/People';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'; // For Finance
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -78,7 +79,8 @@ const bodMenuItems = [
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' },
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
-  { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/bod/fee/list' }, // [cite: 45]
+
+  { text: 'Tài chính', icon: <AccountBalanceIcon />, path: '/bod/finance' }, // [cite: 45] Updated
   { text: 'Tài sản', icon: <InventoryIcon />, path: '/bod/asset/list' },
   { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/bod/service/list' },
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/bod/notification/list' }, // [cite: 47]

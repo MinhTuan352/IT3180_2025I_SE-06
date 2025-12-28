@@ -15,7 +15,12 @@ import ResidentProfile from '../pages/BOD/ResidentManagement/ResidentProfile';
 import ResidentManagementLanding from '../pages/BOD/ResidentManagement/ResidentManagementLanding'; // Trang mới
 import ResidentApartmentLookup from '../pages/BOD/ResidentManagement/ResidentApartmentLookup'; // Trang mới
 import ResidentApartmentDetail from '../pages/BOD/ResidentManagement/ResidentApartmentDetail'; // <--- Import mới
-import FeeList from '../pages/BOD/FeeManagement/FeeList';
+//import FeeList from '../pages/BOD/FeeManagement/FeeList';
+import FinanceLanding from '../pages/BOD/FinanceManagement/FinanceLanding';
+import FinanceStats from '../pages/BOD/FinanceManagement/FinanceStats';
+import DebtList from '../pages/BOD/FinanceManagement/DebtList';
+import FeeTypeList from '../pages/BOD/FinanceManagement/FeeTypeList';
+import AccountantManagement from '../pages/BOD/FinanceManagement/AccountantManagement';
 import NotificationList from '../pages/BOD/NotificationManagement/NotificationList';
 import NotificationCreate from '../pages/BOD/NotificationManagement/NotificationCreate';
 import NotificationDetail from '../pages/BOD/NotificationManagement/NotificationDetail';
@@ -123,9 +128,17 @@ export default function AppRoutes() {
             <Route path="bod/access-control" element={<AccessControlLanding />} />
             <Route path="bod/access-control/live" element={<AccessControl />} />
             <Route path="bod/access-control/vehicles" element={<VehicleList />} />
+
             <Route path="bod/access-report" element={<AccessReport />} />
 
-            <Route path="bod/fee/list" element={<FeeList />} />
+            {/* <Route path="bod/fee/list" element={<FeeList />} /> OLD ROUTE */}
+
+            {/* === FINANCE MODULE === */}
+            <Route path="bod/finance" element={<FinanceLanding />} />
+            <Route path="bod/finance/stats" element={<FinanceStats />} />
+            <Route path="bod/finance/debt" element={<DebtList />} />
+            <Route path="bod/finance/fee-types" element={<FeeTypeList />} />
+            <Route path="bod/finance/accountant" element={<AccountantManagement />} />
 
             <Route path="bod/asset/list" element={<AssetList />} />
             <Route path="bod/asset/detail/:id" element={<AssetDetail />} />

@@ -26,10 +26,10 @@ const apartmentController = {
             // 1. Thông tin căn hộ
             const [aptRows] = await db.query(`SELECT * FROM apartments WHERE id = ?`, [id]);
             if (aptRows.length === 0) return res.status(404).json({ message: 'Không tồn tại.' });
-            
-            // 2. Thành viên (Chỉ lấy thông tin cần thiết để hiển thị công khai nội bộ)
+
+            // 2. Thành viên (Lấy đầy đủ thông tin để hiển thị)
             const [members] = await db.query(`
-                SELECT id, full_name, role, status 
+                SELECT id, full_name, role, status, gender, dob, phone 
                 FROM residents 
                 WHERE apartment_id = ? AND status IN ('Đang sinh sống', 'Tạm vắng')
                 ORDER BY role ASC

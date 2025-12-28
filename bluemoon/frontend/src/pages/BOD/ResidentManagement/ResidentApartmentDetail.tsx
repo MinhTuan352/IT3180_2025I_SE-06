@@ -20,7 +20,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonIcon from '@mui/icons-material/Person';
 import HomeIcon from '@mui/icons-material/Home';
 import PhoneIcon from '@mui/icons-material/Phone';
-import EditIcon from '@mui/icons-material/Edit';
 import { apartmentApi, type Apartment } from '../../../api/apartmentApi';
 import { vehicleApi, type Vehicle } from '../../../api/vehicleApi';
 import type { Resident } from '../../../api/residentApi';
@@ -184,7 +183,6 @@ export default function ResidentApartmentDetail() {
           <Grid size={{ xs: 12, md: 8 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">Danh sách Cư dân</Typography>
-              <Button variant="outlined" startIcon={<EditIcon />}>Cập nhật Cư dân</Button>
             </Box>
 
             {residents.length > 0 ? (

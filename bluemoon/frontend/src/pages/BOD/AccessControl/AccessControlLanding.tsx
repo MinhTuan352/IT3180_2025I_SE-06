@@ -1,5 +1,5 @@
 // src/pages/BOD/AccessControl/AccessControlLanding.tsx
-import { Box, Typography, Paper, Grid, Card, CardContent, Badge } from '@mui/material';
+import { Box, Typography, Paper, Grid, Card, CardContent } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -12,18 +12,18 @@ export default function AccessControlLanding() {
     const isCQCN = location.pathname.startsWith('/cqcn');
     const basePath = isCQCN ? '/cqcn' : '/bod';
 
-    const [pendingCount, setPendingCount] = useState(0);
+    const [vehicleCount, setVehicleCount] = useState(0);
 
     useEffect(() => {
-        const fetchPendingCount = async () => {
+        const fetchVehicleCount = async () => {
             try {
-                const count = await vehicleApi.getPendingCount();
-                setPendingCount(count);
+                const vehicles = await vehicleApi.getAllVehicles();
+                setVehicleCount(vehicles.length);
             } catch (error) {
-                console.error('Error fetching pending count:', error);
+                console.error('Error fetching vehicle count:', error);
             }
         };
-        fetchPendingCount();
+        fetchVehicleCount();
     }, []);
 
     const menuCards = [
@@ -42,7 +42,7 @@ export default function AccessControlLanding() {
             icon: <DirectionsCarIcon sx={{ fontSize: 60 }} />,
             color: '#2e7d32',
             path: `${basePath}/access-control/vehicles`,
-            badge: pendingCount
+            count: vehicleCount
         }
     ];
 
@@ -77,13 +77,7 @@ export default function AccessControlLanding() {
                             <CardContent sx={{ p: 4 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3 }}>
                                     <Box sx={{ color: card.color }}>
-                                        {card.badge && card.badge > 0 ? (
-                                            <Badge badgeContent={card.badge} color="error">
-                                                {card.icon}
-                                            </Badge>
-                                        ) : (
-                                            card.icon
-                                        )}
+                                        {card.icon}
                                     </Box>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="overline" color="text.secondary">
@@ -95,16 +89,16 @@ export default function AccessControlLanding() {
                                         <Typography variant="body2" color="text.secondary">
                                             {card.description}
                                         </Typography>
-                                        {card.badge && card.badge > 0 && (
+                                        {card.count !== undefined && (
                                             <Typography
-                                                variant="body2"
+                                                variant="h4"
                                                 sx={{
-                                                    mt: 1,
-                                                    color: 'warning.main',
+                                                    mt: 2,
+                                                    color: card.color,
                                                     fontWeight: 'bold'
                                                 }}
                                             >
-                                                ⚠️ Có {card.badge} yêu cầu đang chờ duyệt
+                                                {card.count} xe
                                             </Typography>
                                         )}
                                     </Box>
@@ -117,3 +111,4 @@ export default function AccessControlLanding() {
         </Box>
     );
 }
+

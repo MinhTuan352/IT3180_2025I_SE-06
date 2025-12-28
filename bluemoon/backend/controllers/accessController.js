@@ -4,6 +4,13 @@ const AccessLog = require('../models/accessModel');
 const db = require('../config/db');
 const xl = require('excel4node'); // Cần cài: npm install excel4node
 
+// [MỚI] Định nghĩa danh sách đen ngay tại đây (hoặc load từ file json)
+const HARDCODED_BLACKLIST = [
+    { plate: '29X-999.99', reason: 'Xe trộm cắp, báo công an ngay!', type: 'Xe máy' },
+    { plate: '30A-000.00', reason: 'Chủ xe gây rối trật tự', type: 'Ô tô' },
+    { plate: 'BLACKLIST-01', reason: 'Xe thử nghiệm cấm', type: 'Xe máy' }
+];
+
 const accessController = {
 
     // 1. Lấy danh sách (Pagination)
@@ -103,22 +110,19 @@ const accessController = {
                 note = `🚨 CẢNH BÁO: Xe trong danh sách đen! Lý do: ${blacklisted[0].reason || 'Không rõ'}`;
                 vehicleType = 'Ô tô'; // Default
             } else {
-                // B. Kiểm tra xe trong DB đã đăng ký
-                const [vehicles] = await db.query(`
-                    SELECT v.*, r.id as resident_id, a.apartment_code 
-                    FROM vehicles v
-                    JOIN residents r ON v.resident_id = r.id
-                    JOIN apartments a ON r.apartment_id = a.id
-                    WHERE v.license_plate = ? AND v.status = 'Đang sử dụng'
-                `, [plate_number]);
-
-                if (vehicles.length > 0) {
-                    const v = vehicles[0];
-                    residentId = v.resident_id;
-                    vehicleType = v.vehicle_type;
-                    note = `Cư dân ${v.apartment_code}`;
+                // B. [MỚI] Check danh sách đen từ biến HARDCODED
+                // Tìm xem biển số có trong mảng không
+                const blacklistEntry = HARDCODED_BLACKLIST.find(b => b.plate === plate_number);
+                
+                if (blacklistEntry) {
+                    status = 'Alert';
+                    note = `CẢNH BÁO: ${blacklistEntry.reason}`;
+                    vehicleType = blacklistEntry.type;
+                } else if (plate_number.includes('BLACKLIST')) { 
+                    // Giữ lại logic cũ cho tiện test
+                    status = 'Alert';
+                    note = 'CẢNH BÁO: Xe trong danh sách đen!';
                 } else {
-                    // Xe lạ không đăng ký
                     status = 'Warning';
                     note = 'Xe lạ chưa đăng ký';
                 }
@@ -206,19 +210,9 @@ const accessController = {
                 ORDER BY created_at DESC
             `);
 
-            // Thêm các xe blacklist vào danh sách
-            blacklistedVehicles.forEach(bv => {
-                rows.push({
-                    id: `blacklist-${bv.id}`,
-                    license_plate: bv.license_plate,
-                    vehicle_type: 'Ô tô',
-                    brand: 'N/A',
-                    model: '',
-                    owner_name: `⚠️ ${bv.reason || 'Danh sách đen'}`,
-                    apartment_code: 'CẤM',
-                    isSimulated: true,
-                    isBlacklist: true
-                });
+            // [MỚI] Thêm xe từ Hardcoded Blacklist vào dropdown để tiện test
+            HARDCODED_BLACKLIST.forEach(b => {
+                rows.push({ license_plate: b.plate, vehicle_type: b.type, apartment_code: 'BLACKLIST' });
             });
 
             // Thêm xe lạ để test

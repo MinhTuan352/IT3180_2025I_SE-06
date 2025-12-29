@@ -1,480 +1,1090 @@
 /**
- * SEEDING DATA GENERATOR - BLUEMOON (FINAL VERSION 3.0 - FIXED)
- * Fix: Sinh dữ liệu đầy đủ cho TOÀN BỘ 35 bảng.
- * Fix: Notification Attachments, Image Extensions.
+ * BLUEMOON APARTMENT - OPTIMIZED SEEDING DATA GENERATOR v4.0
+ * Improvements:
+ * - More realistic Vietnamese names and data
+ * - Better data distribution and patterns
+ * - Optimized code structure with helper classes
+ * - More natural temporal patterns
+ * - Enhanced data variety and realism
+ * 
  * Run: node database/generate_seeding.js
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// CẤU HÌNH
-const OUTPUT_FILE = path.join(__dirname, 'bluemoon_full_data.sql');
-const PASSWORD_HASH = '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa'; // password123
-const BUILDING_BLOCKS = ['A', 'B'];
-const FLOORS = 31;
-const ROOMS_PER_FLOOR = 8;
-const TODAY = new Date();
-const SIX_MONTHS_AGO = new Date(TODAY);
-SIX_MONTHS_AGO.setMonth(TODAY.getMonth() - 6);
-const SIX_MONTHS_LATER = new Date(TODAY);
-SIX_MONTHS_LATER.setMonth(TODAY.getMonth() + 6);
-
-// HELPER FUNCTIONS
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
-const formatDateOnly = (date) => date.toISOString().slice(0, 10);
-const randomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-
-// Helper: Format DDMMYYYY cho ID
-const toDDMMYYYY = (date) => {
-    const d = date.getDate().toString().padStart(2, '0');
-    const m = (date.getMonth() + 1).toString().padStart(2, '0');
-    const y = date.getFullYear();
-    return `${d}${m}${y}`;
+// ==================== CONFIGURATION ====================
+const CONFIG = {
+    OUTPUT_FILE: path.join(__dirname, 'bluemoon_full_data.sql'),
+    PASSWORD_HASH: '$2b$10$ukwGjOqP.ly7YnMCPGTh/O5NcY1Bc5Ye2syWyncT0/ojoL4PM.8oa',
+    BUILDING_BLOCKS: ['A', 'B'],
+    FLOORS: 31,
+    ROOMS_PER_FLOOR: 8,
+    OCCUPANCY_RATE: 0.75, // 75% căn hộ có người ở
+    APARTMENT_AREAS: [85.5, 92.0, 98.5, 105.0, 112.0, 120.0],
+    FEE_PRICES: {
+        MANAGEMENT: 7000,     // per m²
+        PARKING_CAR: 1200000, // per month
+        PARKING_MOTORBIKE: 70000,
+        ELECTRICITY: 3000,    // per kWh
+        WATER: 15000         // per m³
+    }
 };
 
-// Helper: ID Generator với Sequence reset theo ngày
-const idSequences = {}; // { 'TB-29122025': 1, 'SC-29122025': 5 }
-const generateDailyId = (prefix, dateObj) => {
-    const dateStr = toDDMMYYYY(dateObj);
-    const key = `${prefix}-${dateStr}`;
-    if (!idSequences[key]) idSequences[key] = 0;
-    idSequences[key]++;
-    return `${prefix}-${dateStr}-${String(idSequences[key]).padStart(4, '0')}`;
-};
+// ==================== DATE UTILITIES ====================
+class DateHelper {
+    static TODAY = new Date();
+    static SIX_MONTHS_AGO = new Date(this.TODAY.getFullYear(), this.TODAY.getMonth() - 6, 1);
+    static ONE_YEAR_AGO = new Date(this.TODAY.getFullYear() - 1, this.TODAY.getMonth(), 1);
+    static SIX_MONTHS_LATER = new Date(this.TODAY.getFullYear(), this.TODAY.getMonth() + 6, 1);
 
-// Helpers cho dữ liệu phong phú
-const randomIP = () => `${randomInt(10, 200)}.${randomInt(0, 255)}.${randomInt(0, 255)}.${randomInt(1, 255)}`;
-const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36'
-];
+    static format(date) {
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+    }
 
-function addDays(date, days) {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
+    static formatDateOnly(date) {
+        return date.toISOString().slice(0, 10);
+    }
+
+    static randomBetween(start, end) {
+        return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+    }
+
+    static addDays(date, days) {
+        const result = new Date(date);
+        result.setDate(result.getDate() + days);
+        return result;
+    }
+
+    static addMonths(date, months) {
+        const result = new Date(date);
+        result.setMonth(result.getMonth() + months);
+        return result;
+    }
+
+    static toDDMMYYYY(date) {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}${m}${y}`;
+    }
+
+    static getBillingPeriod(date) {
+        return `T${date.getMonth() + 1}/${date.getFullYear()}`;
+    }
 }
 
-// DỮ LIỆU GIẢ LẬP VIỆT NAM
-const FIRST_NAMES = ['An', 'Bình', 'Cường', 'Dũng', 'Giang', 'Hùng', 'Hương', 'Khánh', 'Lan', 'Minh', 'Ngọc', 'Phúc', 'Quân', 'Sơn', 'Thảo', 'Tuấn', 'Vân', 'Yến'];
-const LAST_NAMES = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ'];
-const MIDDLE_NAMES = ['Văn', 'Thị', 'Đức', 'Thanh', 'Mạnh', 'Hữu', 'Kim', 'Ngọc', 'Minh'];
-const genName = () => `${randomItem(LAST_NAMES)} ${randomItem(MIDDLE_NAMES)} ${randomItem(FIRST_NAMES)}`;
-const genPhone = () => `09${randomInt(10000000, 99999999)}`;
-const genCCCD = () => `0${randomInt(0, 9)}0${randomInt(1940, 2015)}${randomInt(100000, 999999)}`;
+// ==================== RANDOM UTILITIES ====================
+class RandomHelper {
+    static int(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 
-const stream = fs.createWriteStream(OUTPUT_FILE);
+    static item(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
 
-console.log('🚀 Đang khởi tạo dữ liệu Seeding (Full 35 Tables)...');
+    static items(arr, count) {
+        const shuffled = [...arr].sort(() => 0.5 - Math.random());
+        return shuffled.slice(0, count);
+    }
 
-// --- HEADER ---
-stream.write(`SET FOREIGN_KEY_CHECKS = 0;\n`);
-stream.write(`SET NAMES 'utf8mb4';\n\n`);
+    static weighted(items) {
+        const weights = items.map(item => item.weight);
+        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+        let random = Math.random() * totalWeight;
+        
+        for (let i = 0; i < items.length; i++) {
+            random -= weights[i];
+            if (random <= 0) return items[i].value;
+        }
+        return items[items.length - 1].value;
+    }
 
-// 1. TRUNCATE ALL TABLES
-const tables = [
-    'audit_logs', 'login_history', 'payment_history', 'fee_items', 'fees', 'utility_readings',
-    'maintenance_schedules', 'assets', 'access_logs', 'vehicle_blacklist', 'vehicles', 
-    'visitors', 'service_bookings', 'service_attachments', 'service_types', 
-    'report_attachments', 'reports', 'notification_attachments', 'notification_recipients', 
-    'notifications', 'notification_types', 'donations', 'fund_campaigns', 'reviews', 
-    'profile_edit_requests', 'temporary_residence', 'residence_history', 
-    'residents', 'admins', 'users', 'apartments', 'roles', 'fee_types', 
-    'building_info', 'building_regulations'
-];
-tables.forEach(t => stream.write(`TRUNCATE TABLE ${t};\n`));
-stream.write(`\n`);
+    static boolean(probability = 0.5) {
+        return Math.random() < probability;
+    }
 
-// 2. STATIC DATA (Cấu hình & Admin)
-console.log('- Sinh dữ liệu tĩnh...');
-// Roles & Types
-stream.write(`INSERT INTO roles (id, role_name, role_code) VALUES (1, 'Ban Quản Trị', 'bod'), (2, 'Kế Toán', 'accountance'), (3, 'Cư Dân', 'resident'), (4, 'Cơ Quan Chức Năng', 'cqcn');\n`);
-stream.write(`INSERT INTO fee_types (id, fee_name, fee_code, default_price, unit) VALUES (1, 'Phí Quản lý', 'PQL', 7000, 'm²'), (2, 'Phí Gửi xe', 'PGX', 0, 'Tháng'), (3, 'Phí Điện', 'PD', 3000, 'kWh'), (4, 'Phí Nước', 'PN', 15000, 'm³');\n`);
-stream.write(`INSERT INTO notification_types (id, type_name, type_code) VALUES (1, 'Khẩn cấp', 'EMERGENCY'), (2, 'Chung', 'GENERAL'), (3, 'Thu phí', 'FEE'), (4, 'Dịch vụ', 'SERVICE');\n`);
-stream.write(`INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone) VALUES 
-('BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', TRUE, 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567'),
-('Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua (chưa bao gồm tiền hàng hóa thực tế).', 30000, 'Lần', TRUE, 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999'),
-('Moonlight Coffee & Lounge', 'Thuê phòng VIP để họp nhóm, tiếp khách hoặc làm việc. Không gian yên tĩnh, view panorama toàn thành phố.', 200000, 'Giờ', TRUE, 'Ẩm thực & Giải trí', 'Tầng Thượng (Rooftop)', '08:00 - 23:00', '0912.333.444'),
-('Trường Mầm non Little Stars', 'Môi trường giáo dục chuẩn quốc tế, giáo viên bản ngữ. Đăng ký giữ chỗ hoặc tham quan trường cho bé.', 8500000, 'Tháng', TRUE, 'Giáo dục', 'Tầng 2 - Tòa C', '07:00 - 17:30', '024.3333.8888'),
-('Nhà hàng Ẩm thực Á Đông', 'Đặt bàn tiệc gia đình, sinh nhật, tất niên. Thực đơn phong phú 3 miền. Giá tham khảo cho bàn 6 người.', 3500000, 'Bàn', TRUE, 'Ẩm thực & Giải trí', 'Tầng 1 - Tòa D', '10:00 - 22:00', '0988.777.666'),
-('Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp. Giá vé ưu đãi cho cư dân.', 120000, 'Vé', TRUE, 'Giải trí', 'Tầng 2 - Trung tâm thương mại', '09:00 - 21:30', '0905.111.222');\n`);
-
-// Building Info
-stream.write(`INSERT INTO building_info (id, name, investor, location, scale, apartments, description, total_area, start_date, finish_date, total_investment)
-VALUES (
-    1,
-    'CHUNG CƯ BLUEMOON',
-    'Tổng công ty CP Xuất nhập khẩu & Xây dựng Việt Nam (VINACONEX)',
-    '289 Khuất Duy Tiến - Trung Hòa - Cầu Giấy - Hà Nội',
-    'Cao 31 tầng, 03 tầng hầm, 04 tầng dịch vụ thương mại.',
-    '216 căn hộ diện tích từ 86,5 - 113m2',
-    'Tọa lạc tại vị trí đắc địa, Chung cư Bluemoon tiếp giáp với nút giao thông trung tâm Vành đai 3 - Đại lộ Thăng Long - Trần Duy Hưng.\n\nTòa nhà được thiết kế với không gian sống xanh, hòa với thiên nhiên cùng hệ thống hạ tầng khớp nối đồng bộ. Tiện ích và dịch vụ hoàn hảo, khép kín phù hợp với nhu cầu đa dạng của các thế hệ trong gia đình: Siêu thị, dịch vụ spa, phòng tập gym, nhà trẻ...\n\nVới tiêu chí an toàn cho cư dân, tòa nhà có hệ thống PCCC tự động, hiện đại, hệ thống camera giám sát an ninh, hệ thống kiểm soát bảo vệ 24/24.',
-    '1,3 ha',
-    'Quý IV/2016',
-    'Quý IV/2018',
-    '618,737 tỷ đồng'
-);\n`);
-stream.write(`INSERT INTO building_regulations (title, content, sort_order) VALUES
-('1. Quy định về An ninh & Ra vào', '["Cư dân ra vào tòa nhà phải sử dụng Thẻ Cư Dân.", "Khách đến thăm phải đăng ký tại Quầy Lễ Tân hoặc bảo vệ sảnh.", "Không cho người lạ đi cùng vào thang máy hoặc khu vực hạn chế.", "Mọi hành vi gây mất trật tự, an ninh sẽ bị xử lý theo quy định."]', 1),
-('2. Quy định về Tiếng ồn & Giờ giấc', '["Giờ yên tĩnh: Từ 22:00 đến 07:00 sáng hôm sau và 12:00 đến 13:30 trưa.", "Việc thi công sửa chữa chỉ được phép thực hiện trong giờ hành chính (8:00 - 17:00) từ Thứ 2 đến Thứ 6 và sáng Thứ 7.", "Vui lòng không gây tiếng ồn lớn, mở nhạc to ảnh hưởng đến các căn hộ lân cận."]', 2),
-('3. Quy định về Vệ sinh & Rác thải', '["Rác thải sinh hoạt phải được phân loại và bỏ vào túi kín trước khi cho vào phòng rác/ống rác.", "Không để rác, giày dép, vật dụng cá nhân tại hành lang chung.", "Cấm vứt tàn thuốc, rác thải từ ban công xuống dưới.", "Rác cồng kềnh (nội thất, xà bần) phải đăng ký với BQL để vận chuyển riêng."]', 3),
-('4. Quy định về Phòng cháy Chữa cháy (PCCC)', '["Tuyệt đối không hút thuốc tại các khu vực chung, cầu thang bộ, thang máy.", "Không đốt vàng mã tại ban công hoặc hành lang (chỉ đốt tại khu vực quy định của tòa nhà).", "Không chặn cửa thoát hiểm, không để đồ vật cản trở lối đi PCCC.", "Tham gia đầy đủ các buổi diễn tập PCCC định kỳ do BQL tổ chức."]', 4),
-('5. Quy định về Thú cưng', '["Cư dân nuôi thú cưng phải đăng ký với Ban Quản Lý.", "Khi đưa thú cưng ra khu vực công cộng phải có dây xích, rọ mõm và người dắt.", "Tuyệt đối giữ vệ sinh chung, chủ nuôi phải dọn dẹp chất thải của thú cưng ngay lập tức.", "Không để thú cưng gây ồn ào ảnh hưởng đến người xung quanh."]', 5);\n`);
-stream.write(`INSERT INTO vehicle_blacklist (license_plate, reason, added_by) VALUES ('29A-CRIMINAL', 'Xe trộm cắp', 'ID0001'), ('30H-FAKE', 'Biển giả', 'ID0001'), ('14A-BLOCKED', 'Gây rối', 'ID0001'), ('51G-DEBT', 'Nợ phí', 'ID0002'), ('99X-DANGER', 'Hàng cấm', 'ID0001');\n`);
-
-// Admin Users
-stream.write(`INSERT INTO users (id, username, password, email, phone, role_id) VALUES 
-('ID0001', 'admin.a', '${PASSWORD_HASH}', 'admin.a@bluemoon.com', '0901000001', 1),
-('ID0002', 'ketoan.a', '${PASSWORD_HASH}', 'ketoan.b@bluemoon', '0901000002', 2),
-('ID0003', 'cqcn.c', '${PASSWORD_HASH}', 'cqcn.c@bluemoon.com', '0901000003', 1);\n`); 
-
-stream.write(`INSERT INTO admins (id, user_id, full_name, email) VALUES 
-('ID0001', 'ID0001', 'Quản Trị Viên', 'admin.a@bluemoon.com'),
-('ID0002', 'ID0002', 'Kế Toán Trưởng', 'ketoan.b@bluemoon.com'),
-('ID0003', 'ID0003', 'Công An', 'cqcn.c@bluemoon.com');\n`);
-
-// Login History cho Admin (30 ngày gần nhất)
-for(let d=0; d<30; d++) {
-    const loginTime = new Date(); loginTime.setDate(loginTime.getDate() - d);
-    stream.write(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0001', '${formatDate(loginTime)}', '192.168.1.10', 'Chrome Desktop');\n`);
-    stream.write(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0002', '${formatDate(loginTime)}', '192.168.1.11', 'Firefox Desktop');\n`);
-    stream.write(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0003', '${formatDate(loginTime)}', '192.168.1.12', 'Firefox Desktop');\n`);
+    static ip() {
+        return `${this.int(10, 200)}.${this.int(0, 255)}.${this.int(0, 255)}.${this.int(1, 255)}`;
+    }
 }
 
-// CORE: APARTMENTS & RESIDENTS (Main Loop)
-console.log('- Sinh 496 căn hộ và cư dân (Core)...');
-const activeResidents = []; // Lưu danh sách cư dân để dùng cho các bảng phụ
-const activeUsers = ['ID0001', 'ID0002', 'ID0003']
-const activeApartments = [];
-let aptIdCounter = 1;
-let residentIdCounter = 1;
-let vehicleIdCounter = 1;
+// ==================== ID GENERATOR ====================
+class IdGenerator {
+    constructor() {
+        this.sequences = {};
+    }
 
-BUILDING_BLOCKS.forEach(block => {
-    for (let floor = 1; floor <= FLOORS; floor++) {
-        for (let room = 1; room <= ROOMS_PER_FLOOR; room++) {
-            const aptCode = `${block}-${floor}${room < 10 ? '0' + room : room}`;
-            const area = randomItem([85.5, 92.0, 105.0, 120.0]);
-            const status = Math.random() < 0.7 ? 'Đang sinh sống' : 'Trống';
-            const fullName = genName();
+    generateDailyId(prefix, dateObj) {
+        const dateStr = DateHelper.toDDMMYYYY(dateObj);
+        const key = `${prefix}-${dateStr}`;
+        if (!this.sequences[key]) this.sequences[key] = 0;
+        this.sequences[key]++;
+        return `${prefix}-${dateStr}-${String(this.sequences[key]).padStart(4, '0')}`;
+    }
 
-            stream.write(`INSERT INTO apartments (id, apartment_code, building, floor, area, status) VALUES (${aptIdCounter}, '${aptCode}', '${block}', ${floor}, ${area}, '${status}');\n`);
+    reset() {
+        this.sequences = {};
+    }
+}
 
-            if (status === 'Đang sinh sống') {
-                activeApartments.push({ id: aptIdCounter, code: aptCode, area: area });
-                // Ngày chuyển đến: Phải TRƯỚC 6 tháng để logic hóa đơn đúng (Điểm số 7)
-                const moveInDate = randomDate(new Date(2023, 0, 1), SIX_MONTHS_AGO);
+// ==================== VIETNAMESE DATA ====================
+const VietnameseData = {
+    LAST_NAMES: ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'],
+    
+    MIDDLE_NAMES_MALE: ['Văn', 'Đức', 'Thanh', 'Mạnh', 'Hữu', 'Quang', 'Minh', 'Tuấn', 'Công', 'Duy'],
+    MIDDLE_NAMES_FEMALE: ['Thị', 'Kim', 'Ngọc', 'Thanh', 'Thu', 'Phương', 'Hồng', 'Lan', 'Mai'],
+    
+    FIRST_NAMES_MALE: ['An', 'Bình', 'Cường', 'Dũng', 'Hùng', 'Khánh', 'Minh', 'Phúc', 'Quân', 'Sơn', 'Tuấn', 'Việt', 'Hoàng', 'Long', 'Nam', 'Hải', 'Tùng', 'Đạt'],
+    FIRST_NAMES_FEMALE: ['Anh', 'Chi', 'Giang', 'Hà', 'Hương', 'Lan', 'Linh', 'Mai', 'Nga', 'Nhung', 'Oanh', 'Phương', 'Thảo', 'Trang', 'Vân', 'Yến'],
+    
+    RELATIONSHIPS: ['Vợ', 'Chồng', 'Con trai', 'Con gái', 'Bố', 'Mẹ', 'Anh', 'Em', 'Ông', 'Bà'],
+    
+    OCCUPATIONS: [
+        'Kỹ sư', 'Bác sĩ', 'Giáo viên', 'Nhân viên văn phòng', 'Kinh doanh',
+        'Kế toán', 'Lập trình viên', 'Luật sư', 'Kiến trúc sư', 'Dược sĩ',
+        'Nhân viên ngân hàng', 'Marketing', 'Thiết kế', 'Nhà báo', 'Freelancer'
+    ],
+    
+    HOMETOWNS: [
+        'Hà Nội', 'Hải Phòng', 'Nam Định', 'Thái Bình', 'Ninh Bình',
+        'Hà Nam', 'Hưng Yên', 'Bắc Ninh', 'Bắc Giang', 'Vĩnh Phúc',
+        'Thanh Hóa', 'Nghệ An', 'Hà Tĩnh', 'TP. Hồ Chí Minh', 'Đà Nẵng'
+    ],
 
-                // Chủ hộ
-                const rId = `R${String(residentIdCounter).padStart(4, '0')}`;
-                const username = `chuho_${aptCode.replace('-', '').toLowerCase()}`;
-                
-                const phone = genPhone();
-                
-                stream.write(`INSERT INTO users (id, username, password, email, phone, role_id) VALUES ('${rId}', '${username}', '${PASSWORD_HASH}', '${username}@gmail.com', '${phone}', 3);\n`);
-                stream.write(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd) VALUES ('${rId}', '${rId}', ${aptIdCounter}, '${fullName}', 'owner', 'Chủ hộ', '${phone}', '${username}@gmail.com', 'Đang sinh sống', '${genCCCD()}');\n`);
-                stream.write(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${rId}', ${aptIdCounter}, 'Chuyển đến', '${formatDateOnly(moveInDate)}', 'Mua căn hộ');\n`);
+    CAR_BRANDS: ['Toyota', 'Honda', 'Hyundai', 'Mazda', 'Ford', 'Kia', 'Vinfast', 'Mercedes', 'BMW', 'Audi'],
+    MOTORBIKE_BRANDS: ['Honda', 'Yamaha', 'SYM', 'Piaggio', 'Suzuki', 'Vinfast', 'Exciter', 'Wave', 'Vision'],
+    
+    generateName(isMale = RandomHelper.boolean()) {
+        const lastName = RandomHelper.item(this.LAST_NAMES);
+        const middleName = RandomHelper.item(isMale ? this.MIDDLE_NAMES_MALE : this.MIDDLE_NAMES_FEMALE);
+        const firstName = RandomHelper.item(isMale ? this.FIRST_NAMES_MALE : this.FIRST_NAMES_FEMALE);
+        return `${lastName} ${middleName} ${firstName}`;
+    },
 
-                activeResidents.push({ id: rId, aptId: aptIdCounter, name: fullName });
-                activeUsers.push(rId);
-                const ownerId = rId;
-                residentIdCounter++;
+    generatePhone() {
+        const prefixes = ['090', '091', '093', '094', '097', '098', '032', '033', '034', '035', '036', '037', '038', '039'];
+        return `${RandomHelper.item(prefixes)}${RandomHelper.int(1000000, 9999999)}`;
+    },
 
-                // Login History cho Cư dân (Random)
-                if (Math.random() < 0.3) {
-                    stream.write(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('${rId}', '${formatDate(randomDate(SIX_MONTHS_AGO, TODAY))}', '14.162.1.1', 'Mobile App');\n`);
-                }
+    generateCCCD() {
+        const year = RandomHelper.int(1960, 2005);
+        return `0${RandomHelper.int(0, 9)}${year}${RandomHelper.int(100000, 999999)}`;
+    },
 
-                // 2.2 Sinh thành viên (0-4 người)
-                const numMembers = randomInt(0, 4);
-                for (let m = 0; m < numMembers; m++) {
-                    const memId = `R${String(residentIdCounter).padStart(4, '0')}`;
-                    const memName = genName();
-                    const relation = randomItem(['Vợ', 'Chồng', 'Con', 'Bố', 'Mẹ']);
-                    let memUserId = 'NULL';
-                    
-                    // 10% thành viên có tài khoản
-                    if (Math.random() < 0.1) {
-                        const memUser = `mem.${memId}`;
-                        stream.write(`INSERT INTO users (id, username, password, email, phone, role_id) VALUES ('${memId}', '${memUser}', '${PASSWORD_HASH}', '${memUser}@gmail.com', '${genPhone()}', 3);\n`);
-                        memUserId = `'${memId}'`;
-                        
-                        activeUsers.push(memId);
-                    }
-
-                    stream.write(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, status) VALUES ('${memId}', ${memUserId}, ${aptIdCounter}, '${memName}', 'member', '${relation}', 'Đang sinh sống');\n`);
-                    residentIdCounter++;
-                }
-
-                // Xe cộ
-                const numVehicles = randomInt(0, 3);
-                const vehicles = [];
-                for (let v = 0; v < numVehicles; v++) {
-                    const type = Math.random() < 0.3 ? 'Ô tô' : 'Xe máy';
-                    const plate = type === 'Ô tô' ? `30${randomItem(['A','E','F','G'])}-${randomInt(100,999)}.${randomInt(10,99)}` : `29${randomItem(['X','H','K','P'])}${randomInt(1,9)}-${randomInt(1000,9999)}`;
-                    // Fix ảnh .jpg
-                    const img = `/uploads/vehicles/${plate}_${Date.now()}.jpg`; 
-                    if (type == 'Ô tô') brand = Math.random() < 0.2 ? 'Toyota' : (Math.random() < 0.25 ? 'Audi' : (Math.random() < 0.3 ? 'Mercedes' : (Math.random() < 0.5 ? 'Huyndai' : 'Ford')));
-                    if (type == 'Xe máy') brand = Math.random() < 0.2 ? 'Exciter' : (Math.random() < 0.25 ? 'BMW' : (Math.random() < 0.3 ? 'VinFast' : (Math.random() < 0.5 ? 'Ducati' : 'Yamaha')));
-                    stream.write(`INSERT INTO vehicles (id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image) VALUES (${vehicleIdCounter}, '${ownerId}', ${aptIdCounter}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}');\n`);
-                    vehicles.push({ plate, type, brand });
-                    vehicleIdCounter++;
-                }
-
-                // Phí & Vận hành (6 tháng)
-                let elecIndex = randomInt(100, 1000);
-                let waterIndex = randomInt(50, 500);
-
-                for (let i = 5; i >= 0; i--) {
-                    const monthDate = new Date(); monthDate.setMonth(monthDate.getMonth() - i);
-                    const period = `T${monthDate.getMonth() + 1}/${monthDate.getFullYear()}`;
-                    const feeSuffix = `${(monthDate.getMonth() + 1).toString().padStart(2,'0')}${monthDate.getFullYear()}`;
-                    const billDate = formatDateOnly(new Date(monthDate.getFullYear(), monthDate.getMonth(), 5));
-
-                    // Readings
-                    const elec = randomInt(100, 300); const water = randomInt(10, 30);
-                    stream.write(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptIdCounter}, 'Điện', '${period}', ${elecIndex}, ${elecIndex+elec}, '${billDate}');\n`);
-                    stream.write(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptIdCounter}, 'Nước', '${period}', ${waterIndex}, ${waterIndex+water}, '${billDate}');\n`);
-                    elecIndex += elec; waterIndex += water;
-
-                    // 1. PHÍ QUẢN LÝ (PQL)
-                    const idPQL = `PQL-${aptCode}-${feeSuffix}`;
-                    const amtPQL = area * 7000;
-                    let statPQL = i===0 && Math.random()<0.3 ? 'Chưa thanh toán' : 'Đã thanh toán';
-                    stream.write(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${idPQL}', ${aptIdCounter}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${billDate}', ${amtPQL}, ${statPQL==='Đã thanh toán'?amtPQL:0}, ${statPQL!=='Đã thanh toán'?amtPQL:0}, '${statPQL}');\n`);
-                    stream.write(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${idPQL}', 'PQL ${period}', 'm²', ${area}, 7000, ${amtPQL});\n`);
-
-                    // 2. PHÍ GỬI XE (PGX)
-                    const idPGX = `PGX-${aptCode}-${feeSuffix}`;
-                    let amtPGX = 0;
-                    // FIX: Thêm v => ... để sửa lỗi TypeError
-                    vehicles.forEach(v => amtPGX += (v.type==='Ô tô' ? 1200000 : 70000));
-                    
-                    if (amtPGX > 0) {
-                        let statPGX = i===0 && Math.random()<0.3 ? 'Chưa thanh toán' : 'Đã thanh toán';
-                        stream.write(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${idPGX}', ${aptIdCounter}, '${ownerId}', 2, 'Phí Gửi xe ${period}', '${period}', '${billDate}', ${amtPGX}, ${statPGX==='Đã thanh toán'?amtPGX:0}, ${statPGX!=='Đã thanh toán'?amtPGX:0}, '${statPGX}');\n`);
-                        vehicles.forEach(v => {
-                            const price = v.type==='Ô tô' ? 1200000 : 70000;
-                            stream.write(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${idPGX}', 'Gửi xe ${v.plate}', 'Xe', 1, ${price}, ${price});\n`);
-                        });
-                    }
-
-                    // 3. TIỀN ĐIỆN (PD)
-                    const idPD = `PD-${aptCode}-${feeSuffix}`;
-                    const amtPD = elec * 3000;
-                    let statPD = i===0 && Math.random()<0.2 ? 'Chưa thanh toán' : 'Đã thanh toán';
-                    stream.write(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${idPD}', ${aptIdCounter}, '${ownerId}', 3, 'Tiền điện ${period}', '${period}', '${billDate}', ${amtPD}, ${statPD==='Đã thanh toán'?amtPD:0}, ${statPD!=='Đã thanh toán'?amtPD:0}, '${statPD}');\n`);
-                    stream.write(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${idPD}', 'Điện sinh hoạt', 'kWh', ${elec}, 3000, ${amtPD});\n`);
-
-                    // 4. TIỀN NƯỚC (PN)
-                    const idPN = `PN-${aptCode}-${feeSuffix}`;
-                    const amtPN = water * 15000;
-                    let statPN = i===0 && Math.random()<0.2 ? 'Chưa thanh toán' : 'Đã thanh toán';
-                    stream.write(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${idPN}', ${aptIdCounter}, '${ownerId}', 4, 'Tiền nước ${period}', '${period}', '${billDate}', ${amtPN}, ${statPN==='Đã thanh toán'?amtPN:0}, ${statPN!=='Đã thanh toán'?amtPN:0}, '${statPN}');\n`);
-                    stream.write(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${idPN}', 'Nước sinh hoạt', 'm³', ${water}, 15000, ${amtPN});\n`);
-                }
-
-                // 3.3 Access Logs (Nhật ký ra vào - Sinh cho tháng hiện tại dày đặc)
-                // Logic Anti-passback: Out (Sáng) -> In (Chiều)
-                vehicles.forEach(veh => {
-                    for (let d = 1; d <= 30; d++) { // 30 ngày gần nhất
-                        const logDate = new Date();
-                        logDate.setDate(logDate.getDate() - d);
-                        
-                        // Sáng đi làm (Out)
-                        logDate.setHours(5 + randomInt(0, 6), randomInt(0, 59));
-                        stream.write(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${veh.plate}', '${veh.type}', 'Out', 'Cổng A', 'Normal', '${ownerId}', '${formatDate(logDate)}', '/uploads/access/out.jpg');\n`);
-                        
-                        // Chiều về (In)
-                        logDate.setHours(16 + randomInt(0, 6), randomInt(0, 59));
-                        stream.write(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${veh.plate}', '${veh.type}', 'In', 'Cổng A', 'Normal', '${ownerId}', '${formatDate(logDate)}', '/uploads/access/in.jpg');\n`);
-                    }
-                });
-            } else if (status === 'Trống' && Math.random() < 0.1) {
-                // --- HISTORICAL DATA (Cư dân cũ đã chuyển đi) ---
-                const oldRId = `R_OLD_${aptIdCounter}`;
-                stream.write(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, status) VALUES ('${oldRId}', NULL, ${aptIdCounter}, '${fullName}', 'owner', 'Đã chuyển đi');\n`);
-                stream.write(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${oldRId}', ${aptIdCounter}, 'Chuyển đi', '${formatDateOnly(SIX_MONTHS_AGO)}', 'Hết hạn thuê');\n`);
-            }
-            aptIdCounter++;
+    generateLicensePlate(isMotorbike = false) {
+        if (isMotorbike) {
+            const city = RandomHelper.item(['29', '30', '14', '51', '99']);
+            const letter = RandomHelper.item(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'L', 'M', 'N', 'P', 'S', 'T', 'U', 'V', 'X', 'Y', 'Z']);
+            return `${city}${letter}${RandomHelper.int(1, 9)}-${String(RandomHelper.int(100, 9999)).padStart(4, '0')}`;
+        } else {
+            const city = RandomHelper.item(['29', '30', '14', '51', '99']);
+            const letter = RandomHelper.item(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'L']);
+            return `${city}${letter}-${String(RandomHelper.int(100, 999))}.${String(RandomHelper.int(10, 99))}`;
         }
     }
-});
+};
 
-// ==========================================================
-// CÁC BẢNG PHỤ (FIXED MISSING DATA)
-// ==========================================================
-
-// --- LOGIN HISTORY (ALL USERS - RANDOM TIME/IP) ---
-console.log('- Sinh Lịch sử đăng nhập phong phú...');
-for(let i=0; i<3000; i++) { // 3000 logs
-    const uId = randomItem(activeUsers);
-    const time = randomDate(new Date(TODAY.getTime() - 86400000*30), TODAY); // 30 ngày gần nhất
-    const ip = randomIP();
-    const ua = randomItem(USER_AGENTS);
-    stream.write(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('${uId}', '${formatDate(time)}', '${ip}', '${ua}');\n`);
-}
-
-// 4. NOTIFICATIONS & RECIPIENTS & ATTACHMENTS (FIXED)
-console.log('- Sinh Thông báo & Sự cố (ID Reset Daily)...');
-
-// --- NOTIFICATIONS ---
-const NOTI_TEMPLATES = [
-    { type: 1, title: 'Cắt điện bảo trì', prefix: 'TB' },
-    { type: 2, title: 'Họp tổ dân phố', prefix: 'TB' },
-    { type: 3, title: 'Nhắc đóng phí', prefix: 'TB' },
-    { type: 2, title: 'Phun thuốc muỗi', prefix: 'TB' }
+// ==================== USER AGENTS ====================
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 Version/17.1 Mobile Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 Chrome/119.0.0.0 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+    'Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
 ];
 
-// Sinh 500 thông báo trong 6 tháng gần đây
-for(let i=0; i<500; i++) {
-    const tpl = randomItem(NOTI_TEMPLATES);
-    const date = randomDate(SIX_MONTHS_AGO, new Date(TODAY.getTime() + 86400000*5)); // Quá khứ đến Tương lai 5 ngày
-    const id = generateDailyId('TB', date);
-    const isFuture = date > TODAY;
-    
-    stream.write(`INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at) VALUES ('${id}', '${tpl.title} ${formatDateOnly(date)}', 'Nội dung chi tiết...', ${tpl.type}, 'Tất cả Cư dân', '${formatDate(date)}', ${isFuture?0:1}, 'ID0001', '${formatDate(date)}');\n`);
-    
-    // Random attachments
-    if (Math.random() < 0.5) {
-        stream.write(`INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES ('${id}', 'thongbao.jpg', '/uploads/notifications/${id}/tb.jpg', 1024);\n`);
+// ==================== SQL WRITER ====================
+class SQLWriter {
+    constructor(filename) {
+        this.stream = fs.createWriteStream(filename);
+        this.stats = {
+            apartments: 0,
+            residents: 0,
+            vehicles: 0,
+            fees: 0,
+            notifications: 0,
+            reports: 0
+        };
+    }
+
+    write(sql) {
+        this.stream.write(sql);
+    }
+
+    writeln(sql = '') {
+        this.stream.write(sql + '\n');
+    }
+
+    writeHeader() {
+        this.writeln('-- ================================================');
+        this.writeln('-- BLUEMOON APARTMENT - SEEDING DATA');
+        this.writeln(`-- Generated: ${new Date().toLocaleString('vi-VN')}`);
+        this.writeln('-- ================================================\n');
+        this.writeln('SET FOREIGN_KEY_CHECKS = 0;');
+        this.writeln('SET NAMES utf8mb4;\n');
+    }
+
+    truncateTables() {
+        const tables = [
+            'audit_logs', 'login_history', 'payment_history', 'fee_items', 'fees', 'utility_readings',
+            'maintenance_schedules', 'assets', 'access_logs', 'vehicle_blacklist', 'vehicles',
+            'visitors', 'service_bookings', 'service_attachments', 'service_types',
+            'report_attachments', 'reports', 'notification_attachments', 'notification_recipients',
+            'notifications', 'notification_types', 'donations', 'fund_campaigns', 'reviews',
+            'profile_edit_requests', 'temporary_residence', 'residence_history',
+            'residents', 'admins', 'users', 'apartments', 'roles', 'fee_types',
+            'building_info', 'building_regulations'
+        ];
+        
+        tables.forEach(table => this.writeln(`TRUNCATE TABLE ${table};`));
+        this.writeln();
+    }
+
+    writeFooter() {
+        this.writeln('\nSET FOREIGN_KEY_CHECKS = 1;');
+        this.writeln('\n-- ================================================');
+        this.writeln('-- STATISTICS');
+        this.writeln(`-- Apartments: ${this.stats.apartments}`);
+        this.writeln(`-- Residents: ${this.stats.residents}`);
+        this.writeln(`-- Vehicles: ${this.stats.vehicles}`);
+        this.writeln(`-- Fees: ${this.stats.fees}`);
+        this.writeln(`-- Notifications: ${this.stats.notifications}`);
+        this.writeln(`-- Reports: ${this.stats.reports}`);
+        this.writeln('-- ================================================');
+    }
+
+    close() {
+        this.stream.end();
     }
 }
 
-// 5. REPORTS & ATTACHMENTS (FIXED)
-console.log('- Sinh sự cố và ảnh...');
-const REPORT_TYPES = [
-    { t: 'Vỡ ống nước', loc: 'Hầm B1', p: 'Khẩn cấp' },
-    { t: 'Đèn hành lang nhấp nháy', loc: 'Hành lang', p: 'Thấp' },
-    { t: 'Thang máy rung lắc', loc: 'Thang A1', p: 'Cao' },
-    { t: 'Rác thải bừa bãi', loc: 'Sảnh thang bộ', p: 'Trung bình' },
-    { t: 'Ồn ào sau 22h', loc: 'Căn hộ tầng trên', p: 'Trung bình' }
-];
-for(let i=0; i<40; i++) {
-    const tpl = randomItem(REPORT_TYPES);
-    const rId = randomItem(activeResidents);
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    const id = generateDailyId('SC', date);
-    const status = randomItem(['Mới', 'Đang xử lý', 'Hoàn thành', 'Đã hủy']);
-    
-    stream.write(`INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at) VALUES ('${id}', '${tpl.t}', 'Mô tả chi tiết sự cố...', '${tpl.loc}', '${rId}', '${status}', '${tpl.p}', '${formatDate(date)}');\n`);
-    // Random attachments
-    if (Math.random() < 0.5) {
-        stream.write(`INSERT INTO report_attachments (report_id, file_name, file_path, file_size) VALUES ('${id}', 'suco.jpg', '/uploads/reports/${id}/tb.jpg', 1024);\n`);
+// ==================== DATA GENERATORS ====================
+
+class StaticDataGenerator {
+    static generate(writer) {
+        console.log('📝 Generating static data...');
+        
+        // Roles
+        writer.writeln('-- Roles');
+        writer.writeln("INSERT INTO roles (id, role_name, role_code) VALUES");
+        writer.writeln("(1, 'Ban Quản Trị', 'bod'),");
+        writer.writeln("(2, 'Kế Toán', 'accountance'),");
+        writer.writeln("(3, 'Cư Dân', 'resident'),");
+        writer.writeln("(4, 'Cơ Quan Chức Năng', 'cqcn');\n");
+
+        // Fee Types
+        writer.writeln('-- Fee Types');
+        writer.writeln("INSERT INTO fee_types (id, fee_name, fee_code, default_price, unit) VALUES");
+        writer.writeln(`(1, 'Phí Quản lý', 'PQL', ${CONFIG.FEE_PRICES.MANAGEMENT}, 'm²'),`);
+        writer.writeln(`(2, 'Phí Gửi xe', 'PGX', 0, 'Tháng'),`);
+        writer.writeln(`(3, 'Phí Điện', 'PD', ${CONFIG.FEE_PRICES.ELECTRICITY}, 'kWh'),`);
+        writer.writeln(`(4, 'Phí Nước', 'PN', ${CONFIG.FEE_PRICES.WATER}, 'm³');\n`);
+
+        // Notification Types
+        writer.writeln('-- Notification Types');
+        writer.writeln("INSERT INTO notification_types (id, type_name, type_code) VALUES");
+        writer.writeln("(1, 'Khẩn cấp', 'EMERGENCY'),");
+        writer.writeln("(2, 'Chung', 'GENERAL'),");
+        writer.writeln("(3, 'Thu phí', 'FEE'),");
+        writer.writeln("(4, 'Dịch vụ', 'SERVICE');\n");
+
+        // Service Types
+        this.generateServiceTypes(writer);
+        
+        // Building Info & Regulations
+        this.generateBuildingInfo(writer);
+        
+        // Vehicle Blacklist
+        this.generateVehicleBlacklist(writer);
+        
+        // Admin Users
+        this.generateAdminUsers(writer);
+    }
+
+    static generateServiceTypes(writer) {
+        writer.writeln('-- Service Types');
+        writer.writeln("INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone) VALUES");
+        
+        const services = [
+            ['BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567'],
+            ['Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua.', 30000, 'Lần', 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999'],
+            ['Moonlight Coffee & Lounge', 'Thuê phòng VIP để họp nhóm, tiếp khách hoặc làm việc. Không gian yên tĩnh, view toàn thành phố.', 200000, 'Giờ', 'Ẩm thực & Giải trí', 'Tầng Thượng (Rooftop)', '08:00 - 23:00', '0912.333.444'],
+            ['Trường Mầm non Little Stars', 'Môi trường giáo dục chuẩn quốc tế, giáo viên bản ngữ. Đăng ký giữ chỗ hoặc tham quan.', 8500000, 'Tháng', 'Giáo dục', 'Tầng 2 - Tòa C', '07:00 - 17:30', '024.3333.8888'],
+            ['Nhà hàng Ẩm thực Á Đông', 'Đặt bàn tiệc gia đình, sinh nhật, tất niên. Thực đơn phong phú 3 miền.', 3500000, 'Bàn', 'Ẩm thực & Giải trí', 'Tầng 1 - Tòa D', '10:00 - 22:00', '0988.777.666'],
+            ['Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp.', 120000, 'Vé', 'Giải trí', 'Tầng 2 - TTTM', '09:00 - 21:30', '0905.111.222']
+        ];
+
+        services.forEach((s, i) => {
+            const comma = i < services.length - 1 ? ',' : ';';
+            writer.writeln(`('${s[0]}', '${s[1]}', ${s[2]}, '${s[3]}', TRUE, '${s[4]}', '${s[5]}', '${s[6]}', '${s[7]}')${comma}`);
+        });
+        writer.writeln();
+    }
+
+    static generateBuildingInfo(writer) {
+        writer.writeln('-- Building Info');
+        writer.writeln(`INSERT INTO building_info (id, name, investor, location, scale, apartments, description, total_area, start_date, finish_date, total_investment) VALUES`);
+        writer.writeln(`(1, 'CHUNG CƯ BLUEMOON',`);
+        writer.writeln(`'Tổng công ty CP Xuất nhập khẩu & Xây dựng Việt Nam (VINACONEX)',`);
+        writer.writeln(`'289 Khuất Duy Tiến - Trung Hòa - Cầu Giấy - Hà Nội',`);
+        writer.writeln(`'Cao 31 tầng, 03 tầng hầm, 04 tầng dịch vụ thương mại.',`);
+        writer.writeln(`'496 căn hộ diện tích từ 85.5 - 120m²',`);
+        writer.writeln(`'Tọa lạc tại vị trí đắc địa, Chung cư Bluemoon tiếp giáp với nút giao thông trung tâm Vành đai 3 - Đại lộ Thăng Long - Trần Duy Hưng. Tòa nhà được thiết kế với không gian sống xanh, hòa với thiên nhiên cùng hệ thống hạ tầng khớp nối đồng bộ.',`);
+        writer.writeln(`'1,3 ha', 'Quý IV/2016', 'Quý IV/2018', '618,737 tỷ đồng');\n`);
+
+        writer.writeln('-- Building Regulations');
+        writer.writeln(`INSERT INTO building_regulations (title, content, sort_order) VALUES`);
+        const regulations = [
+            ['1. Quy định về An ninh & Ra vào', '["Cư dân ra vào tòa nhà phải sử dụng Thẻ Cư Dân.", "Khách đến thăm phải đăng ký tại Quầy Lễ Tân.", "Không cho người lạ vào thang máy hoặc khu vực hạn chế.", "Mọi hành vi gây mất trật tự sẽ bị xử lý."]', 1],
+            ['2. Quy định về Tiếng ồn & Giờ giấc', '["Giờ yên tĩnh: 22:00 - 07:00 và 12:00 - 13:30.", "Thi công sửa chữa chỉ trong giờ hành chính (8:00 - 17:00).", "Không gây tiếng ồn ảnh hưởng căn hộ lân cận."]', 2],
+            ['3. Quy định về Vệ sinh & Rác thải', '["Rác phải phân loại và bỏ vào túi kín.", "Không để rác tại hành lang chung.", "Cấm vứt rác từ ban công.", "Rác cồng kềnh phải đăng ký với BQL."]', 3],
+            ['4. Quy định về PCCC', '["Cấm hút thuốc tại khu vực chung.", "Không đốt vàng mã tại ban công.", "Không chặn cửa thoát hiểm.", "Tham gia diễn tập PCCC định kỳ."]', 4],
+            ['5. Quy định về Thú cưng', '["Phải đăng ký thú cưng với BQL.", "Ra ngoài phải có dây xích, rọ mõm.", "Chủ nuôi phải dọn chất thải ngay.", "Không để thú cưng gây ồn ào."]', 5]
+        ];
+
+        regulations.forEach((r, i) => {
+            const comma = i < regulations.length - 1 ? ',' : ';';
+            writer.writeln(`('${r[0]}', '${r[1]}', ${r[2]})${comma}`);
+        });
+        writer.writeln();
+    }
+
+    static generateVehicleBlacklist(writer) {
+        writer.writeln('-- Vehicle Blacklist');
+        writer.writeln("INSERT INTO vehicle_blacklist (license_plate, reason, added_by) VALUES");
+        const blacklist = [
+            ['29A-CRIMINAL', 'Xe trộm cắp được cơ quan công an thông báo', 'ID0001'],
+            ['30H-FAKE', 'Biển số giả mạo', 'ID0001'],
+            ['14A-BLOCKED', 'Chủ xe gây rối trật tự nhiều lần', 'ID0001'],
+            ['51G-DEBT', 'Nợ phí quản lý quá hạn 6 tháng', 'ID0002'],
+            ['99X-DANGER', 'Phát hiện chở hàng nguy hiểm', 'ID0001']
+        ];
+
+        blacklist.forEach((b, i) => {
+            const comma = i < blacklist.length - 1 ? ',' : ';';
+            writer.writeln(`('${b[0]}', '${b[1]}', '${b[2]}')${comma}`);
+        });
+        writer.writeln();
+    }
+
+    static generateAdminUsers(writer) {
+        writer.writeln('-- Admin Users');
+        writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id) VALUES`);
+        writer.writeln(`('ID0001', 'admin.a', '${CONFIG.PASSWORD_HASH}', 'admin.a@bluemoon.com', '0901000001', 1),`);
+        writer.writeln(`('ID0002', 'ketoan.b', '${CONFIG.PASSWORD_HASH}', 'ketoan.b@bluemoon.com', '0901000002', 2),`);
+        writer.writeln(`('ID0003', 'cqcn.c', '${CONFIG.PASSWORD_HASH}', 'cqcn.c@bluemoon.com', '0901000003', 4);\n`);
+
+        writer.writeln(`INSERT INTO admins (id, user_id, full_name, email, phone) VALUES`);
+        writer.writeln(`('ID0001', 'ID0001', 'Nguyễn Văn Quản', 'admin.a@bluemoon.com', '0901000001'),`);
+        writer.writeln(`('ID0002', 'ID0002', 'Trần Thị Lan', 'ketoan.b@bluemoon.com', '0901000002'),`);
+        writer.writeln(`('ID0003', 'ID0003', 'Lê Công An', 'cqcn.c@bluemoon.com', '0901000003');\n`);
+
+        // Admin login history (30 days)
+        writer.writeln('-- Admin Login History');
+        for (let d = 0; d < 30; d++) {
+            const loginTime = DateHelper.addDays(DateHelper.TODAY, -d);
+            const timeWithHours = new Date(loginTime);
+            timeWithHours.setHours(RandomHelper.int(7, 9), RandomHelper.int(0, 59));
+            
+            writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0001', '${DateHelper.format(timeWithHours)}', '192.168.1.10', '${RandomHelper.item(USER_AGENTS)}');`);
+            
+            if (RandomHelper.boolean(0.8)) {
+                timeWithHours.setHours(RandomHelper.int(8, 10), RandomHelper.int(0, 59));
+                writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0002', '${DateHelper.format(timeWithHours)}', '192.168.1.11', '${RandomHelper.item(USER_AGENTS)}');`);
+            }
+        }
+        writer.writeln();
     }
 }
 
-// 6. PROFILE EDIT REQUESTS
-console.log('- Sinh yêu cầu sửa thông tin...');
-for(let i=0; i<15; i++) {
-    const r = randomItem(activeResidents);
-    const status = randomItem(['Chờ duyệt', 'Đã duyệt', 'Từ chối']);
-    const phone = genPhone();
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    stream.write(`INSERT INTO profile_edit_requests (resident_id, requested_changes, reason, status, created_at) VALUES ('${r.id}', '{"phone": "${phone}"}', 'Đổi số điện thoại', '${status}', '${formatDate(date)}');\n`);
+// ==================== MAIN GENERATOR ====================
+class BluemoonDataGenerator {
+    constructor() {
+        this.writer = new SQLWriter(CONFIG.OUTPUT_FILE);
+        this.idGen = new IdGenerator();
+        this.activeResidents = [];
+        this.activeUsers = ['ID0001', 'ID0002', 'ID0003'];
+        this.activeApartments = [];
+        this.residentCounter = 1;
+        this.vehicleCounter = 1;
+    }
+
+    generate() {
+        console.log('🚀 Starting Bluemoon Seeding Data Generation...\n');
+        
+        this.writer.writeHeader();
+        this.writer.truncateTables();
+        
+        StaticDataGenerator.generate(this.writer);
+        this.generateApartmentsAndResidents();
+        this.generateSupplementaryData();
+        
+        this.writer.writeFooter();
+        this.writer.close();
+        
+        console.log('\n✅ Generation completed!');
+        console.log(`📁 Output file: ${CONFIG.OUTPUT_FILE}`);
+        console.log(`📊 Statistics:`);
+        console.log(`   - Apartments: ${this.writer.stats.apartments}`);
+        console.log(`   - Residents: ${this.writer.stats.residents}`);
+        console.log(`   - Vehicles: ${this.writer.stats.vehicles}`);
+        console.log(`   - Fees: ${this.writer.stats.fees}`);
+        console.log(`   - Notifications: ${this.writer.stats.notifications}`);
+        console.log(`   - Reports: ${this.writer.stats.reports}`);
+        console.log('\n👉 Next step: node backend/scripts/setupDatabase.js');
+    }
+
+    generateApartmentsAndResidents() {
+        console.log('🏢 Generating apartments and residents...');
+        let aptIdCounter = 1;
+
+        CONFIG.BUILDING_BLOCKS.forEach(block => {
+            for (let floor = 1; floor <= CONFIG.FLOORS; floor++) {
+                for (let room = 1; room <= CONFIG.ROOMS_PER_FLOOR; room++) {
+                    const aptCode = `${block}-${floor}${room < 10 ? '0' + room : room}`;
+                    const area = RandomHelper.item(CONFIG.APARTMENT_AREAS);
+                    const isOccupied = RandomHelper.boolean(CONFIG.OCCUPANCY_RATE);
+                    const status = isOccupied ? 'Đang sinh sống' : 'Trống';
+
+                    this.writer.writeln(`INSERT INTO apartments (id, apartment_code, building, floor, area, status) VALUES (${aptIdCounter}, '${aptCode}', '${block}', ${floor}, ${area}, '${status}');`);
+                    this.writer.stats.apartments++;
+
+                    if (isOccupied) {
+                        this.activeApartments.push({ id: aptIdCounter, code: aptCode, area: area, floor: floor, building: block });
+                        this.generateResidentFamily(aptIdCounter, aptCode, area);
+                    } else if (RandomHelper.boolean(0.15)) {
+                        // 15% empty apartments have historical residents
+                        this.generateHistoricalResident(aptIdCounter);
+                    }
+
+                    aptIdCounter++;
+                }
+            }
+        });
+        
+        console.log(`   ✓ Created ${this.writer.stats.apartments} apartments`);
+        console.log(`   ✓ Created ${this.writer.stats.residents} residents`);
+    }
+
+    generateResidentFamily(aptId, aptCode, area) {
+        // [FIX] Move-in date từ 1-2 năm trước để có lịch sử dài
+        const moveInDate = DateHelper.randomBetween(
+            new Date(2021, 0, 1),  // Từ đầu 2021
+            DateHelper.SIX_MONTHS_AGO
+        );
+
+        // Owner
+        const ownerId = `R${String(this.residentCounter).padStart(4, '0')}`;
+        const ownerGender = RandomHelper.boolean();
+        const ownerName = VietnameseData.generateName(ownerGender);
+        const username = `chuho_${aptCode.replace('-', '').toLowerCase()}`;
+        const phone = VietnameseData.generatePhone();
+        const email = `${username}@gmail.com`;
+        const cccd = VietnameseData.generateCCCD();
+        const dob = new Date(RandomHelper.int(1970, 1995), RandomHelper.int(0, 11), RandomHelper.int(1, 28));
+        const hometown = RandomHelper.item(VietnameseData.HOMETOWNS);
+        const occupation = RandomHelper.item(VietnameseData.OCCUPATIONS);
+
+        // [FIX] Create user account với created_at = moveInDate
+        this.writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id, created_at, updated_at) VALUES ('${ownerId}', '${username}', '${CONFIG.PASSWORD_HASH}', '${email}', '${phone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+        
+        this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at) VALUES ('${ownerId}', '${ownerId}', ${aptId}, '${ownerName}', 'owner', 'Chủ hộ', '${phone}', '${email}', 'Đang sinh sống', '${cccd}', '${DateHelper.formatDateOnly(dob)}', '${ownerGender ? 'Nam' : 'Nữ'}', '${hometown}', '${occupation}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+        
+        this.writer.writeln(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${ownerId}', ${aptId}, 'Chuyển đến', '${DateHelper.formatDateOnly(moveInDate)}', 'Mua căn hộ mới');`);
+
+        this.activeResidents.push({ 
+            id: ownerId, 
+            aptId: aptId, 
+            name: ownerName, 
+            isOwner: true,
+            moveInDate: moveInDate  // [NEW] Lưu để dùng cho logic reports
+        });
+        this.activeUsers.push(ownerId);
+        this.writer.stats.residents++;
+        this.residentCounter++;
+
+        // Add login history for owner (sporadic)
+        if (RandomHelper.boolean(0.4)) {
+            const loginCount = RandomHelper.int(1, 5);
+            for (let i = 0; i < loginCount; i++) {
+                const loginTime = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+                loginTime.setHours(RandomHelper.int(6, 23), RandomHelper.int(0, 59));
+                this.writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('${ownerId}', '${DateHelper.format(loginTime)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}');`);
+            }
+        }
+
+        // Family members (0-4 people)
+        const numMembers = RandomHelper.weighted([
+            { value: 0, weight: 15 },
+            { value: 1, weight: 20 },
+            { value: 2, weight: 30 },
+            { value: 3, weight: 25 },
+            { value: 4, weight: 10 }
+        ]);
+
+        for (let m = 0; m < numMembers; m++) {
+            const memId = `R${String(this.residentCounter).padStart(4, '0')}`;
+            const memGender = RandomHelper.boolean();
+            const memName = VietnameseData.generateName(memGender);
+            const relation = this.getRelationship(m, ownerGender);
+            const memDob = this.getMemberDob(relation);
+            
+            let memUserId = 'NULL';
+            
+            // 15% members have accounts
+            if (RandomHelper.boolean(0.15) && relation !== 'Con') {
+                const memUsername = `mem_${memId.toLowerCase()}`;
+                const memPhone = VietnameseData.generatePhone();
+                const memEmail = `${memUsername}@gmail.com`;
+                this.writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id, created_at, updated_at) VALUES ('${memId}', '${memUsername}', '${CONFIG.PASSWORD_HASH}', '${memEmail}', '${memPhone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+                memUserId = `'${memId}'`;
+                this.activeUsers.push(memId);
+            }
+
+            this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, status, dob, gender, created_at, updated_at) VALUES ('${memId}', ${memUserId}, ${aptId}, '${memName}', 'member', '${relation}', 'Đang sinh sống', '${DateHelper.formatDateOnly(memDob)}', '${memGender ? 'Nam' : 'Nữ'}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+            
+            this.activeResidents.push({ id: memId, aptId: aptId, name: memName, isOwner: false });
+            this.writer.stats.residents++;
+            this.residentCounter++;
+        }
+
+        // Generate vehicles for this family
+        this.generateVehicles(ownerId, aptId, aptCode);
+
+        // Generate fees for this apartment
+        this.generateFees(aptId, ownerId, aptCode, area);
+    }
+
+    getRelationship(index, ownerGender) {
+        const relationships = ownerGender 
+            ? ['Vợ', 'Con trai', 'Con gái', 'Mẹ', 'Bố']
+            : ['Chồng', 'Con trai', 'Con gái', 'Mẹ', 'Bố'];
+        
+        if (index === 0) return relationships[0]; // Spouse
+        if (index === 1 || index === 2) return RandomHelper.item(['Con trai', 'Con gái']);
+        return RandomHelper.item(['Mẹ', 'Bố', 'Anh', 'Em']);
+    }
+
+    getMemberDob(relation) {
+        const year = DateHelper.TODAY.getFullYear();
+        if (relation.includes('Con')) {
+            return new Date(RandomHelper.int(year - 25, year - 5), RandomHelper.int(0, 11), RandomHelper.int(1, 28));
+        } else if (relation === 'Mẹ' || relation === 'Bố') {
+            return new Date(RandomHelper.int(year - 75, year - 55), RandomHelper.int(0, 11), RandomHelper.int(1, 28));
+        }
+        return new Date(RandomHelper.int(year - 50, year - 25), RandomHelper.int(0, 11), RandomHelper.int(1, 28));
+    }
+
+    generateHistoricalResident(aptId) {
+        const oldRId = `R_OLD_${aptId}`;
+        const name = VietnameseData.generateName();
+        const moveOutDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
+        
+        this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, status) VALUES ('${oldRId}', NULL, ${aptId}, '${name}', 'owner', 'Đã chuyển đi');`);
+        this.writer.writeln(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${oldRId}', ${aptId}, 'Chuyển đi', '${DateHelper.formatDateOnly(moveOutDate)}', 'Hết hợp đồng thuê');`);
+    }
+
+    generateVehicles(ownerId, aptId, aptCode) {
+        const numVehicles = RandomHelper.weighted([
+            { value: 0, weight: 20 },
+            { value: 1, weight: 35 },
+            { value: 2, weight: 30 },
+            { value: 3, weight: 15 }
+        ]);
+
+        const vehicles = [];
+        
+        for (let v = 0; v < numVehicles; v++) {
+            const isMotorbike = v === 0 ? RandomHelper.boolean(0.6) : true; // First vehicle có thể là ô tô
+            const type = isMotorbike ? 'Xe máy' : 'Ô tô';
+            const plate = VietnameseData.generateLicensePlate(isMotorbike);
+            const brand = RandomHelper.item(isMotorbike ? VietnameseData.MOTORBIKE_BRANDS : VietnameseData.CAR_BRANDS);
+            const img = `/uploads/vehicles/${plate.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`;
+            const regDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.TODAY);
+
+            this.writer.writeln(`INSERT INTO vehicles (id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image, registration_date) VALUES (${this.vehicleCounter}, '${ownerId}', ${aptId}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}', '${DateHelper.formatDateOnly(regDate)}');`);
+            
+            vehicles.push({ plate, type, brand });
+            this.writer.stats.vehicles++;
+            this.vehicleCounter++;
+        }
+
+        // Generate access logs for vehicles
+        this.generateAccessLogs(ownerId, vehicles);
+    }
+
+    generateAccessLogs(ownerId, vehicles) {
+        vehicles.forEach(vehicle => {
+            const numLogs = RandomHelper.int(15, 45); // 15-45 logs per vehicle in last month
+            
+            for (let d = 0; d < numLogs; d++) {
+                const logDate = DateHelper.randomBetween(
+                    DateHelper.addDays(DateHelper.TODAY, -30),
+                    DateHelper.TODAY
+                );
+                
+                // Morning out (6-9 AM)
+                const outTime = new Date(logDate);
+                outTime.setHours(RandomHelper.int(6, 9), RandomHelper.int(0, 59));
+                this.writer.writeln(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${vehicle.plate}', '${vehicle.type}', 'Out', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(outTime)}', '/uploads/access/out_${Date.now()}.jpg');`);
+                
+                // Evening in (5-10 PM) - only if went out
+                if (RandomHelper.boolean(0.9)) {
+                    const inTime = new Date(logDate);
+                    inTime.setHours(RandomHelper.int(17, 22), RandomHelper.int(0, 59));
+                    this.writer.writeln(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${vehicle.plate}', '${vehicle.type}', 'In', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(inTime)}', '/uploads/access/in_${Date.now()}.jpg');`);
+                }
+            }
+        });
+    }
+
+    generateFees(aptId, ownerId, aptCode, area) {
+        let elecIndex = RandomHelper.int(1000, 5000);
+        let waterIndex = RandomHelper.int(500, 2000);
+
+        for (let monthsAgo = 5; monthsAgo >= 0; monthsAgo--) {
+            const monthDate = DateHelper.addMonths(DateHelper.TODAY, -monthsAgo);
+            const period = DateHelper.getBillingPeriod(monthDate);
+            const feeSuffix = `${(monthDate.getMonth() + 1).toString().padStart(2, '0')}${monthDate.getFullYear()}`;
+            const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 10);
+
+            // Utility readings
+            const elecUsage = RandomHelper.int(150, 400);
+            const waterUsage = RandomHelper.int(15, 45);
+            
+            this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Điện', '${period}', ${elecIndex}, ${elecIndex + elecUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
+            this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Nước', '${period}', ${waterIndex}, ${waterIndex + waterUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
+            
+            elecIndex += elecUsage;
+            waterIndex += waterUsage;
+
+            // Management Fee
+            const pqlId = `PQL-${aptCode}-${feeSuffix}`;
+            const pqlAmount = Math.round(area * CONFIG.FEE_PRICES.MANAGEMENT);
+            const pqlStatus = monthsAgo === 0 && RandomHelper.boolean(0.25) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlStatus === 'Đã thanh toán' ? pqlAmount : 0}, ${pqlStatus !== 'Đã thanh toán' ? pqlAmount : 0}, '${pqlStatus}');`);
+            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pqlId}', 'Phí Quản Lý ${period}', 'm²', ${area}, ${CONFIG.FEE_PRICES.MANAGEMENT}, ${pqlAmount});`);
+            this.writer.stats.fees++;
+
+            // Electricity Fee
+            const pdId = `PD-${aptCode}-${feeSuffix}`;
+            const pdAmount = elecUsage * CONFIG.FEE_PRICES.ELECTRICITY;
+            const pdStatus = monthsAgo === 0 && RandomHelper.boolean(0.2) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdStatus === 'Đã thanh toán' ? pdAmount : 0}, ${pdStatus !== 'Đã thanh toán' ? pdAmount : 0}, '${pdStatus}');`);
+            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pdId}', 'Điện sinh hoạt ${period}', 'kWh', ${elecUsage}, ${CONFIG.FEE_PRICES.ELECTRICITY}, ${pdAmount});`);
+            this.writer.stats.fees++;
+
+            // Water Fee
+            const pnId = `PN-${aptCode}-${feeSuffix}`;
+            const pnAmount = waterUsage * CONFIG.FEE_PRICES.WATER;
+            const pnStatus = monthsAgo === 0 && RandomHelper.boolean(0.2) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnStatus === 'Đã thanh toán' ? pnAmount : 0}, ${pnStatus !== 'Đã thanh toán' ? pnAmount : 0}, '${pnStatus}');`);
+            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pnId}', 'Nước sinh hoạt ${period}', 'm³', ${waterUsage}, ${CONFIG.FEE_PRICES.WATER}, ${pnAmount});`);
+            this.writer.stats.fees++;
+
+            // Add payment history for paid fees
+            if (pqlStatus === 'Đã thanh toán') {
+                const paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
+                this.writer.writeln(`INSERT INTO payment_history (fee_id, amount, payment_method, payment_date, processed_by) VALUES ('${pqlId}', ${pqlAmount}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002');`);
+            }
+        }
+    }
+
+    generateSupplementaryData() {
+        console.log('📋 Generating supplementary data...');
+        
+        this.generateNotifications();
+        this.generateReports();
+        this.generateServiceBookings();
+        this.generateVisitors();
+        this.generateTemporaryResidence();
+        this.generateProfileEditRequests();
+        this.generateFundCampaigns();
+        this.generateReviews();
+        this.generateAssets();
+        this.generateAuditLogs();
+    }
+
+    generateNotifications() {
+        console.log('   - Notifications...');
+        
+        const templates = [
+            { type: 1, title: 'Thông báo cắt điện bảo trì', content: 'Kính gửi Quý cư dân, Tòa nhà sẽ tiến hành cắt điện bảo trì hệ thống điện từ 8h-12h ngày {date}. Vui lòng chuẩn bị và sắp xếp công việc hợp lý.' },
+            { type: 1, title: 'Khẩn cấp: Sự cố thang máy', content: 'Thang máy tòa {building} tạm ngưng hoạt động để khắc phục sự cố. Dự kiến hoàn thành trong 2-3 giờ.' },
+            { type: 2, title: 'Họp cư dân định kỳ', content: 'Ban quản lý tòa nhà kính mời các chủ hộ tham dự buổi họp cư dân vào {time} ngày {date} tại Hội trường tầng 1.' },
+            { type: 2, title: 'Phun thuốc diệt muỗi', content: 'Tòa nhà sẽ tiến hành phun thuốc diệt muỗi vào sáng thứ 7 tuần này. Vui lòng đóng cửa sổ.' },
+            { type: 3, title: 'Nhắc nhở đóng phí tháng {month}', content: 'Kính gửi Quý cư dân, hạn đóng phí quản lý tháng {month} là ngày 10. Vui lòng thanh toán đúng hạn để tránh phát sinh lãi suất.' },
+            { type: 4, title: 'Khai trương dịch vụ mới', content: 'Chúc mừng khai trương dịch vụ {service} tại tòa nhà. Ưu đãi 20% cho cư dân trong tháng đầu!' }
+        ];
+
+        for (let i = 0; i < 300; i++) {
+            const tpl = RandomHelper.item(templates);
+            const date = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.addDays(DateHelper.TODAY, 7));
+            const id = this.idGen.generateDailyId('TB', date);
+            const isFuture = date > DateHelper.TODAY;
+            
+            let content = tpl.content
+                .replace('{date}', DateHelper.formatDateOnly(date))
+                .replace('{time}', `${RandomHelper.int(14, 19)}h00`)
+                .replace('{month}', date.getMonth() + 1)
+                .replace('{building}', RandomHelper.item(['A', 'B']))
+                .replace('{service}', 'Phòng Gym');
+            
+            this.writer.writeln(`INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at) VALUES ('${id}', '${tpl.title.replace('{month}', date.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(date)}', ${isFuture ? 0 : 1}, 'ID0001', '${DateHelper.format(date)}');`);
+            
+            // Random attachments
+            if (RandomHelper.boolean(0.3)) {
+                const fileName = `thongbao_${id}.jpg`;
+                this.writer.writeln(`INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES ('${id}', '${fileName}', '/uploads/notifications/${id}/${fileName}', ${RandomHelper.int(500, 3000)});`);
+            }
+
+            // [FIX] Tạo notification_recipients cho thông báo ĐÃ GỬI
+            if (!isFuture) {
+                // Lấy danh sách cư dân đang sống tại thời điểm gửi thông báo
+                const eligibleResidents = this.activeResidents.filter(r => {
+                    // Chỉ lấy cư dân đã chuyển đến TRƯỚC thời điểm thông báo
+                    return r.moveInDate <= date;
+                });
+
+                eligibleResidents.forEach(resident => {
+                    // 70% cư dân đã đọc thông báo cũ, 30% chưa đọc
+                    const isRead = RandomHelper.boolean(0.7);
+                    const readAt = isRead 
+                        ? DateHelper.format(DateHelper.randomBetween(date, DateHelper.TODAY))
+                        : 'NULL';
+
+                    this.writer.writeln(`INSERT INTO notification_recipients (notification_id, recipient_id, is_read, read_at) VALUES ('${id}', '${resident.id}', ${isRead ? 1 : 0}, ${isRead ? `'${readAt}'` : 'NULL'});`);
+                });
+            }
+            
+            this.writer.stats.notifications++;
+        }
+    }
+
+    generateReports() {
+        console.log('   - Reports...');
+        
+        const reportTypes = [
+            { title: 'Vỡ ống nước', location: 'Hầm B1', priority: 'Khẩn cấp', desc: 'Phát hiện ống nước bị vỡ gây ngập úng tại hầm để xe.' },
+            { title: 'Đèn hành lang hỏng', location: 'Hành lang tầng {floor}', priority: 'Trung bình', desc: 'Đèn hành lang không sáng, cần thay bóng đèn mới.' },
+            { title: 'Thang máy rung lắc', location: 'Thang máy {building}1', priority: 'Cao', desc: 'Thang máy có tiếng động lạ và rung lắc khi vận hành.' },
+            { title: 'Rác thải bừa bãi', location: 'Khu vực thang bộ', priority: 'Thấp', desc: 'Phát hiện rác thải được bỏ bừa bãi tại khu vực thang bộ.' },
+            { title: 'Ồn ào sau 22h', location: 'Căn hộ tầng trên', priority: 'Trung bình', desc: 'Căn hộ tầng trên gây ồn ào sau 22h ảnh hưởng đến sinh hoạt.' },
+            { title: 'Cửa ra vào hư hỏng', location: 'Cửa chính tòa {building}', priority: 'Cao', desc: 'Cửa tự động không đóng mở được, cần sửa chữa gấp.' }
+        ];
+
+        for (let i = 0; i < 80; i++) {
+            const tpl = RandomHelper.item(reportTypes);
+            const reporter = RandomHelper.item(this.activeResidents.filter(r => r.isOwner));
+            
+            // [FIX] Report phải SAU khi cư dân chuyển đến
+            const minDate = reporter.moveInDate;
+            const date = DateHelper.randomBetween(minDate, DateHelper.TODAY);
+            const id = this.idGen.generateDailyId('SC', date);
+            
+            const status = RandomHelper.weighted([
+                { value: 'Mới', weight: 10 },
+                { value: 'Đang xử lý', weight: 20 },
+                { value: 'Hoàn thành', weight: 60 },
+                { value: 'Đã hủy', weight: 10 }
+            ]);
+
+            const location = tpl.location
+                .replace('{floor}', RandomHelper.int(1, 31))
+                .replace('{building}', RandomHelper.item(['A', 'B']));
+
+            // [FIX] Chỉ có rating/feedback khi status = 'Hoàn thành'
+            let ratingSQL = 'NULL';
+            let feedbackSQL = 'NULL';
+            let completedAtSQL = 'NULL';
+
+            if (status === 'Hoàn thành') {
+                // 60% báo cáo hoàn thành có đánh giá
+                if (RandomHelper.boolean(0.6)) {
+                    const rating = RandomHelper.weighted([
+                        { value: 5, weight: 40 },
+                        { value: 4, weight: 35 },
+                        { value: 3, weight: 15 },
+                        { value: 2, weight: 7 },
+                        { value: 1, weight: 3 }
+                    ]);
+                    const feedbacks = [
+                        'Xử lý nhanh chóng, hiệu quả',
+                        'Rất hài lòng với thái độ BQL',
+                        'Đã khắc phục xong, cảm ơn',
+                        'Cần cải thiện thời gian phản hồi',
+                        'Nhân viên nhiệt tình, chuyên nghiệp'
+                    ];
+                    ratingSQL = rating;
+                    feedbackSQL = `'${RandomHelper.item(feedbacks)}'`;
+                }
+                
+                // Completed_at = 1-5 ngày sau created_at
+                const completedDate = DateHelper.addDays(date, RandomHelper.int(1, 5));
+                completedAtSQL = `'${DateHelper.format(completedDate)}'`;
+            }
+
+            this.writer.writeln(`INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at, rating, feedback, completed_at) VALUES ('${id}', '${tpl.title}', '${tpl.desc}', '${location}', '${reporter.id}', '${status}', '${tpl.priority}', '${DateHelper.format(date)}', ${ratingSQL}, ${feedbackSQL}, ${completedAtSQL});`);
+            
+            // Add attachments
+            if (RandomHelper.boolean(0.6)) {
+                const fileName = `suco_${id}.jpg`;
+                this.writer.writeln(`INSERT INTO report_attachments (report_id, file_name, file_path, file_size) VALUES ('${id}', '${fileName}', '/uploads/reports/${id}/${fileName}', ${RandomHelper.int(800, 4000)});`);
+            }
+
+            this.writer.stats.reports++;
+        }
+    }
+
+    generateServiceBookings() {
+        console.log('   - Service Bookings...');
+        
+        for (let i = 0; i < 50; i++) {
+            const resident = RandomHelper.item(this.activeResidents);
+            const serviceTypeId = RandomHelper.int(1, 6);
+            const bookingDate = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.addDays(DateHelper.TODAY, 30));
+            const status = bookingDate > DateHelper.TODAY ? 'Chờ duyệt' : RandomHelper.weighted([
+                { value: 'Đã duyệt', weight: 70 },
+                { value: 'Hoàn thành', weight: 20 },
+                { value: 'Đã hủy', weight: 10 }
+            ]);
+            const quantity = RandomHelper.int(1, 4);
+            const basePrice = [500000, 30000, 200000, 8500000, 3500000, 120000][serviceTypeId - 1];
+            const totalAmount = basePrice * quantity;
+
+            this.writer.writeln(`INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status) VALUES ('${resident.id}', ${serviceTypeId}, '${DateHelper.format(bookingDate)}', ${quantity}, ${totalAmount}, '${status}');`);
+        }
+
+        // Service attachments (banners)
+        for (let i = 1; i <= 6; i++) {
+            this.writer.writeln(`INSERT INTO service_attachments (service_type_id, file_name, file_path) VALUES (${i}, 'service_${i}_banner.jpg', '/uploads/services/${i}/banner.jpg');`);
+        }
+    }
+
+    generateVisitors() {
+        console.log('   - Visitors...');
+        
+        for (let i = 0; i < 200; i++) {
+            const apt = RandomHelper.item(this.activeApartments);
+            const checkInTime = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+            const stayDuration = RandomHelper.int(30, 300); // 30 mins to 5 hours
+            const checkOutTime = DateHelper.addDays(checkInTime, stayDuration / (24 * 60));
+            const visitorName = VietnameseData.generateName();
+            const identityCard = RandomHelper.boolean(0.7) ? VietnameseData.generateCCCD() : null;
+
+            this.writer.writeln(`INSERT INTO visitors (apartment_id, visitor_name, identity_card, check_in_time, check_out_time, security_guard_id) VALUES (${apt.id}, '${visitorName}', ${identityCard ? `'${identityCard}'` : 'NULL'}, '${DateHelper.format(checkInTime)}', '${DateHelper.format(checkOutTime)}', 'ID0003');`);
+        }
+    }
+
+    generateTemporaryResidence() {
+        console.log('   - Temporary Residence...');
+        
+        // Approved (past)
+        for (let i = 0; i < 25; i++) {
+            const resident = RandomHelper.item(this.activeResidents);
+            const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
+            const startDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
+            const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 60));
+            
+            const reasons = type === 'Tạm vắng' 
+                ? ['Du lịch gia đình', 'Công tác dài hạn', 'Điều trị y tế', 'Thăm người thân', 'Học tập']
+                : ['Người nhà lên thăm', 'Thuê phòng trọ ngắn hạn', 'Bạn bè ở nhờ', 'Ôn thi đại học', 'Thực tập'];
+            
+            const reason = RandomHelper.item(reasons);
+
+            this.writer.writeln(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status, approved_by) VALUES ('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Đã duyệt', 'ID0001');`);
+        }
+
+        // Pending (current/future)
+        for (let i = 0; i < 15; i++) {
+            const resident = RandomHelper.item(this.activeResidents);
+            const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
+            const startDate = DateHelper.randomBetween(DateHelper.TODAY, DateHelper.addDays(DateHelper.TODAY, 30));
+            const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 45));
+            
+            const reasons = type === 'Tạm vắng' 
+                ? ['Đi công tác', 'Nghỉ dưỡng', 'Thăm con ở xa']
+                : ['Bạn bè tạm trú', 'Người giúp việc ở lại', 'Thợ sửa chữa'];
+            
+            const reason = RandomHelper.item(reasons);
+
+            this.writer.writeln(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status) VALUES ('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Chờ duyệt');`);
+        }
+    }
+
+    generateProfileEditRequests() {
+        console.log('   - Profile Edit Requests...');
+        
+        for (let i = 0; i < 30; i++) {
+            const resident = RandomHelper.item(this.activeResidents);
+            const date = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+            
+            const changeTypes = [
+                { field: 'phone', value: VietnameseData.generatePhone(), reason: 'Đổi số điện thoại mới' },
+                { field: 'email', value: `${resident.id.toLowerCase()}@newmail.com`, reason: 'Cập nhật email cá nhân' },
+                { field: 'occupation', value: RandomHelper.item(VietnameseData.OCCUPATIONS), reason: 'Thay đổi công việc' },
+                { field: 'hometown', value: RandomHelper.item(VietnameseData.HOMETOWNS), reason: 'Chỉnh sửa thông tin quê quán' }
+            ];
+            
+            const change = RandomHelper.item(changeTypes);
+            const requestedChanges = `{"${change.field}": "${change.value}"}`;
+            
+            const status = RandomHelper.weighted([
+                { value: 'Chờ duyệt', weight: 30 },
+                { value: 'Đã duyệt', weight: 60 },
+                { value: 'Từ chối', weight: 10 }
+            ]);
+
+            this.writer.writeln(`INSERT INTO profile_edit_requests (resident_id, requested_changes, reason, status, created_at) VALUES ('${resident.id}', '${requestedChanges}', '${change.reason}', '${status}', '${DateHelper.format(date)}');`);
+        }
+    }
+
+    generateFundCampaigns() {
+        console.log('   - Fund Campaigns & Donations...');
+        
+        // Campaign 1: Closed (past)
+        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (1, 'Quỹ Vui Hội Trăng Rằm 2024', 'Tổ chức chương trình Trung thu cho trẻ em trong tòa nhà. Quỹ sẽ được dùng để mua đèn lồng, bánh kẹo và tổ chức các trò chơi vui nhộn.', '2024-08-01', '2024-09-01', 20000000, 25500000, 'Closed', 'ID0002');`);
+        
+        // Campaign 2: Active (current)
+        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (2, 'Quỹ Khuyến Học 2025', 'Hỗ trợ học bổng cho con em cư dân có hoàn cảnh khó khăn, học giỏi. Mỗi suất học bổng 5 triệu đồng.', '2025-01-01', '2025-12-31', 50000000, 18750000, 'Active', 'ID0002');`);
+        
+        // Campaign 3: Planned (future)
+        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (3, 'Quỹ Tết Sum Vầy 2026', 'Tổ chức chương trình Tết cộng đồng, trao quà cho người cao tuổi và trẻ em. Dự kiến tổ chức tại Hội trường tầng 1.', '2026-01-01', '2026-02-01', 100000000, 0, 'Planned', 'ID0002');`);
+
+        // Donations for Campaign 1
+        const campaign1Donors = RandomHelper.items(this.activeResidents.filter(r => r.isOwner), 35);
+        campaign1Donors.forEach(donor => {
+            const amounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
+            const amount = RandomHelper.item(amounts);
+            const method = RandomHelper.weighted([
+                { value: 'AppPayment', weight: 50 },
+                { value: 'Transfer', weight: 35 },
+                { value: 'Cash', weight: 15 }
+            ]);
+            const isAnonymous = RandomHelper.boolean(0.15);
+            
+            this.writer.writeln(`INSERT INTO donations (campaign_id, resident_id, amount, payment_method, is_anonymous) VALUES (1, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0});`);
+        });
+
+        // Donations for Campaign 2
+        const campaign2Donors = RandomHelper.items(this.activeResidents.filter(r => r.isOwner), 25);
+        campaign2Donors.forEach(donor => {
+            const amounts = [100000, 200000, 500000, 1000000];
+            const amount = RandomHelper.item(amounts);
+            const method = RandomHelper.weighted([
+                { value: 'AppPayment', weight: 60 },
+                { value: 'Transfer', weight: 30 },
+                { value: 'Cash', weight: 10 }
+            ]);
+            const isAnonymous = RandomHelper.boolean(0.2);
+            
+            this.writer.writeln(`INSERT INTO donations (campaign_id, resident_id, amount, payment_method, is_anonymous) VALUES (2, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0});`);
+        });
+    }
+
+    generateReviews() {
+        console.log('   - Reviews...');
+        
+        const feedbacks = [
+            'Dịch vụ tốt, nhân viên nhiệt tình',
+            'Cần cải thiện thái độ phục vụ',
+            'Rất hài lòng với chất lượng dịch vụ',
+            'Ban quản lý làm việc hiệu quả',
+            'Mong BQL xử lý các sự cố nhanh hơn',
+            'Môi trường sống tuyệt vời',
+            'Cần nâng cấp hệ thống an ninh',
+            'Tòa nhà sạch sẽ, tiện nghi hiện đại',
+            'Giá phí hợp lý so với mặt bằng chung',
+            'Cần thêm nhiều tiện ích cho cư dân'
+        ];
+
+        for (let i = 0; i < 150; i++) {
+            const resident = RandomHelper.item(this.activeResidents);
+            const rating = RandomHelper.weighted([
+                { value: 5, weight: 35 },
+                { value: 4, weight: 40 },
+                { value: 3, weight: 15 },
+                { value: 2, weight: 7 },
+                { value: 1, weight: 3 }
+            ]);
+            const feedback = RandomHelper.item(feedbacks);
+            const status = RandomHelper.weighted([
+                { value: 'Mới', weight: 30 },
+                { value: 'Đã xem', weight: 70 }
+            ]);
+
+            this.writer.writeln(`INSERT INTO reviews (resident_id, rating, feedback, status) VALUES ('${resident.id}', ${rating}, '${feedback}', '${status}');`);
+        }
+    }
+
+    generateAssets() {
+        console.log('   - Assets & Maintenance...');
+        
+        const assets = [
+            { name: 'Thang máy A1', code: 'TS001', location: 'Tòa A', price: 500000000 },
+            { name: 'Thang máy A2', code: 'TS002', location: 'Tòa A', price: 500000000 },
+            { name: 'Thang máy B1', code: 'TS003', location: 'Tòa B', price: 500000000 },
+            { name: 'Thang máy B2', code: 'TS004', location: 'Tòa B', price: 500000000 },
+            { name: 'Máy phát điện Cummins 500KVA', code: 'TS005', location: 'Hầm B3', price: 800000000 },
+            { name: 'Hệ thống bơm tăng áp', code: 'TS006', location: 'Hầm B2', price: 150000000 },
+            { name: 'Bàn ghế Sofa sảnh A', code: 'TS007', location: 'Sảnh A', price: 50000000 },
+            { name: 'Bàn Lễ tân tòa A', code: 'TS008', location: 'Sảnh A', price: 30000000 },
+            { name: 'Hệ thống Camera giám sát (50 camera)', code: 'TS009', location: 'Toàn tòa', price: 200000000 },
+            { name: 'Hệ thống PCCC tự động', code: 'TS010', location: 'Toàn tòa', price: 1000000000 },
+            { name: 'Bình chữa cháy CO2 (100 bình)', code: 'TS011', location: 'Các tầng', price: 50000000 },
+            { name: 'Máy lạnh sảnh chính (10 cái)', code: 'TS012', location: 'Sảnh', price: 150000000 }
+        ];
+
+        assets.forEach((asset, idx) => {
+            const purchaseDate = DateHelper.randomBetween(new Date(2018, 0, 1), new Date(2020, 11, 31));
+            const warrantyYears = [3, 5, 10][idx % 3];
+            const warrantyExpiry = DateHelper.addMonths(purchaseDate, warrantyYears * 12);
+            const status = warrantyExpiry > DateHelper.TODAY && RandomHelper.boolean(0.9) ? 'Đang hoạt động' : RandomHelper.item(['Đang hoạt động', 'Đang bảo trì']);
+
+            this.writer.writeln(`INSERT INTO assets (id, asset_code, name, location, purchase_date, price, status, warranty_expiry_date, supplier_info) VALUES (${idx + 1}, '${asset.code}', '${asset.name}', '${asset.location}', '${DateHelper.formatDateOnly(purchaseDate)}', ${asset.price}, '${status}', '${DateHelper.formatDateOnly(warrantyExpiry)}', 'Công ty TNHH Thiết bị XYZ - SĐT: 024.3888.9999');`);
+
+            // Generate maintenance schedules
+            for (let m = 0; m < 6; m++) {
+                const scheduleDate = DateHelper.addMonths(DateHelper.TODAY, -m);
+                const completedDate = DateHelper.addDays(scheduleDate, RandomHelper.int(0, 3));
+                const maintenanceStatus = m === 0 ? RandomHelper.item(['Lên lịch', 'Đang thực hiện']) : 'Hoàn thành';
+                const cost = RandomHelper.int(500000, 5000000);
+
+                this.writer.writeln(`INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, completed_date, technician_name, cost, status) VALUES (${idx + 1}, 'Bảo trì định kỳ ${asset.name} T${scheduleDate.getMonth() + 1}/${scheduleDate.getFullYear()}', 'Kiểm tra, bôi trơn, thay thế phụ tùng hư hỏng', '${DateHelper.formatDateOnly(scheduleDate)}', ${maintenanceStatus === 'Hoàn thành' ? `'${DateHelper.formatDateOnly(completedDate)}'` : 'NULL'}, 'Công ty Bảo trì ABC', ${cost}, '${maintenanceStatus}');`);
+            }
+        });
+    }
+
+    generateAuditLogs() {
+        console.log('   - Audit Logs...');
+        
+        const actions = [
+            { type: 'UPDATE', entity: 'fees', description: 'Cập nhật trạng thái phí' },
+            { type: 'CREATE', entity: 'notifications', description: 'Tạo thông báo mới' },
+            { type: 'UPDATE', entity: 'vehicles', description: 'Duyệt đăng ký xe' },
+            { type: 'DELETE', entity: 'visitors', description: 'Xóa thông tin khách' },
+            { type: 'UPDATE', entity: 'reports', description: 'Xử lý sự cố' },
+            { type: 'CREATE', entity: 'residents', description: 'Thêm cư dân mới' },
+            { type: 'UPDATE', entity: 'temporary_residence', description: 'Duyệt tạm trú/tạm vắng' }
+        ];
+
+        for (let i = 0; i < 200; i++) {
+            const action = RandomHelper.item(actions);
+            const user = RandomHelper.item(['ID0001', 'ID0002']);
+            const time = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+            const entityId = RandomHelper.int(1, 100);
+
+            this.writer.writeln(`INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, created_at, ip_address, user_agent) VALUES ('${user}', '${action.type}', '${action.entity}', '${entityId}', '${DateHelper.format(time)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}');`);
+        }
+    }
 }
 
-// 7. SERVICE BOOKINGS & ATTACHMENTS (FIXED)
-console.log('- Sinh đặt dịch vụ...');
-for(let i=0; i<20; i++) {
-    const r = randomItem(activeResidents);
-    const status = randomItem(['Chờ duyệt', 'Đã duyệt']);
-    const type = Math.floor(Math.random() * 6) + 1;
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    stream.write(`INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status) VALUES ('${r.id}', ${type}, '${formatDate(date)}', 1, 500000, '${status}');\n`);
-}
-// Fix: Ảnh banner dịch vụ (.jpg)
-stream.write(`INSERT INTO service_attachments (service_type_id, file_name, file_path) VALUES (1, 'gym-banner.jpg', '/uploads/services/1/gym-banner.jpg');\n`);
-stream.write(`INSERT INTO service_attachments (service_type_id, file_name, file_path) VALUES (2, 'pool-banner.jpg', '/uploads/services/2/pool-banner.jpg');\n`);
-
-// 8. TEMPORARY RESIDENCE
-console.log('- Sinh tạm trú/tạm vắng...');
-// Đã duyệt (Quá khứ)
-for(let i=0; i<15; i++) {
-    const r = randomItem(activeResidents);
-    const reason = randomItem(['Du lịch', 'Nghỉ mát', 'Đi công tác']);
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    const date2 = addDays(date, 10);
-    stream.write(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status, approved_by) VALUES ('${r.id}', 'Tạm vắng', '${formatDate(date)}', '${formatDate(date2)}', '${reason}', 'Đã duyệt', 'ID0001');\n`);
-}
-// Chờ duyệt (Hiện tại)
-for(let i=0; i<10; i++) {
-    const r = randomItem(activeResidents);
-    const reason = randomItem(['Người nhà lên chơi', 'Thuê trọ', 'Ôn thi đại học']);
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    const date2 = addDays(date, 10);
-    stream.write(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status) VALUES ('${r.id}', 'Tạm trú', '${formatDate(date)}', '${formatDate(date2)}', '${reason}', 'Chờ duyệt');\n`);
-}
-
-// 9. AUDIT LOGS (Quan trọng cho Dashboard)
-console.log('- Sinh Logs hệ thống ngẫu nhiên...');
-for(let i=0; i<50; i++) {
-    const action = randomItem(['UPDATE fees', 'CREATE notification', 'UPDATE vehicle', 'DELETE visitor']);
-    const user = randomItem(['ID0001', 'ID0002']);
-    const time = randomDate(SIX_MONTHS_AGO, TODAY);
-    stream.write(`INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, created_at, ip_address, user_agent) VALUES ('${user}', '${action.split(' ')[0]}', '${action.split(' ')[1]}', '1', '${formatDate(time)}', '${randomIP()}', '${randomItem(USER_AGENTS)}');\n`);
-}
-
-// 10. REVIEWS
-console.log('- Sinh đánh giá...');
-for(let i=0; i<100; i++) {
-    const r = randomItem(activeResidents);
-    stream.write(`INSERT INTO reviews (resident_id, rating, feedback, status) VALUES ('${r.id}', ${randomInt(1,5)}, 'Dịch vụ rất tốt', 'Mới');\n`);
-}
-
-// 11. FUND CAMPAIGNS & DONATIONS
-console.log('- Sinh quỹ từ thiện...');
-// Quỹ 1: Đã đóng
-stream.write(`INSERT INTO fund_campaigns (id, title, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (1, 'Vui Hội Trăng Rằm 2025', '2025-08-01', '2025-09-01', 20000000, 25000000, 'Closed', 'ID0002');\n`);
-// Quỹ 2: Đang mở
-stream.write(`INSERT INTO fund_campaigns (id, title, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (2, 'Quỹ Khuyến Học 2025', '2025-01-01', '2025-12-31', 50000000, 15000000, 'Active', 'ID0002');\n`);
-// Quỹ 3: Tương lai
-stream.write(`INSERT INTO fund_campaigns (id, title, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (3, 'Tết Sum Vầy 2026', '2026-01-01', '2026-02-01', 100000000, 0, 'Planned', 'ID0002');\n`);
-
-// Donations (Random 30 người)
-for(let i=0; i<30; i++) {
-    const r = randomItem(activeResidents);
-    const campaignId = randomItem([1, 2]);
-    const amount = randomItem([50000, 100000, 200000, 500000]);
-    const method = Math.random() < 0.7 ? 'AppPayment' : 'Cash';
-    stream.write(`INSERT INTO donations (campaign_id, resident_id, amount, payment_method, is_anonymous) VALUES (${campaignId}, '${r.id}', ${amount}, '${method}', ${Math.random()<0.2 ? 1 : 0});\n`);
-}
-
-// 12. VISITORS (100 Khách)
-console.log('- Sinh dữ liệu khách...');
-for(let i=0; i<100; i++) {
-    const apt = randomItem(activeApartments);
-    const inTime = randomDate(SIX_MONTHS_AGO, TODAY);
-    const outTime = new Date(inTime.getTime() + randomInt(30, 240) * 60000); // Ở lại 30-240 phút
-    const name = genName();
-    stream.write(`INSERT INTO visitors (apartment_id, visitor_name, identity_card, check_in_time, check_out_time, security_guard_id) VALUES (${apt.id}, '${name}', '${genCCCD()}', '${formatDate(inTime)}', '${formatDate(outTime)}', 'ID0003');\n`);
-}
-
-// 13. ASSETS & MAINTENANCE
-console.log('- Sinh Tài sản...');
-const ASSETS = [
-    'Thang máy A1', 'Thang máy A2', 'Máy phát điện Cummins', 'Bơm tăng áp', 
-    'Sofa sảnh A', 'Bàn Lễ tân', 'Camera Sảnh chính', 'Bình chữa cháy T1'
-];
-ASSETS.forEach((name, idx) => {
-    const code = `TS${String(idx+1).padStart(3,'0')}`;
-    const date = randomDate(SIX_MONTHS_AGO, TODAY);
-    stream.write(`INSERT INTO assets (id, asset_code, name, status, location) VALUES (${idx+1}, '${code}', '${name}', 'Đang hoạt động', 'Tòa A');\n`);
-    stream.write(`INSERT INTO maintenance_schedules (asset_id, title, scheduled_date, status, cost) VALUES (${idx+1}, 'Bảo trì ${name}', '${formatDate(date)}', 'Hoàn thành', ${randomInt(500000, 5000000)});\n`);
-});
-
-// 14. LOGS (Blacklist alerts)
-const date = randomDate(SIX_MONTHS_AGO, TODAY);
-stream.write(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, note, created_at) VALUES ('29A-CRIMINAL', 'Ô tô', 'In', 'Cổng A', 'Alert', 'Xe trộm cắp', '${formatDate(date)}');\n`);
-stream.write(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, note, created_at) VALUES ('99X-UNKNOWN', 'Xe máy', 'In', 'Cổng B', 'Warning', 'Xe lạ', '${formatDate(date)}');\n`);
-
-stream.write(`SET FOREIGN_KEY_CHECKS = 1;\n`);
-stream.end();
-
-console.log('✅ Đã tạo xong file: ' + OUTPUT_FILE);
-console.log('👉 Vui lòng chạy lệnh: node backend/scripts/setupDatabase.js');
+// ==================== MAIN EXECUTION ====================
+const generator = new BluemoonDataGenerator();
+generator.generate();

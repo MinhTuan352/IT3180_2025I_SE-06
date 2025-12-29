@@ -534,12 +534,12 @@ CREATE TABLE IF NOT EXISTS donations (
 -- (Thường bị thiếu do quá trình edit trước đó)
 CREATE TABLE IF NOT EXISTS profile_edit_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    resident_id CHAR(10) NOT NULL,
+    resident_id VARCHAR(20) NOT NULL,
     requested_changes JSON NOT NULL,
     reason TEXT,
     status ENUM('Chờ duyệt', 'Đã duyệt', 'Từ chối') DEFAULT 'Chờ duyệt',
     admin_note TEXT,
-    processed_by CHAR(10),
+    processed_by VARCHAR(20),
     processed_at DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,

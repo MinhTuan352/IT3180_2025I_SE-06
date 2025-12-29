@@ -1,13 +1,13 @@
 /**
- * BLUEMOON APARTMENT - OPTIMIZED SEEDING DATA GENERATOR v4.0
+ * BLUEMOON APARTMENT - OPTIMIZED SEEDING DATA GENERATOR v4.1
  * Improvements:
  * - More realistic Vietnamese names and data
  * - Better data distribution and patterns
  * - Optimized code structure with helper classes
  * - More natural temporal patterns
  * - Enhanced data variety and realism
- * 
- * Run: node database/generate_seeding.js
+ * - Updated Fee and Notification logic (v4.1)
+ * * Run: node database/generate_seeding.js
  */
 
 const fs = require('fs');
@@ -551,11 +551,11 @@ class BluemoonDataGenerator {
             this.residentCounter++;
         }
 
-        // Generate vehicles for this family
-        this.generateVehicles(ownerId, aptId, aptCode);
+        // Generate vehicles for this family AND CAPTURE them to pass to fees
+        const familyVehicles = this.generateVehicles(ownerId, aptId, aptCode);
 
         // Generate fees for this apartment
-        this.generateFees(aptId, ownerId, aptCode, area);
+        this.generateFees(aptId, ownerId, aptCode, area, familyVehicles);
     }
 
     getRelationship(index, ownerGender) {
@@ -607,13 +607,16 @@ class BluemoonDataGenerator {
 
             this.writer.writeln(`INSERT INTO vehicles (id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image, registration_date) VALUES (${this.vehicleCounter}, '${ownerId}', ${aptId}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}', '${DateHelper.formatDateOnly(regDate)}');`);
             
-            vehicles.push({ plate, type, brand });
+            // Return vehicles to use in fee calculation
+            vehicles.push({ plate, type, brand, regDate });
             this.writer.stats.vehicles++;
             this.vehicleCounter++;
         }
 
         // Generate access logs for vehicles
         this.generateAccessLogs(ownerId, vehicles);
+        
+        return vehicles;
     }
 
     generateAccessLogs(ownerId, vehicles) {
@@ -641,58 +644,125 @@ class BluemoonDataGenerator {
         });
     }
 
-    generateFees(aptId, ownerId, aptCode, area) {
+    generateFees(aptId, ownerId, aptCode, area, vehicles) {
         let elecIndex = RandomHelper.int(1000, 5000);
         let waterIndex = RandomHelper.int(500, 2000);
 
-        for (let monthsAgo = 5; monthsAgo >= 0; monthsAgo--) {
-            const monthDate = DateHelper.addMonths(DateHelper.TODAY, -monthsAgo);
+        // Loop: Start from NEXT MONTH (index -1) back to 6 MONTHS AGO (index 6)
+        // Range: Today + 1 month -> Today - 6 months
+        for (let i = -1; i <= 6; i++) {
+            const monthDate = DateHelper.addMonths(DateHelper.TODAY, -i);
             const period = DateHelper.getBillingPeriod(monthDate);
             const feeSuffix = `${(monthDate.getMonth() + 1).toString().padStart(2, '0')}${monthDate.getFullYear()}`;
             const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 10);
+            const isFuture = i < 0; // Check if it is next month
 
-            // Utility readings
+            // Helper to generate status and payments with Partial support
+            const getFeeStatusAndPayment = (amount, monthIndex) => {
+
+                const rand = Math.random();
+                let status = 'Đã thanh toán';
+
+                if (monthIndex < 0) { // Next month
+                    if (rand < 0.4) status = 'Chưa thanh toán';
+                    else if (rand < 0.6) status = 'Thanh toán một phần';
+                } else if (monthIndex === 0) { // Current month
+                    if (rand < 0.2) status = 'Chưa thanh toán';
+                    else if (rand < 0.5) status = 'Thanh toán một phần';
+                } else if (monthIndex === 1) { // Last month
+                    if (rand < 0.1) status = 'Chưa thanh toán';
+                    else if (rand < 0.2) status = 'Thanh toán một phần';
+                }
+
+                let paid = 0;
+                let remaining = 0;
+
+                if (status === 'Đã thanh toán') {
+                    paid = amount;
+                    remaining = 0;
+                } else if (status === 'Chưa thanh toán') {
+                    paid = 0;
+                    remaining = amount;
+                } else { // Thanh toán một phần
+                    paid = Math.floor(amount * RandomHelper.int(10, 90) / 100); // 10-90%
+                    remaining = amount - paid;
+                }
+                return { status, paid, remaining };
+            };
+
+            // 1. Utility readings (Assume future readings are estimates or start of cycle)
             const elecUsage = RandomHelper.int(150, 400);
             const waterUsage = RandomHelper.int(15, 45);
             
+            // Only record reading if not future, or if future, maybe just skipped (keeping logic simple: always insert)
             this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Điện', '${period}', ${elecIndex}, ${elecIndex + elecUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
             this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Nước', '${period}', ${waterIndex}, ${waterIndex + waterUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
             
             elecIndex += elecUsage;
             waterIndex += waterUsage;
 
-            // Management Fee
+            // 2. Management Fee
             const pqlId = `PQL-${aptCode}-${feeSuffix}`;
             const pqlAmount = Math.round(area * CONFIG.FEE_PRICES.MANAGEMENT);
-            const pqlStatus = monthsAgo === 0 && RandomHelper.boolean(0.25) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            const pqlState = getFeeStatusAndPayment(pqlAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlStatus === 'Đã thanh toán' ? pqlAmount : 0}, ${pqlStatus !== 'Đã thanh toán' ? pqlAmount : 0}, '${pqlStatus}');`);
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlState.paid}, ${pqlState.remaining}, '${pqlState.status}');`);
             this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pqlId}', 'Phí Quản Lý ${period}', 'm²', ${area}, ${CONFIG.FEE_PRICES.MANAGEMENT}, ${pqlAmount});`);
             this.writer.stats.fees++;
 
-            // Electricity Fee
+            // 3. Electricity Fee
             const pdId = `PD-${aptCode}-${feeSuffix}`;
             const pdAmount = elecUsage * CONFIG.FEE_PRICES.ELECTRICITY;
-            const pdStatus = monthsAgo === 0 && RandomHelper.boolean(0.2) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            const pdState = getFeeStatusAndPayment(pdAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdStatus === 'Đã thanh toán' ? pdAmount : 0}, ${pdStatus !== 'Đã thanh toán' ? pdAmount : 0}, '${pdStatus}');`);
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdState.paid}, ${pdState.remaining}, '${pdState.status}');`);
             this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pdId}', 'Điện sinh hoạt ${period}', 'kWh', ${elecUsage}, ${CONFIG.FEE_PRICES.ELECTRICITY}, ${pdAmount});`);
             this.writer.stats.fees++;
 
-            // Water Fee
+            // 4. Water Fee
             const pnId = `PN-${aptCode}-${feeSuffix}`;
             const pnAmount = waterUsage * CONFIG.FEE_PRICES.WATER;
-            const pnStatus = monthsAgo === 0 && RandomHelper.boolean(0.2) ? 'Chưa thanh toán' : 'Đã thanh toán';
+            const pnState = getFeeStatusAndPayment(pnAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnStatus === 'Đã thanh toán' ? pnAmount : 0}, ${pnStatus !== 'Đã thanh toán' ? pnAmount : 0}, '${pnStatus}');`);
+            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnState.paid}, ${pnState.remaining}, '${pnState.status}');`);
             this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pnId}', 'Nước sinh hoạt ${period}', 'm³', ${waterUsage}, ${CONFIG.FEE_PRICES.WATER}, ${pnAmount});`);
             this.writer.stats.fees++;
 
-            // Add payment history for paid fees
-            if (pqlStatus === 'Đã thanh toán') {
-                const paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
-                this.writer.writeln(`INSERT INTO payment_history (fee_id, amount, payment_method, payment_date, processed_by) VALUES ('${pqlId}', ${pqlAmount}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002');`);
+            // 5. Parking Fee (NEW)
+            // Filter vehicles that were registered BEFORE this billing period
+            const activeVehicles = vehicles.filter(v => v.regDate <= monthDate);
+            
+            if (activeVehicles.length > 0) {
+                const pgxId = `PGX-${aptCode}-${feeSuffix}`;
+                let pgxTotal = 0;
+                const parkingItems = [];
+
+                activeVehicles.forEach(v => {
+                    const price = v.type === 'Ô tô' ? CONFIG.FEE_PRICES.PARKING_CAR : CONFIG.FEE_PRICES.PARKING_MOTORBIKE;
+                    pgxTotal += price;
+                    parkingItems.push({
+                        name: `Phí gửi xe ${v.brand} (${v.plate})`,
+                        price: price
+                    });
+                });
+
+                const pgxState = getFeeStatusAndPayment(pgxTotal, i);
+
+                this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pgxId}', ${aptId}, '${ownerId}', 2, 'Phí Gửi Xe ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pgxTotal}, ${pgxState.paid}, ${pgxState.remaining}, '${pgxState.status}');`);
+                
+                parkingItems.forEach(item => {
+                    this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pgxId}', '${item.name}', 'Xe', 1, ${item.price}, ${item.price});`);
+                });
+                this.writer.stats.fees++;
             }
+
+            // Add payment history for Paid or Partial fees
+            // Only add history if amount_paid > 0
+            if (pqlState.paid > 0) {
+                const paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
+                this.writer.writeln(`INSERT INTO payment_history (fee_id, amount, payment_method, payment_date, processed_by) VALUES ('${pqlId}', ${pqlState.paid}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002');`);
+            }
+            // (Similar history for other fees could be added here if needed, keeping it light for now as per original pattern)
         }
     }
 
@@ -725,18 +795,25 @@ class BluemoonDataGenerator {
 
         for (let i = 0; i < 300; i++) {
             const tpl = RandomHelper.item(templates);
-            const date = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.addDays(DateHelper.TODAY, 7));
-            const id = this.idGen.generateDailyId('TB', date);
-            const isFuture = date > DateHelper.TODAY;
+            
+            // [MODIFIED] Created_at: Random from 6 months ago to Today
+            const createdAt = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+            
+            // [MODIFIED] Scheduled_at >= Created_at, max 7 days after Today
+            const maxSchedule = DateHelper.addDays(DateHelper.TODAY, 7);
+            const scheduledAt = DateHelper.randomBetween(createdAt, maxSchedule);
+
+            const id = this.idGen.generateDailyId('TB', scheduledAt);
+            const isSent = scheduledAt <= DateHelper.TODAY;
             
             let content = tpl.content
-                .replace('{date}', DateHelper.formatDateOnly(date))
+                .replace('{date}', DateHelper.formatDateOnly(scheduledAt))
                 .replace('{time}', `${RandomHelper.int(14, 19)}h00`)
-                .replace('{month}', date.getMonth() + 1)
+                .replace('{month}', scheduledAt.getMonth() + 1)
                 .replace('{building}', RandomHelper.item(['A', 'B']))
                 .replace('{service}', 'Phòng Gym');
             
-            this.writer.writeln(`INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at) VALUES ('${id}', '${tpl.title.replace('{month}', date.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(date)}', ${isFuture ? 0 : 1}, 'ID0001', '${DateHelper.format(date)}');`);
+            this.writer.writeln(`INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at) VALUES ('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}');`);
             
             // Random attachments
             if (RandomHelper.boolean(0.3)) {
@@ -744,19 +821,20 @@ class BluemoonDataGenerator {
                 this.writer.writeln(`INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES ('${id}', '${fileName}', '/uploads/notifications/${id}/${fileName}', ${RandomHelper.int(500, 3000)});`);
             }
 
-            // [FIX] Tạo notification_recipients cho thông báo ĐÃ GỬI
-            if (!isFuture) {
-                // Lấy danh sách cư dân đang sống tại thời điểm gửi thông báo
+            // [MODIFIED] Recipients Logic
+            if (isSent) {
+                // Lấy danh sách cư dân đã chuyển đến trước khi thông báo được gửi
                 const eligibleResidents = this.activeResidents.filter(r => {
-                    // Chỉ lấy cư dân đã chuyển đến TRƯỚC thời điểm thông báo
-                    return r.moveInDate <= date;
+                    return r.moveInDate <= scheduledAt;
                 });
 
                 eligibleResidents.forEach(resident => {
-                    // 70% cư dân đã đọc thông báo cũ, 30% chưa đọc
+                    // 70% cư dân đã đọc thông báo
                     const isRead = RandomHelper.boolean(0.7);
+                    
+                    // [MODIFIED] Read_at: Random from scheduled_at to Today
                     const readAt = isRead 
-                        ? DateHelper.format(DateHelper.randomBetween(date, DateHelper.TODAY))
+                        ? DateHelper.format(DateHelper.randomBetween(scheduledAt, DateHelper.TODAY))
                         : 'NULL';
 
                     this.writer.writeln(`INSERT INTO notification_recipients (notification_id, recipient_id, is_read, read_at) VALUES ('${id}', '${resident.id}', ${isRead ? 1 : 0}, ${isRead ? `'${readAt}'` : 'NULL'});`);

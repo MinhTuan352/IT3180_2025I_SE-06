@@ -1,12 +1,8 @@
 /**
- * BLUEMOON APARTMENT - OPTIMIZED SEEDING DATA GENERATOR v4.1
- * Improvements:
- * - More realistic Vietnamese names and data
- * - Better data distribution and patterns
- * - Optimized code structure with helper classes
- * - More natural temporal patterns
- * - Enhanced data variety and realism
- * - Updated Fee and Notification logic (v4.1)
+ * BLUEMOON APARTMENT - OPTIMIZED SEEDING DATA GENERATOR v4.3
+ * Critical Fixes:
+ * - Fixed 'Column count doesn't match value count' for 'users' table.
+ * (Admins and Residents must share the exact same column definition in Bulk Insert)
  * * Run: node database/generate_seeding.js
  */
 
@@ -208,6 +204,43 @@ class SQLWriter {
             notifications: 0,
             reports: 0
         };
+        this.buffers = {};
+        this.storedInserts = {}; // Store generated SQL strings by table name
+        this.BATCH_SIZE = 1000;
+        
+        // Define write order to strict satisfy Foreign Key constraints
+        this.WRITE_ORDER = [
+            'roles', 'fee_types', 'notification_types', 'service_types', 'building_info', 'building_regulations', // Static
+            'users', // Parent of admins, residents
+            'admins',
+            'login_history',
+            'apartments', // Parent of residents
+            'residents', // Parent of many
+            'residence_history',
+            'vehicles',
+            'access_logs',
+            'vehicle_blacklist',
+            'fees',
+            'fee_items',
+            'payment_history',
+            'utility_readings',
+            'notifications',
+            'notification_attachments',
+            'notification_recipients',
+            'reports',
+            'report_attachments',
+            'service_bookings',
+            'service_attachments',
+            'visitors',
+            'temporary_residence',
+            'profile_edit_requests',
+            'fund_campaigns',
+            'donations',
+            'reviews',
+            'assets',
+            'maintenance_schedules',
+            'audit_logs'
+        ];
     }
 
     write(sql) {
@@ -216,6 +249,37 @@ class SQLWriter {
 
     writeln(sql = '') {
         this.stream.write(sql + '\n');
+    }
+
+    addBatch(table, columns, value) {
+        if (!this.buffers[table]) {
+            this.buffers[table] = { columns, values: [] };
+        }
+        this.buffers[table].values.push(value);
+        
+        if (this.buffers[table].values.length >= this.BATCH_SIZE) {
+            this.flushBatch(table);
+        }
+    }
+
+    flushBatch(table) {
+        if (!this.buffers[table] || this.buffers[table].values.length === 0) return;
+        
+        const { columns, values } = this.buffers[table];
+        
+        // Instead of writing to stream immediately, store in memory
+        if (!this.storedInserts[table]) {
+            this.storedInserts[table] = [];
+        }
+        
+        const sql = `INSERT INTO ${table} (${columns}) VALUES\n${values.join(',\n')};`;
+        this.storedInserts[table].push(sql);
+        
+        this.buffers[table].values = []; // Reset buffer
+    }
+
+    flushAll() {
+        Object.keys(this.buffers).forEach(table => this.flushBatch(table));
     }
 
     writeHeader() {
@@ -244,6 +308,30 @@ class SQLWriter {
     }
 
     writeFooter() {
+        // Flush any remaining items in buffers
+        this.flushAll();
+
+        // Write stored inserts in CORRECT ORDER
+        console.log('💾 Writing buffered data to file in dependency order...');
+        
+        this.WRITE_ORDER.forEach(table => {
+            if (this.storedInserts[table] && this.storedInserts[table].length > 0) {
+                this.writeln(`-- Table: ${table}`);
+                this.storedInserts[table].forEach(sql => this.writeln(sql));
+                this.writeln();
+            }
+        });
+
+        // Write any tables not in the list (fallback)
+        Object.keys(this.storedInserts).forEach(table => {
+            if (!this.WRITE_ORDER.includes(table)) {
+                console.warn(`⚠️ Warning: Table '${table}' not in strict write order. Appending at end.`);
+                this.writeln(`-- Table: ${table}`);
+                this.storedInserts[table].forEach(sql => this.writeln(sql));
+                this.writeln();
+            }
+        });
+
         this.writeln('\nSET FOREIGN_KEY_CHECKS = 1;');
         this.writeln('\n-- ================================================');
         this.writeln('-- STATISTICS');
@@ -268,28 +356,22 @@ class StaticDataGenerator {
         console.log('📝 Generating static data...');
         
         // Roles
-        writer.writeln('-- Roles');
-        writer.writeln("INSERT INTO roles (id, role_name, role_code) VALUES");
-        writer.writeln("(1, 'Ban Quản Trị', 'bod'),");
-        writer.writeln("(2, 'Kế Toán', 'accountance'),");
-        writer.writeln("(3, 'Cư Dân', 'resident'),");
-        writer.writeln("(4, 'Cơ Quan Chức Năng', 'cqcn');\n");
+        writer.addBatch('roles', 'id, role_name, role_code', "(1, 'Ban Quản Trị', 'bod')");
+        writer.addBatch('roles', 'id, role_name, role_code', "(2, 'Kế Toán', 'accountance')");
+        writer.addBatch('roles', 'id, role_name, role_code', "(3, 'Cư Dân', 'resident')");
+        writer.addBatch('roles', 'id, role_name, role_code', "(4, 'Cơ Quan Chức Năng', 'cqcn')");
 
         // Fee Types
-        writer.writeln('-- Fee Types');
-        writer.writeln("INSERT INTO fee_types (id, fee_name, fee_code, default_price, unit) VALUES");
-        writer.writeln(`(1, 'Phí Quản lý', 'PQL', ${CONFIG.FEE_PRICES.MANAGEMENT}, 'm²'),`);
-        writer.writeln(`(2, 'Phí Gửi xe', 'PGX', 0, 'Tháng'),`);
-        writer.writeln(`(3, 'Phí Điện', 'PD', ${CONFIG.FEE_PRICES.ELECTRICITY}, 'kWh'),`);
-        writer.writeln(`(4, 'Phí Nước', 'PN', ${CONFIG.FEE_PRICES.WATER}, 'm³');\n`);
+        writer.addBatch('fee_types', 'id, fee_name, fee_code, default_price, unit', `(1, 'Phí Quản lý', 'PQL', ${CONFIG.FEE_PRICES.MANAGEMENT}, 'm²')`);
+        writer.addBatch('fee_types', 'id, fee_name, fee_code, default_price, unit', `(2, 'Phí Gửi xe', 'PGX', 0, 'Tháng')`);
+        writer.addBatch('fee_types', 'id, fee_name, fee_code, default_price, unit', `(3, 'Phí Điện', 'PD', ${CONFIG.FEE_PRICES.ELECTRICITY}, 'kWh')`);
+        writer.addBatch('fee_types', 'id, fee_name, fee_code, default_price, unit', `(4, 'Phí Nước', 'PN', ${CONFIG.FEE_PRICES.WATER}, 'm³')`);
 
         // Notification Types
-        writer.writeln('-- Notification Types');
-        writer.writeln("INSERT INTO notification_types (id, type_name, type_code) VALUES");
-        writer.writeln("(1, 'Khẩn cấp', 'EMERGENCY'),");
-        writer.writeln("(2, 'Chung', 'GENERAL'),");
-        writer.writeln("(3, 'Thu phí', 'FEE'),");
-        writer.writeln("(4, 'Dịch vụ', 'SERVICE');\n");
+        writer.addBatch('notification_types', 'id, type_name, type_code', "(1, 'Khẩn cấp', 'EMERGENCY')");
+        writer.addBatch('notification_types', 'id, type_name, type_code', "(2, 'Chung', 'GENERAL')");
+        writer.addBatch('notification_types', 'id, type_name, type_code', "(3, 'Thu phí', 'FEE')");
+        writer.addBatch('notification_types', 'id, type_name, type_code', "(4, 'Dịch vụ', 'SERVICE')");
 
         // Service Types
         this.generateServiceTypes(writer);
@@ -305,9 +387,6 @@ class StaticDataGenerator {
     }
 
     static generateServiceTypes(writer) {
-        writer.writeln('-- Service Types');
-        writer.writeln("INSERT INTO service_types (name, description, base_price, unit, is_active, category, location, open_hours, contact_phone) VALUES");
-        
         const services = [
             ['BlueFit Gym & Yoga Center', 'Trung tâm thể hình đẳng cấp 5 sao với máy móc Technogym nhập khẩu Ý. Có bể bơi 4 mùa, xông hơi và các lớp Yoga miễn phí.', 500000, 'Tháng', 'Sức khỏe & Làm đẹp', 'Tầng 3 - Tòa A', '05:30 - 22:00', '0901.234.567'],
             ['Siêu thị BlueMart (Đi chợ hộ)', 'Dịch vụ đi chợ hộ dành cho cư dân bận rộn. Phí dịch vụ tính trên một lần đi mua.', 30000, 'Lần', 'Tiện ích đời sống', 'Tầng 1 - Tòa B', '07:00 - 21:00', '0909.888.999'],
@@ -317,26 +396,14 @@ class StaticDataGenerator {
             ['Khu vui chơi KidzWorld', 'Thiên đường vui chơi cho trẻ em với nhà bóng, cầu trượt, khu hướng nghiệp.', 120000, 'Vé', 'Giải trí', 'Tầng 2 - TTTM', '09:00 - 21:30', '0905.111.222']
         ];
 
-        services.forEach((s, i) => {
-            const comma = i < services.length - 1 ? ',' : ';';
-            writer.writeln(`('${s[0]}', '${s[1]}', ${s[2]}, '${s[3]}', TRUE, '${s[4]}', '${s[5]}', '${s[6]}', '${s[7]}')${comma}`);
+        services.forEach((s) => {
+            writer.addBatch('service_types', 'name, description, base_price, unit, is_active, category, location, open_hours, contact_phone', `('${s[0]}', '${s[1]}', ${s[2]}, '${s[3]}', TRUE, '${s[4]}', '${s[5]}', '${s[6]}', '${s[7]}')`);
         });
-        writer.writeln();
     }
 
     static generateBuildingInfo(writer) {
-        writer.writeln('-- Building Info');
-        writer.writeln(`INSERT INTO building_info (id, name, investor, location, scale, apartments, description, total_area, start_date, finish_date, total_investment) VALUES`);
-        writer.writeln(`(1, 'CHUNG CƯ BLUEMOON',`);
-        writer.writeln(`'Tổng công ty CP Xuất nhập khẩu & Xây dựng Việt Nam (VINACONEX)',`);
-        writer.writeln(`'289 Khuất Duy Tiến - Trung Hòa - Cầu Giấy - Hà Nội',`);
-        writer.writeln(`'Cao 31 tầng, 03 tầng hầm, 04 tầng dịch vụ thương mại.',`);
-        writer.writeln(`'496 căn hộ diện tích từ 85.5 - 120m²',`);
-        writer.writeln(`'Tọa lạc tại vị trí đắc địa, Chung cư Bluemoon tiếp giáp với nút giao thông trung tâm Vành đai 3 - Đại lộ Thăng Long - Trần Duy Hưng. Tòa nhà được thiết kế với không gian sống xanh, hòa với thiên nhiên cùng hệ thống hạ tầng khớp nối đồng bộ.',`);
-        writer.writeln(`'1,3 ha', 'Quý IV/2016', 'Quý IV/2018', '618,737 tỷ đồng');\n`);
+        writer.addBatch('building_info', 'id, name, investor, location, scale, apartments, description, total_area, start_date, finish_date, total_investment', `(1, 'CHUNG CƯ BLUEMOON', 'Tổng công ty CP Xuất nhập khẩu & Xây dựng Việt Nam (VINACONEX)', '289 Khuất Duy Tiến - Trung Hòa - Cầu Giấy - Hà Nội', 'Cao 31 tầng, 03 tầng hầm, 04 tầng dịch vụ thương mại.', '496 căn hộ diện tích từ 85.5 - 120m²', 'Tọa lạc tại vị trí đắc địa, Chung cư Bluemoon tiếp giáp với nút giao thông trung tâm Vành đai 3 - Đại lộ Thăng Long - Trần Duy Hưng. Tòa nhà được thiết kế với không gian sống xanh, hòa với thiên nhiên cùng hệ thống hạ tầng khớp nối đồng bộ.', '1,3 ha', 'Quý IV/2016', 'Quý IV/2018', '618,737 tỷ đồng')`);
 
-        writer.writeln('-- Building Regulations');
-        writer.writeln(`INSERT INTO building_regulations (title, content, sort_order) VALUES`);
         const regulations = [
             ['1. Quy định về An ninh & Ra vào', '["Cư dân ra vào tòa nhà phải sử dụng Thẻ Cư Dân.", "Khách đến thăm phải đăng ký tại Quầy Lễ Tân.", "Không cho người lạ vào thang máy hoặc khu vực hạn chế.", "Mọi hành vi gây mất trật tự sẽ bị xử lý."]', 1],
             ['2. Quy định về Tiếng ồn & Giờ giấc', '["Giờ yên tĩnh: 22:00 - 07:00 và 12:00 - 13:30.", "Thi công sửa chữa chỉ trong giờ hành chính (8:00 - 17:00).", "Không gây tiếng ồn ảnh hưởng căn hộ lân cận."]', 2],
@@ -345,16 +412,12 @@ class StaticDataGenerator {
             ['5. Quy định về Thú cưng', '["Phải đăng ký thú cưng với BQL.", "Ra ngoài phải có dây xích, rọ mõm.", "Chủ nuôi phải dọn chất thải ngay.", "Không để thú cưng gây ồn ào."]', 5]
         ];
 
-        regulations.forEach((r, i) => {
-            const comma = i < regulations.length - 1 ? ',' : ';';
-            writer.writeln(`('${r[0]}', '${r[1]}', ${r[2]})${comma}`);
+        regulations.forEach((r) => {
+            writer.addBatch('building_regulations', 'title, content, sort_order', `('${r[0]}', '${r[1]}', ${r[2]})`);
         });
-        writer.writeln();
     }
 
     static generateVehicleBlacklist(writer) {
-        writer.writeln('-- Vehicle Blacklist');
-        writer.writeln("INSERT INTO vehicle_blacklist (license_plate, reason, added_by) VALUES");
         const blacklist = [
             ['29A-CRIMINAL', 'Xe trộm cắp được cơ quan công an thông báo', 'ID0001'],
             ['30H-FAKE', 'Biển số giả mạo', 'ID0001'],
@@ -363,40 +426,37 @@ class StaticDataGenerator {
             ['99X-DANGER', 'Phát hiện chở hàng nguy hiểm', 'ID0001']
         ];
 
-        blacklist.forEach((b, i) => {
-            const comma = i < blacklist.length - 1 ? ',' : ';';
-            writer.writeln(`('${b[0]}', '${b[1]}', '${b[2]}')${comma}`);
+        blacklist.forEach((b) => {
+            writer.addBatch('vehicle_blacklist', 'license_plate, reason, added_by', `('${b[0]}', '${b[1]}', '${b[2]}')`);
         });
-        writer.writeln();
     }
 
     static generateAdminUsers(writer) {
-        writer.writeln('-- Admin Users');
-        writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id) VALUES`);
-        writer.writeln(`('ID0001', 'admin.a', '${CONFIG.PASSWORD_HASH}', 'admin.a@bluemoon.com', '0901000001', 1),`);
-        writer.writeln(`('ID0002', 'ketoan.b', '${CONFIG.PASSWORD_HASH}', 'ketoan.b@bluemoon.com', '0901000002', 2),`);
-        writer.writeln(`('ID0003', 'cqcn.c', '${CONFIG.PASSWORD_HASH}', 'cqcn.c@bluemoon.com', '0901000003', 4);\n`);
+        // [FIXED] Updated to include created_at and updated_at to match 'users' table structure in dynamic generation
+        const now = DateHelper.format(DateHelper.TODAY);
+        const userCols = 'id, username, password, email, phone, role_id, created_at, updated_at';
 
-        writer.writeln(`INSERT INTO admins (id, user_id, full_name, email, phone) VALUES`);
-        writer.writeln(`('ID0001', 'ID0001', 'Nguyễn Văn Quản', 'admin.a@bluemoon.com', '0901000001'),`);
-        writer.writeln(`('ID0002', 'ID0002', 'Trần Thị Lan', 'ketoan.b@bluemoon.com', '0901000002'),`);
-        writer.writeln(`('ID0003', 'ID0003', 'Lê Công An', 'cqcn.c@bluemoon.com', '0901000003');\n`);
+        writer.addBatch('users', userCols, `('ID0001', 'admin.a', '${CONFIG.PASSWORD_HASH}', 'admin.a@bluemoon.com', '0901000001', 1, '${now}', '${now}')`);
+        writer.addBatch('users', userCols, `('ID0002', 'ketoan.b', '${CONFIG.PASSWORD_HASH}', 'ketoan.b@bluemoon.com', '0901000002', 2, '${now}', '${now}')`);
+        writer.addBatch('users', userCols, `('ID0003', 'cqcn.c', '${CONFIG.PASSWORD_HASH}', 'cqcn.c@bluemoon.com', '0901000003', 4, '${now}', '${now}')`);
 
-        // Admin login history (30 days)
-        writer.writeln('-- Admin Login History');
+        writer.addBatch('admins', 'id, user_id, full_name, email, phone', `('ID0001', 'ID0001', 'Nguyễn Văn Quản', 'admin.a@bluemoon.com', '0901000001')`);
+        writer.addBatch('admins', 'id, user_id, full_name, email, phone', `('ID0002', 'ID0002', 'Trần Thị Lan', 'ketoan.b@bluemoon.com', '0901000002')`);
+        writer.addBatch('admins', 'id, user_id, full_name, email, phone', `('ID0003', 'ID0003', 'Lê Công An', 'cqcn.c@bluemoon.com', '0901000003')`);
+
+        // Admin login history
         for (let d = 0; d < 30; d++) {
             const loginTime = DateHelper.addDays(DateHelper.TODAY, -d);
             const timeWithHours = new Date(loginTime);
             timeWithHours.setHours(RandomHelper.int(7, 9), RandomHelper.int(0, 59));
             
-            writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0001', '${DateHelper.format(timeWithHours)}', '192.168.1.10', '${RandomHelper.item(USER_AGENTS)}');`);
+            writer.addBatch('login_history', 'user_id, login_time, ip_address, user_agent', `('ID0001', '${DateHelper.format(timeWithHours)}', '192.168.1.10', '${RandomHelper.item(USER_AGENTS)}')`);
             
             if (RandomHelper.boolean(0.8)) {
                 timeWithHours.setHours(RandomHelper.int(8, 10), RandomHelper.int(0, 59));
-                writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('ID0002', '${DateHelper.format(timeWithHours)}', '192.168.1.11', '${RandomHelper.item(USER_AGENTS)}');`);
+                writer.addBatch('login_history', 'user_id, login_time, ip_address, user_agent', `('ID0002', '${DateHelper.format(timeWithHours)}', '192.168.1.11', '${RandomHelper.item(USER_AGENTS)}')`);
             }
         }
-        writer.writeln();
     }
 }
 
@@ -449,14 +509,13 @@ class BluemoonDataGenerator {
                     const isOccupied = RandomHelper.boolean(CONFIG.OCCUPANCY_RATE);
                     const status = isOccupied ? 'Đang sinh sống' : 'Trống';
 
-                    this.writer.writeln(`INSERT INTO apartments (id, apartment_code, building, floor, area, status) VALUES (${aptIdCounter}, '${aptCode}', '${block}', ${floor}, ${area}, '${status}');`);
+                    this.writer.addBatch('apartments', 'id, apartment_code, building, floor, area, status', `(${aptIdCounter}, '${aptCode}', '${block}', ${floor}, ${area}, '${status}')`);
                     this.writer.stats.apartments++;
 
                     if (isOccupied) {
                         this.activeApartments.push({ id: aptIdCounter, code: aptCode, area: area, floor: floor, building: block });
                         this.generateResidentFamily(aptIdCounter, aptCode, area);
                     } else if (RandomHelper.boolean(0.15)) {
-                        // 15% empty apartments have historical residents
                         this.generateHistoricalResident(aptIdCounter);
                     }
 
@@ -470,9 +529,8 @@ class BluemoonDataGenerator {
     }
 
     generateResidentFamily(aptId, aptCode, area) {
-        // [FIX] Move-in date từ 1-2 năm trước để có lịch sử dài
         const moveInDate = DateHelper.randomBetween(
-            new Date(2021, 0, 1),  // Từ đầu 2021
+            new Date(2021, 0, 1),
             DateHelper.SIX_MONTHS_AGO
         );
 
@@ -488,35 +546,37 @@ class BluemoonDataGenerator {
         const hometown = RandomHelper.item(VietnameseData.HOMETOWNS);
         const occupation = RandomHelper.item(VietnameseData.OCCUPATIONS);
 
-        // [FIX] Create user account với created_at = moveInDate
-        this.writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id, created_at, updated_at) VALUES ('${ownerId}', '${username}', '${CONFIG.PASSWORD_HASH}', '${email}', '${phone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+        this.writer.addBatch('users', 'id, username, password, email, phone, role_id, created_at, updated_at', `('${ownerId}', '${username}', '${CONFIG.PASSWORD_HASH}', '${email}', '${phone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
         
-        this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at) VALUES ('${ownerId}', '${ownerId}', ${aptId}, '${ownerName}', 'owner', 'Chủ hộ', '${phone}', '${email}', 'Đang sinh sống', '${cccd}', '${DateHelper.formatDateOnly(dob)}', '${ownerGender ? 'Nam' : 'Nữ'}', '${hometown}', '${occupation}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+        // Use STANDARD COLUMNS for all residents (both owner and members)
+        const resColumns = 'id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at';
+
+        this.writer.addBatch('residents', resColumns, `('${ownerId}', '${ownerId}', ${aptId}, '${ownerName}', 'owner', 'Chủ hộ', '${phone}', '${email}', 'Đang sinh sống', '${cccd}', '${DateHelper.formatDateOnly(dob)}', '${ownerGender ? 'Nam' : 'Nữ'}', '${hometown}', '${occupation}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
         
-        this.writer.writeln(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${ownerId}', ${aptId}, 'Chuyển đến', '${DateHelper.formatDateOnly(moveInDate)}', 'Mua căn hộ mới');`);
+        this.writer.addBatch('residence_history', 'resident_id, apartment_id, event_type, event_date, note', `('${ownerId}', ${aptId}, 'Chuyển đến', '${DateHelper.formatDateOnly(moveInDate)}', 'Mua căn hộ mới')`);
 
         this.activeResidents.push({ 
             id: ownerId, 
             aptId: aptId, 
             name: ownerName, 
             isOwner: true,
-            moveInDate: moveInDate  // [NEW] Lưu để dùng cho logic reports
+            moveInDate: moveInDate
         });
         this.activeUsers.push(ownerId);
         this.writer.stats.residents++;
         this.residentCounter++;
 
-        // Add login history for owner (sporadic)
+        // Login history for owner
         if (RandomHelper.boolean(0.4)) {
             const loginCount = RandomHelper.int(1, 5);
             for (let i = 0; i < loginCount; i++) {
                 const loginTime = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
                 loginTime.setHours(RandomHelper.int(6, 23), RandomHelper.int(0, 59));
-                this.writer.writeln(`INSERT INTO login_history (user_id, login_time, ip_address, user_agent) VALUES ('${ownerId}', '${DateHelper.format(loginTime)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}');`);
+                this.writer.addBatch('login_history', 'user_id, login_time, ip_address, user_agent', `('${ownerId}', '${DateHelper.format(loginTime)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}')`);
             }
         }
 
-        // Family members (0-4 people)
+        // Family members
         const numMembers = RandomHelper.weighted([
             { value: 0, weight: 15 },
             { value: 1, weight: 20 },
@@ -533,28 +593,29 @@ class BluemoonDataGenerator {
             const memDob = this.getMemberDob(relation);
             
             let memUserId = 'NULL';
+            let memPhone = 'NULL';
+            let memEmail = 'NULL';
             
-            // 15% members have accounts
             if (RandomHelper.boolean(0.15) && relation !== 'Con') {
                 const memUsername = `mem_${memId.toLowerCase()}`;
-                const memPhone = VietnameseData.generatePhone();
-                const memEmail = `${memUsername}@gmail.com`;
-                this.writer.writeln(`INSERT INTO users (id, username, password, email, phone, role_id, created_at, updated_at) VALUES ('${memId}', '${memUsername}', '${CONFIG.PASSWORD_HASH}', '${memEmail}', '${memPhone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+                const rawPhone = VietnameseData.generatePhone();
+                memPhone = `'${rawPhone}'`;
+                memEmail = `'${memUsername}@gmail.com'`;
+                
+                this.writer.addBatch('users', 'id, username, password, email, phone, role_id, created_at, updated_at', `('${memId}', '${memUsername}', '${CONFIG.PASSWORD_HASH}', ${memEmail}, ${memPhone}, 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
                 memUserId = `'${memId}'`;
                 this.activeUsers.push(memId);
             }
 
-            this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, relationship_with_owner, status, dob, gender, created_at, updated_at) VALUES ('${memId}', ${memUserId}, ${aptId}, '${memName}', 'member', '${relation}', 'Đang sinh sống', '${DateHelper.formatDateOnly(memDob)}', '${memGender ? 'Nam' : 'Nữ'}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}');`);
+            // FIX: Using standardized columns, passing NULL for missing fields
+            this.writer.addBatch('residents', resColumns, `('${memId}', ${memUserId}, ${aptId}, '${memName}', 'member', '${relation}', ${memPhone}, ${memEmail}, 'Đang sinh sống', NULL, '${DateHelper.formatDateOnly(memDob)}', '${memGender ? 'Nam' : 'Nữ'}', NULL, NULL, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
             
             this.activeResidents.push({ id: memId, aptId: aptId, name: memName, isOwner: false });
             this.writer.stats.residents++;
             this.residentCounter++;
         }
 
-        // Generate vehicles for this family AND CAPTURE them to pass to fees
         const familyVehicles = this.generateVehicles(ownerId, aptId, aptCode);
-
-        // Generate fees for this apartment
         this.generateFees(aptId, ownerId, aptCode, area, familyVehicles);
     }
 
@@ -563,7 +624,7 @@ class BluemoonDataGenerator {
             ? ['Vợ', 'Con trai', 'Con gái', 'Mẹ', 'Bố']
             : ['Chồng', 'Con trai', 'Con gái', 'Mẹ', 'Bố'];
         
-        if (index === 0) return relationships[0]; // Spouse
+        if (index === 0) return relationships[0];
         if (index === 1 || index === 2) return RandomHelper.item(['Con trai', 'Con gái']);
         return RandomHelper.item(['Mẹ', 'Bố', 'Anh', 'Em']);
     }
@@ -583,8 +644,11 @@ class BluemoonDataGenerator {
         const name = VietnameseData.generateName();
         const moveOutDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
         
-        this.writer.writeln(`INSERT INTO residents (id, user_id, apartment_id, full_name, role, status) VALUES ('${oldRId}', NULL, ${aptId}, '${name}', 'owner', 'Đã chuyển đi');`);
-        this.writer.writeln(`INSERT INTO residence_history (resident_id, apartment_id, event_type, event_date, note) VALUES ('${oldRId}', ${aptId}, 'Chuyển đi', '${DateHelper.formatDateOnly(moveOutDate)}', 'Hết hợp đồng thuê');`);
+        // Fix: Standard columns for historical resident too
+        const resColumns = 'id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at';
+        this.writer.addBatch('residents', resColumns, `('${oldRId}', NULL, ${aptId}, '${name}', 'owner', 'Chủ hộ', NULL, NULL, 'Đã chuyển đi', NULL, NULL, NULL, NULL, NULL, NULL, NULL)`);
+        
+        this.writer.addBatch('residence_history', 'resident_id, apartment_id, event_type, event_date, note', `('${oldRId}', ${aptId}, 'Chuyển đi', '${DateHelper.formatDateOnly(moveOutDate)}', 'Hết hợp đồng thuê')`);
     }
 
     generateVehicles(ownerId, aptId, aptCode) {
@@ -598,30 +662,27 @@ class BluemoonDataGenerator {
         const vehicles = [];
         
         for (let v = 0; v < numVehicles; v++) {
-            const isMotorbike = v === 0 ? RandomHelper.boolean(0.6) : true; // First vehicle có thể là ô tô
+            const isMotorbike = v === 0 ? RandomHelper.boolean(0.6) : true;
             const type = isMotorbike ? 'Xe máy' : 'Ô tô';
             const plate = VietnameseData.generateLicensePlate(isMotorbike);
             const brand = RandomHelper.item(isMotorbike ? VietnameseData.MOTORBIKE_BRANDS : VietnameseData.CAR_BRANDS);
             const img = `/uploads/vehicles/${plate.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`;
             const regDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.TODAY);
 
-            this.writer.writeln(`INSERT INTO vehicles (id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image, registration_date) VALUES (${this.vehicleCounter}, '${ownerId}', ${aptId}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}', '${DateHelper.formatDateOnly(regDate)}');`);
+            this.writer.addBatch('vehicles', 'id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image, registration_date', `(${this.vehicleCounter}, '${ownerId}', ${aptId}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}', '${DateHelper.formatDateOnly(regDate)}')`);
             
-            // Return vehicles to use in fee calculation
             vehicles.push({ plate, type, brand, regDate });
             this.writer.stats.vehicles++;
             this.vehicleCounter++;
         }
 
-        // Generate access logs for vehicles
         this.generateAccessLogs(ownerId, vehicles);
-        
         return vehicles;
     }
 
     generateAccessLogs(ownerId, vehicles) {
         vehicles.forEach(vehicle => {
-            const numLogs = RandomHelper.int(15, 45); // 15-45 logs per vehicle in last month
+            const numLogs = RandomHelper.int(15, 45);
             
             for (let d = 0; d < numLogs; d++) {
                 const logDate = DateHelper.randomBetween(
@@ -629,16 +690,14 @@ class BluemoonDataGenerator {
                     DateHelper.TODAY
                 );
                 
-                // Morning out (6-9 AM)
                 const outTime = new Date(logDate);
                 outTime.setHours(RandomHelper.int(6, 9), RandomHelper.int(0, 59));
-                this.writer.writeln(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${vehicle.plate}', '${vehicle.type}', 'Out', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(outTime)}', '/uploads/access/out_${Date.now()}.jpg');`);
+                this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'Out', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(outTime)}', '/uploads/access/out_${Date.now()}.jpg')`);
                 
-                // Evening in (5-10 PM) - only if went out
                 if (RandomHelper.boolean(0.9)) {
                     const inTime = new Date(logDate);
                     inTime.setHours(RandomHelper.int(17, 22), RandomHelper.int(0, 59));
-                    this.writer.writeln(`INSERT INTO access_logs (plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url) VALUES ('${vehicle.plate}', '${vehicle.type}', 'In', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(inTime)}', '/uploads/access/in_${Date.now()}.jpg');`);
+                    this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'In', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(inTime)}', '/uploads/access/in_${Date.now()}.jpg')`);
                 }
             }
         });
@@ -648,28 +707,23 @@ class BluemoonDataGenerator {
         let elecIndex = RandomHelper.int(1000, 5000);
         let waterIndex = RandomHelper.int(500, 2000);
 
-        // Loop: Start from NEXT MONTH (index -1) back to 6 MONTHS AGO (index 6)
-        // Range: Today + 1 month -> Today - 6 months
         for (let i = -1; i <= 6; i++) {
             const monthDate = DateHelper.addMonths(DateHelper.TODAY, -i);
             const period = DateHelper.getBillingPeriod(monthDate);
             const feeSuffix = `${(monthDate.getMonth() + 1).toString().padStart(2, '0')}${monthDate.getFullYear()}`;
             const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 10);
-            const isFuture = i < 0; // Check if it is next month
-
-            // Helper to generate status and payments with Partial support
+            
             const getFeeStatusAndPayment = (amount, monthIndex) => {
-
                 const rand = Math.random();
                 let status = 'Đã thanh toán';
 
-                if (monthIndex < 0) { // Next month
+                if (monthIndex < 0) {
                     if (rand < 0.4) status = 'Chưa thanh toán';
                     else if (rand < 0.6) status = 'Thanh toán một phần';
-                } else if (monthIndex === 0) { // Current month
+                } else if (monthIndex === 0) {
                     if (rand < 0.2) status = 'Chưa thanh toán';
                     else if (rand < 0.5) status = 'Thanh toán một phần';
-                } else if (monthIndex === 1) { // Last month
+                } else if (monthIndex === 1) {
                     if (rand < 0.1) status = 'Chưa thanh toán';
                     else if (rand < 0.2) status = 'Thanh toán một phần';
                 }
@@ -683,53 +737,50 @@ class BluemoonDataGenerator {
                 } else if (status === 'Chưa thanh toán') {
                     paid = 0;
                     remaining = amount;
-                } else { // Thanh toán một phần
-                    paid = Math.floor(amount * RandomHelper.int(10, 90) / 100); // 10-90%
+                } else {
+                    paid = Math.floor(amount * RandomHelper.int(10, 90) / 100);
                     remaining = amount - paid;
                 }
                 return { status, paid, remaining };
             };
 
-            // 1. Utility readings (Assume future readings are estimates or start of cycle)
             const elecUsage = RandomHelper.int(150, 400);
             const waterUsage = RandomHelper.int(15, 45);
             
-            // Only record reading if not future, or if future, maybe just skipped (keeping logic simple: always insert)
-            this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Điện', '${period}', ${elecIndex}, ${elecIndex + elecUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
-            this.writer.writeln(`INSERT INTO utility_readings (apartment_id, service_type, billing_period, old_index, new_index, recorded_date) VALUES (${aptId}, 'Nước', '${period}', ${waterIndex}, ${waterIndex + waterUsage}, '${DateHelper.formatDateOnly(dueDate)}');`);
+            this.writer.addBatch('utility_readings', 'apartment_id, service_type, billing_period, old_index, new_index, recorded_date', `(${aptId}, 'Điện', '${period}', ${elecIndex}, ${elecIndex + elecUsage}, '${DateHelper.formatDateOnly(dueDate)}')`);
+            this.writer.addBatch('utility_readings', 'apartment_id, service_type, billing_period, old_index, new_index, recorded_date', `(${aptId}, 'Nước', '${period}', ${waterIndex}, ${waterIndex + waterUsage}, '${DateHelper.formatDateOnly(dueDate)}')`);
             
             elecIndex += elecUsage;
             waterIndex += waterUsage;
 
-            // 2. Management Fee
+            // Management Fee
             const pqlId = `PQL-${aptCode}-${feeSuffix}`;
             const pqlAmount = Math.round(area * CONFIG.FEE_PRICES.MANAGEMENT);
             const pqlState = getFeeStatusAndPayment(pqlAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlState.paid}, ${pqlState.remaining}, '${pqlState.status}');`);
-            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pqlId}', 'Phí Quản Lý ${period}', 'm²', ${area}, ${CONFIG.FEE_PRICES.MANAGEMENT}, ${pqlAmount});`);
+            this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlState.paid}, ${pqlState.remaining}, '${pqlState.status}')`);
+            this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pqlId}', 'Phí Quản Lý ${period}', 'm²', ${area}, ${CONFIG.FEE_PRICES.MANAGEMENT}, ${pqlAmount})`);
             this.writer.stats.fees++;
 
-            // 3. Electricity Fee
+            // Electricity Fee
             const pdId = `PD-${aptCode}-${feeSuffix}`;
             const pdAmount = elecUsage * CONFIG.FEE_PRICES.ELECTRICITY;
             const pdState = getFeeStatusAndPayment(pdAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdState.paid}, ${pdState.remaining}, '${pdState.status}');`);
-            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pdId}', 'Điện sinh hoạt ${period}', 'kWh', ${elecUsage}, ${CONFIG.FEE_PRICES.ELECTRICITY}, ${pdAmount});`);
+            this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdState.paid}, ${pdState.remaining}, '${pdState.status}')`);
+            this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pdId}', 'Điện sinh hoạt ${period}', 'kWh', ${elecUsage}, ${CONFIG.FEE_PRICES.ELECTRICITY}, ${pdAmount})`);
             this.writer.stats.fees++;
 
-            // 4. Water Fee
+            // Water Fee
             const pnId = `PN-${aptCode}-${feeSuffix}`;
             const pnAmount = waterUsage * CONFIG.FEE_PRICES.WATER;
             const pnState = getFeeStatusAndPayment(pnAmount, i);
             
-            this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnState.paid}, ${pnState.remaining}, '${pnState.status}');`);
-            this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pnId}', 'Nước sinh hoạt ${period}', 'm³', ${waterUsage}, ${CONFIG.FEE_PRICES.WATER}, ${pnAmount});`);
+            this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnState.paid}, ${pnState.remaining}, '${pnState.status}')`);
+            this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pnId}', 'Nước sinh hoạt ${period}', 'm³', ${waterUsage}, ${CONFIG.FEE_PRICES.WATER}, ${pnAmount})`);
             this.writer.stats.fees++;
 
-            // 5. Parking Fee (NEW)
-            // Filter vehicles that were registered BEFORE this billing period
+            // Parking Fee
             const activeVehicles = vehicles.filter(v => v.regDate <= monthDate);
             
             if (activeVehicles.length > 0) {
@@ -748,21 +799,18 @@ class BluemoonDataGenerator {
 
                 const pgxState = getFeeStatusAndPayment(pgxTotal, i);
 
-                this.writer.writeln(`INSERT INTO fees (id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status) VALUES ('${pgxId}', ${aptId}, '${ownerId}', 2, 'Phí Gửi Xe ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pgxTotal}, ${pgxState.paid}, ${pgxState.remaining}, '${pgxState.status}');`);
+                this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pgxId}', ${aptId}, '${ownerId}', 2, 'Phí Gửi Xe ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pgxTotal}, ${pgxState.paid}, ${pgxState.remaining}, '${pgxState.status}')`);
                 
                 parkingItems.forEach(item => {
-                    this.writer.writeln(`INSERT INTO fee_items (fee_id, item_name, unit, quantity, unit_price, amount) VALUES ('${pgxId}', '${item.name}', 'Xe', 1, ${item.price}, ${item.price});`);
+                    this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pgxId}', '${item.name}', 'Xe', 1, ${item.price}, ${item.price})`);
                 });
                 this.writer.stats.fees++;
             }
 
-            // Add payment history for Paid or Partial fees
-            // Only add history if amount_paid > 0
             if (pqlState.paid > 0) {
                 const paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
-                this.writer.writeln(`INSERT INTO payment_history (fee_id, amount, payment_method, payment_date, processed_by) VALUES ('${pqlId}', ${pqlState.paid}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002');`);
+                this.writer.addBatch('payment_history', 'fee_id, amount, payment_method, payment_date, processed_by', `('${pqlId}', ${pqlState.paid}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002')`);
             }
-            // (Similar history for other fees could be added here if needed, keeping it light for now as per original pattern)
         }
     }
 
@@ -795,11 +843,7 @@ class BluemoonDataGenerator {
 
         for (let i = 0; i < 300; i++) {
             const tpl = RandomHelper.item(templates);
-            
-            // [MODIFIED] Created_at: Random from 6 months ago to Today
             const createdAt = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
-            
-            // [MODIFIED] Scheduled_at >= Created_at, max 7 days after Today
             const maxSchedule = DateHelper.addDays(DateHelper.TODAY, 7);
             const scheduledAt = DateHelper.randomBetween(createdAt, maxSchedule);
 
@@ -813,34 +857,27 @@ class BluemoonDataGenerator {
                 .replace('{building}', RandomHelper.item(['A', 'B']))
                 .replace('{service}', 'Phòng Gym');
             
-            this.writer.writeln(`INSERT INTO notifications (id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at) VALUES ('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}');`);
+            this.writer.addBatch('notifications', 'id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at', `('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}')`);
             
-            // Random attachments
             if (RandomHelper.boolean(0.3)) {
                 const fileName = `thongbao_${id}.jpg`;
-                this.writer.writeln(`INSERT INTO notification_attachments (notification_id, file_name, file_path, file_size) VALUES ('${id}', '${fileName}', '/uploads/notifications/${id}/${fileName}', ${RandomHelper.int(500, 3000)});`);
+                this.writer.addBatch('notification_attachments', 'notification_id, file_name, file_path, file_size', `('${id}', '${fileName}', '/uploads/notifications/${id}/${fileName}', ${RandomHelper.int(500, 3000)})`);
             }
 
-            // [MODIFIED] Recipients Logic
             if (isSent) {
-                // Lấy danh sách cư dân đã chuyển đến trước khi thông báo được gửi
                 const eligibleResidents = this.activeResidents.filter(r => {
                     return r.moveInDate <= scheduledAt;
                 });
 
                 eligibleResidents.forEach(resident => {
-                    // 70% cư dân đã đọc thông báo
                     const isRead = RandomHelper.boolean(0.7);
-                    
-                    // [MODIFIED] Read_at: Random from scheduled_at to Today
                     const readAt = isRead 
                         ? DateHelper.format(DateHelper.randomBetween(scheduledAt, DateHelper.TODAY))
                         : 'NULL';
 
-                    this.writer.writeln(`INSERT INTO notification_recipients (notification_id, recipient_id, is_read, read_at) VALUES ('${id}', '${resident.id}', ${isRead ? 1 : 0}, ${isRead ? `'${readAt}'` : 'NULL'});`);
+                    this.writer.addBatch('notification_recipients', 'notification_id, recipient_id, is_read, read_at', `('${id}', '${resident.id}', ${isRead ? 1 : 0}, ${isRead ? `'${readAt}'` : 'NULL'})`);
                 });
             }
-            
             this.writer.stats.notifications++;
         }
     }
@@ -861,7 +898,6 @@ class BluemoonDataGenerator {
             const tpl = RandomHelper.item(reportTypes);
             const reporter = RandomHelper.item(this.activeResidents.filter(r => r.isOwner));
             
-            // [FIX] Report phải SAU khi cư dân chuyển đến
             const minDate = reporter.moveInDate;
             const date = DateHelper.randomBetween(minDate, DateHelper.TODAY);
             const id = this.idGen.generateDailyId('SC', date);
@@ -877,13 +913,11 @@ class BluemoonDataGenerator {
                 .replace('{floor}', RandomHelper.int(1, 31))
                 .replace('{building}', RandomHelper.item(['A', 'B']));
 
-            // [FIX] Chỉ có rating/feedback khi status = 'Hoàn thành'
             let ratingSQL = 'NULL';
             let feedbackSQL = 'NULL';
             let completedAtSQL = 'NULL';
 
             if (status === 'Hoàn thành') {
-                // 60% báo cáo hoàn thành có đánh giá
                 if (RandomHelper.boolean(0.6)) {
                     const rating = RandomHelper.weighted([
                         { value: 5, weight: 40 },
@@ -903,19 +937,16 @@ class BluemoonDataGenerator {
                     feedbackSQL = `'${RandomHelper.item(feedbacks)}'`;
                 }
                 
-                // Completed_at = 1-5 ngày sau created_at
                 const completedDate = DateHelper.addDays(date, RandomHelper.int(1, 5));
                 completedAtSQL = `'${DateHelper.format(completedDate)}'`;
             }
 
-            this.writer.writeln(`INSERT INTO reports (id, title, description, location, reported_by, status, priority, created_at, rating, feedback, completed_at) VALUES ('${id}', '${tpl.title}', '${tpl.desc}', '${location}', '${reporter.id}', '${status}', '${tpl.priority}', '${DateHelper.format(date)}', ${ratingSQL}, ${feedbackSQL}, ${completedAtSQL});`);
+            this.writer.addBatch('reports', 'id, title, description, location, reported_by, status, priority, created_at, rating, feedback, completed_at', `('${id}', '${tpl.title}', '${tpl.desc}', '${location}', '${reporter.id}', '${status}', '${tpl.priority}', '${DateHelper.format(date)}', ${ratingSQL}, ${feedbackSQL}, ${completedAtSQL})`);
             
-            // Add attachments
             if (RandomHelper.boolean(0.6)) {
                 const fileName = `suco_${id}.jpg`;
-                this.writer.writeln(`INSERT INTO report_attachments (report_id, file_name, file_path, file_size) VALUES ('${id}', '${fileName}', '/uploads/reports/${id}/${fileName}', ${RandomHelper.int(800, 4000)});`);
+                this.writer.addBatch('report_attachments', 'report_id, file_name, file_path, file_size', `('${id}', '${fileName}', '/uploads/reports/${id}/${fileName}', ${RandomHelper.int(800, 4000)})`);
             }
-
             this.writer.stats.reports++;
         }
     }
@@ -936,12 +967,11 @@ class BluemoonDataGenerator {
             const basePrice = [500000, 30000, 200000, 8500000, 3500000, 120000][serviceTypeId - 1];
             const totalAmount = basePrice * quantity;
 
-            this.writer.writeln(`INSERT INTO service_bookings (resident_id, service_type_id, booking_date, quantity, total_amount, status) VALUES ('${resident.id}', ${serviceTypeId}, '${DateHelper.format(bookingDate)}', ${quantity}, ${totalAmount}, '${status}');`);
+            this.writer.addBatch('service_bookings', 'resident_id, service_type_id, booking_date, quantity, total_amount, status', `('${resident.id}', ${serviceTypeId}, '${DateHelper.format(bookingDate)}', ${quantity}, ${totalAmount}, '${status}')`);
         }
 
-        // Service attachments (banners)
         for (let i = 1; i <= 6; i++) {
-            this.writer.writeln(`INSERT INTO service_attachments (service_type_id, file_name, file_path) VALUES (${i}, 'service_${i}_banner.jpg', '/uploads/services/${i}/banner.jpg');`);
+            this.writer.addBatch('service_attachments', 'service_type_id, file_name, file_path', `(${i}, 'service_${i}_banner.jpg', '/uploads/services/${i}/banner.jpg')`);
         }
     }
 
@@ -956,43 +986,41 @@ class BluemoonDataGenerator {
             const visitorName = VietnameseData.generateName();
             const identityCard = RandomHelper.boolean(0.7) ? VietnameseData.generateCCCD() : null;
 
-            this.writer.writeln(`INSERT INTO visitors (apartment_id, visitor_name, identity_card, check_in_time, check_out_time, security_guard_id) VALUES (${apt.id}, '${visitorName}', ${identityCard ? `'${identityCard}'` : 'NULL'}, '${DateHelper.format(checkInTime)}', '${DateHelper.format(checkOutTime)}', 'ID0003');`);
+            this.writer.addBatch('visitors', 'apartment_id, visitor_name, identity_card, check_in_time, check_out_time, security_guard_id', `(${apt.id}, '${visitorName}', ${identityCard ? `'${identityCard}'` : 'NULL'}, '${DateHelper.format(checkInTime)}', '${DateHelper.format(checkOutTime)}', 'ID0003')`);
         }
     }
 
     generateTemporaryResidence() {
         console.log('   - Temporary Residence...');
         
-        // Approved (past)
+        // Fix: Standardize columns for temporary_residence
+        const trColumns = 'resident_id, type, start_date, end_date, reason, status, approved_by';
+
         for (let i = 0; i < 25; i++) {
             const resident = RandomHelper.item(this.activeResidents);
             const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
             const startDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
             const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 60));
-            
             const reasons = type === 'Tạm vắng' 
                 ? ['Du lịch gia đình', 'Công tác dài hạn', 'Điều trị y tế', 'Thăm người thân', 'Học tập']
                 : ['Người nhà lên thăm', 'Thuê phòng trọ ngắn hạn', 'Bạn bè ở nhờ', 'Ôn thi đại học', 'Thực tập'];
-            
             const reason = RandomHelper.item(reasons);
 
-            this.writer.writeln(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status, approved_by) VALUES ('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Đã duyệt', 'ID0001');`);
+            this.writer.addBatch('temporary_residence', trColumns, `('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Đã duyệt', 'ID0001')`);
         }
 
-        // Pending (current/future)
         for (let i = 0; i < 15; i++) {
             const resident = RandomHelper.item(this.activeResidents);
             const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
             const startDate = DateHelper.randomBetween(DateHelper.TODAY, DateHelper.addDays(DateHelper.TODAY, 30));
             const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 45));
-            
             const reasons = type === 'Tạm vắng' 
                 ? ['Đi công tác', 'Nghỉ dưỡng', 'Thăm con ở xa']
                 : ['Bạn bè tạm trú', 'Người giúp việc ở lại', 'Thợ sửa chữa'];
-            
             const reason = RandomHelper.item(reasons);
 
-            this.writer.writeln(`INSERT INTO temporary_residence (resident_id, type, start_date, end_date, reason, status) VALUES ('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Chờ duyệt');`);
+            // Pass NULL for approved_by
+            this.writer.addBatch('temporary_residence', trColumns, `('${resident.id}', '${type}', '${DateHelper.formatDateOnly(startDate)}', '${DateHelper.formatDateOnly(endDate)}', '${reason}', 'Chờ duyệt', NULL)`);
         }
     }
 
@@ -1019,50 +1047,33 @@ class BluemoonDataGenerator {
                 { value: 'Từ chối', weight: 10 }
             ]);
 
-            this.writer.writeln(`INSERT INTO profile_edit_requests (resident_id, requested_changes, reason, status, created_at) VALUES ('${resident.id}', '${requestedChanges}', '${change.reason}', '${status}', '${DateHelper.format(date)}');`);
+            this.writer.addBatch('profile_edit_requests', 'resident_id, requested_changes, reason, status, created_at', `('${resident.id}', '${requestedChanges}', '${change.reason}', '${status}', '${DateHelper.format(date)}')`);
         }
     }
 
     generateFundCampaigns() {
         console.log('   - Fund Campaigns & Donations...');
         
-        // Campaign 1: Closed (past)
-        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (1, 'Quỹ Vui Hội Trăng Rằm 2024', 'Tổ chức chương trình Trung thu cho trẻ em trong tòa nhà. Quỹ sẽ được dùng để mua đèn lồng, bánh kẹo và tổ chức các trò chơi vui nhộn.', '2024-08-01', '2024-09-01', 20000000, 25500000, 'Closed', 'ID0002');`);
-        
-        // Campaign 2: Active (current)
-        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (2, 'Quỹ Khuyến Học 2025', 'Hỗ trợ học bổng cho con em cư dân có hoàn cảnh khó khăn, học giỏi. Mỗi suất học bổng 5 triệu đồng.', '2025-01-01', '2025-12-31', 50000000, 18750000, 'Active', 'ID0002');`);
-        
-        // Campaign 3: Planned (future)
-        this.writer.writeln(`INSERT INTO fund_campaigns (id, title, description, start_date, end_date, target_amount, current_amount, status, created_by) VALUES (3, 'Quỹ Tết Sum Vầy 2026', 'Tổ chức chương trình Tết cộng đồng, trao quà cho người cao tuổi và trẻ em. Dự kiến tổ chức tại Hội trường tầng 1.', '2026-01-01', '2026-02-01', 100000000, 0, 'Planned', 'ID0002');`);
+        this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(1, 'Quỹ Vui Hội Trăng Rằm 2024', 'Tổ chức chương trình Trung thu cho trẻ em trong tòa nhà. Quỹ sẽ được dùng để mua đèn lồng, bánh kẹo và tổ chức các trò chơi vui nhộn.', '2024-08-01', '2024-09-01', 20000000, 25500000, 'Closed', 'ID0002')");
+        this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(2, 'Quỹ Khuyến Học 2025', 'Hỗ trợ học bổng cho con em cư dân có hoàn cảnh khó khăn, học giỏi. Mỗi suất học bổng 5 triệu đồng.', '2025-01-01', '2025-12-31', 50000000, 18750000, 'Active', 'ID0002')");
+        this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(3, 'Quỹ Tết Sum Vầy 2026', 'Tổ chức chương trình Tết cộng đồng, trao quà cho người cao tuổi và trẻ em. Dự kiến tổ chức tại Hội trường tầng 1.', '2026-01-01', '2026-02-01', 100000000, 0, 'Planned', 'ID0002')");
 
-        // Donations for Campaign 1
+        // Donations Campaign 1
         const campaign1Donors = RandomHelper.items(this.activeResidents.filter(r => r.isOwner), 35);
         campaign1Donors.forEach(donor => {
-            const amounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
-            const amount = RandomHelper.item(amounts);
-            const method = RandomHelper.weighted([
-                { value: 'AppPayment', weight: 50 },
-                { value: 'Transfer', weight: 35 },
-                { value: 'Cash', weight: 15 }
-            ]);
+            const amount = RandomHelper.item([50000, 100000, 200000, 500000, 1000000, 2000000]);
+            const method = RandomHelper.weighted([{ value: 'AppPayment', weight: 50 }, { value: 'Transfer', weight: 35 }, { value: 'Cash', weight: 15 }]);
             const isAnonymous = RandomHelper.boolean(0.15);
-            
-            this.writer.writeln(`INSERT INTO donations (campaign_id, resident_id, amount, payment_method, is_anonymous) VALUES (1, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0});`);
+            this.writer.addBatch('donations', 'campaign_id, resident_id, amount, payment_method, is_anonymous', `(1, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0})`);
         });
 
-        // Donations for Campaign 2
+        // Donations Campaign 2
         const campaign2Donors = RandomHelper.items(this.activeResidents.filter(r => r.isOwner), 25);
         campaign2Donors.forEach(donor => {
-            const amounts = [100000, 200000, 500000, 1000000];
-            const amount = RandomHelper.item(amounts);
-            const method = RandomHelper.weighted([
-                { value: 'AppPayment', weight: 60 },
-                { value: 'Transfer', weight: 30 },
-                { value: 'Cash', weight: 10 }
-            ]);
+            const amount = RandomHelper.item([100000, 200000, 500000, 1000000]);
+            const method = RandomHelper.weighted([{ value: 'AppPayment', weight: 60 }, { value: 'Transfer', weight: 30 }, { value: 'Cash', weight: 10 }]);
             const isAnonymous = RandomHelper.boolean(0.2);
-            
-            this.writer.writeln(`INSERT INTO donations (campaign_id, resident_id, amount, payment_method, is_anonymous) VALUES (2, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0});`);
+            this.writer.addBatch('donations', 'campaign_id, resident_id, amount, payment_method, is_anonymous', `(2, '${donor.id}', ${amount}, '${method}', ${isAnonymous ? 1 : 0})`);
         });
     }
 
@@ -1097,7 +1108,7 @@ class BluemoonDataGenerator {
                 { value: 'Đã xem', weight: 70 }
             ]);
 
-            this.writer.writeln(`INSERT INTO reviews (resident_id, rating, feedback, status) VALUES ('${resident.id}', ${rating}, '${feedback}', '${status}');`);
+            this.writer.addBatch('reviews', 'resident_id, rating, feedback, status', `('${resident.id}', ${rating}, '${feedback}', '${status}')`);
         }
     }
 
@@ -1125,16 +1136,15 @@ class BluemoonDataGenerator {
             const warrantyExpiry = DateHelper.addMonths(purchaseDate, warrantyYears * 12);
             const status = warrantyExpiry > DateHelper.TODAY && RandomHelper.boolean(0.9) ? 'Đang hoạt động' : RandomHelper.item(['Đang hoạt động', 'Đang bảo trì']);
 
-            this.writer.writeln(`INSERT INTO assets (id, asset_code, name, location, purchase_date, price, status, warranty_expiry_date, supplier_info) VALUES (${idx + 1}, '${asset.code}', '${asset.name}', '${asset.location}', '${DateHelper.formatDateOnly(purchaseDate)}', ${asset.price}, '${status}', '${DateHelper.formatDateOnly(warrantyExpiry)}', 'Công ty TNHH Thiết bị XYZ - SĐT: 024.3888.9999');`);
+            this.writer.addBatch('assets', 'id, asset_code, name, location, purchase_date, price, status, warranty_expiry_date, supplier_info', `(${idx + 1}, '${asset.code}', '${asset.name}', '${asset.location}', '${DateHelper.formatDateOnly(purchaseDate)}', ${asset.price}, '${status}', '${DateHelper.formatDateOnly(warrantyExpiry)}', 'Công ty TNHH Thiết bị XYZ - SĐT: 024.3888.9999')`);
 
-            // Generate maintenance schedules
             for (let m = 0; m < 6; m++) {
                 const scheduleDate = DateHelper.addMonths(DateHelper.TODAY, -m);
                 const completedDate = DateHelper.addDays(scheduleDate, RandomHelper.int(0, 3));
                 const maintenanceStatus = m === 0 ? RandomHelper.item(['Lên lịch', 'Đang thực hiện']) : 'Hoàn thành';
                 const cost = RandomHelper.int(500000, 5000000);
 
-                this.writer.writeln(`INSERT INTO maintenance_schedules (asset_id, title, description, scheduled_date, completed_date, technician_name, cost, status) VALUES (${idx + 1}, 'Bảo trì định kỳ ${asset.name} T${scheduleDate.getMonth() + 1}/${scheduleDate.getFullYear()}', 'Kiểm tra, bôi trơn, thay thế phụ tùng hư hỏng', '${DateHelper.formatDateOnly(scheduleDate)}', ${maintenanceStatus === 'Hoàn thành' ? `'${DateHelper.formatDateOnly(completedDate)}'` : 'NULL'}, 'Công ty Bảo trì ABC', ${cost}, '${maintenanceStatus}');`);
+                this.writer.addBatch('maintenance_schedules', 'asset_id, title, description, scheduled_date, completed_date, technician_name, cost, status', `(${idx + 1}, 'Bảo trì định kỳ ${asset.name} T${scheduleDate.getMonth() + 1}/${scheduleDate.getFullYear()}', 'Kiểm tra, bôi trơn, thay thế phụ tùng hư hỏng', '${DateHelper.formatDateOnly(scheduleDate)}', ${maintenanceStatus === 'Hoàn thành' ? `'${DateHelper.formatDateOnly(completedDate)}'` : 'NULL'}, 'Công ty Bảo trì ABC', ${cost}, '${maintenanceStatus}')`);
             }
         });
     }
@@ -1158,7 +1168,7 @@ class BluemoonDataGenerator {
             const time = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
             const entityId = RandomHelper.int(1, 100);
 
-            this.writer.writeln(`INSERT INTO audit_logs (user_id, action_type, entity_name, entity_id, created_at, ip_address, user_agent) VALUES ('${user}', '${action.type}', '${action.entity}', '${entityId}', '${DateHelper.format(time)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}');`);
+            this.writer.addBatch('audit_logs', 'user_id, action_type, entity_name, entity_id, created_at, ip_address, user_agent', `('${user}', '${action.type}', '${action.entity}', '${entityId}', '${DateHelper.format(time)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}')`);
         }
     }
 }

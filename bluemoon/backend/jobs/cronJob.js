@@ -60,18 +60,18 @@ const CronJob = {
                     [notiId, inv.resident_id]
                 );
 
-                // 2. Gửi Email
-                if (inv.email) {
-                    try {
-                        await emailService.sendDebtReminderEmail(inv.email, inv.full_name, {
-                            amount: remaining.toLocaleString(),
-                            description: `Hóa đơn kỳ ${inv.billing_period}`
-                        });
-                        console.log(`📧 [EMAIL] Đã gửi nhắc nợ tới ${inv.email}`);
-                    } catch (err) {
-                        console.error(`❌ [EMAIL] Lỗi gửi mail: ${err.message}`);
-                    }
-                }
+                // // 2. Gửi Email
+                // if (inv.email) {
+                //     try {
+                //         await emailService.sendDebtReminderEmail(inv.email, inv.full_name, {
+                //             amount: remaining.toLocaleString(),
+                //             description: `Hóa đơn kỳ ${inv.billing_period}`
+                //         });
+                //         console.log(`📧 [EMAIL] Đã gửi nhắc nợ tới ${inv.email}`);
+                //     } catch (err) {
+                //         console.error(`❌ [EMAIL] Lỗi gửi mail: ${err.message}`);
+                //     }
+                // }
             }
         } catch (error) {
             console.error('❌ [CRON-INVOICE] Lỗi:', error.message);

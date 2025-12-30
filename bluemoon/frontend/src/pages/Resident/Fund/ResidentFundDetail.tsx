@@ -18,10 +18,12 @@ import {
     Checkbox,
     Alert,
     IconButton,
-    RadioGroup,
-    Radio,
     FormControl,
     FormLabel,
+    Stack,
+    Tooltip,
+    Divider,
+    CircularProgress
 } from '@mui/material';
 import { DataGrid, type GridColDef } from '@mui/x-data-grid';
 import { useState, useEffect } from 'react';
@@ -29,6 +31,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism';
 import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import donationApi, { type FundCampaign, type Donation } from '../../../api/donationApi';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -45,21 +51,52 @@ export default function ResidentFundDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Donate Modal
+    // Donate Modal State
     const [donateOpen, setDonateOpen] = useState(false);
+    const [step, setStep] = useState<'input' | 'qr' | 'success'>('input');
+    const [qRInfo, setQRInfo] = useState<any>(null); // Store info from initiate response
+
+    // Form Data
     const [donationData, setDonationData] = useState({
         amount: '',
-        payment_method: 'Transfer',
         note: '',
         is_anonymous: false,
     });
     const [submitting, setSubmitting] = useState(false);
+    const [amountError, setAmountError] = useState(false);
 
     useEffect(() => {
         if (id) {
             fetchData();
         }
     }, [id]);
+
+    // Polling Effect
+    useEffect(() => {
+        let intervalId: NodeJS.Timeout;
+
+        if (donateOpen && step === 'qr' && qRInfo && qRInfo.tempId) {
+            const pollStatus = async () => {
+                try {
+                    const res = await donationApi.checkStatus(qRInfo.tempId);
+                    if (res.data?.status === 'completed') {
+                        setStep('success');
+                        toast.success('Đóng góp thành công!');
+                        fetchData(); // Refresh list
+                    }
+                } catch (err) {
+                    console.error('Polling error', err);
+                }
+            };
+
+            // Poll every 3 seconds
+            intervalId = setInterval(pollStatus, 3000);
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [donateOpen, step, qRInfo]);
 
     const fetchData = async () => {
         try {
@@ -78,32 +115,54 @@ export default function ResidentFundDetail() {
         }
     };
 
-    const handleDonate = async () => {
+    const handleInitiateDonate = async () => {
         if (!donationData.amount || Number(donationData.amount) <= 0) {
+            setAmountError(true);
             toast.error('Vui lòng nhập số tiền hợp lệ');
             return;
         }
 
         setSubmitting(true);
+        const toastId = toast.loading('Đang tạo mã QR...');
+
         try {
-            await donationApi.donate({
+            const res = await donationApi.initiateDonation({
                 campaign_id: Number(id),
                 amount: Number(donationData.amount),
-                payment_method: donationData.payment_method,
                 note: donationData.note,
                 is_anonymous: donationData.is_anonymous,
             });
 
-            toast.success('Đóng góp thành công! Cảm ơn bạn đã chung tay.');
-            setDonateOpen(false);
-            setDonationData({ amount: '', payment_method: 'Transfer', note: '', is_anonymous: false });
-            fetchData();
+            if (res.data.success) {
+                setQRInfo(res.data.data);
+                setStep('qr');
+                toast.dismiss(toastId);
+            }
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Lỗi khi đóng góp');
+            toast.dismiss(toastId);
+            toast.error(err.response?.data?.message || 'Lỗi khi tạo giao dịch. Vui lòng thử lại.');
         } finally {
             setSubmitting(false);
         }
     };
+
+    const handleCloseModal = () => {
+        setDonateOpen(false);
+        // Reset state after a delay or immediately
+        setTimeout(() => {
+            setStep('input');
+            setQRInfo(null);
+            setDonationData({ amount: '', note: '', is_anonymous: false });
+            setAmountError(false);
+        }, 300);
+    };
+
+    const copyToClipboard = (text: string) => {
+        navigator.clipboard.writeText(text);
+        toast.success('Đã sao chép!');
+    };
+
+
 
     const columns: GridColDef[] = [
         { field: 'stt', headerName: 'STT', width: 60 },
@@ -230,7 +289,6 @@ export default function ResidentFundDetail() {
                     )}
                 </Grid>
             </Grid>
-
             {/* Donations Table */}
             <Paper sx={{ p: 2 }}>
                 <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>📋 Danh sách đóng góp</Typography>
@@ -249,65 +307,193 @@ export default function ResidentFundDetail() {
             </Paper>
 
             {/* Donate Modal */}
-            <Dialog open={donateOpen} onClose={() => setDonateOpen(false)} maxWidth="sm" fullWidth>
+            <Dialog open={donateOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     Đóng góp vào quỹ
-                    <IconButton onClick={() => setDonateOpen(false)} sx={{ position: 'absolute', right: 8, top: 8 }}>
+                    <IconButton onClick={handleCloseModal} sx={{ position: 'absolute', right: 8, top: 8 }}>
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
                 <DialogContent dividers>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                        <TextField
-                            label="Số tiền (VNĐ) *"
-                            type="number"
-                            value={donationData.amount}
-                            onChange={(e) => setDonationData(prev => ({ ...prev, amount: e.target.value }))}
-                            fullWidth
-                            placeholder="Nhập số tiền muốn đóng góp"
-                        />
 
-                        <FormControl>
-                            <FormLabel>Phương thức thanh toán</FormLabel>
-                            <RadioGroup
-                                value={donationData.payment_method}
-                                onChange={(e) => setDonationData(prev => ({ ...prev, payment_method: e.target.value }))}
-                            >
-                                <FormControlLabel value="Transfer" control={<Radio />} label="Chuyển khoản" />
-                                <FormControlLabel value="Cash" control={<Radio />} label="Tiền mặt" />
-                            </RadioGroup>
-                        </FormControl>
+                    {/* STEP 1: INPUT */}
+                    {step === 'input' && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+                            <Alert severity="info" icon={<QrCodeScannerIcon />}>
+                                Bạn cần nhập số tiền và bấm <strong>"Tạo mã QR"</strong> để nhận thông tin chuyển khoản.
+                            </Alert>
 
-                        <TextField
-                            label="Ghi chú"
-                            value={donationData.note}
-                            onChange={(e) => setDonationData(prev => ({ ...prev, note: e.target.value }))}
-                            fullWidth
-                            multiline
-                            rows={2}
-                            placeholder="Lời nhắn (tùy chọn)"
-                        />
+                            <TextField
+                                label="Số tiền (VNĐ) *"
+                                type="number"
+                                value={donationData.amount}
+                                onChange={(e) => {
+                                    setDonationData(prev => ({ ...prev, amount: e.target.value }));
+                                    setAmountError(false);
+                                }}
+                                fullWidth
+                                placeholder="Nhập số tiền muốn đóng góp"
+                                autoFocus
+                                error={amountError}
+                                helperText={amountError ? "Vui lòng nhập số tiền lớn hơn 0" : "Hệ thống sẽ tạo mã QR tương ứng với số tiền này"}
+                            />
 
-                        <FormControlLabel
-                            control={
-                                <Checkbox
-                                    checked={donationData.is_anonymous}
-                                    onChange={(e) => setDonationData(prev => ({ ...prev, is_anonymous: e.target.checked }))}
-                                />
-                            }
-                            label="Ẩn danh (không hiển thị tên trong danh sách công khai)"
-                        />
+                            <FormControl>
+                                <FormLabel>Phương thức thanh toán</FormLabel>
+                                <Box sx={{ p: 1.5, border: '1px solid #ddd', borderRadius: 1, bgcolor: '#f5f5f5', mt: 0.5 }}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <QrCodeScannerIcon color="primary" />
+                                        <Typography variant="body2" fontWeight="medium">Chuyển khoản Ngân hàng (QR Code)</Typography>
+                                    </Stack>
+                                </Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
+                                    * Nếu muốn đóng góp bằng tiền mặt, vui lòng liên hệ trực tiếp Văn phòng Kế toán (Tầng 1 - Tòa A).
+                                </Typography>
+                            </FormControl>
 
-                        <Alert severity="info">
-                            Sau khi đóng góp, số tiền sẽ được ghi nhận và hiển thị trong sao kê.
-                        </Alert>
-                    </Box>
+                            <TextField
+                                label="Ghi chú"
+                                value={donationData.note}
+                                onChange={(e) => setDonationData(prev => ({ ...prev, note: e.target.value }))}
+                                fullWidth
+                                multiline
+                                rows={2}
+                                placeholder="Lời nhắn (tùy chọn)"
+                            />
+
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={donationData.is_anonymous}
+                                        onChange={(e) => setDonationData(prev => ({ ...prev, is_anonymous: e.target.checked }))}
+                                    />
+                                }
+                                label="Ẩn danh (không hiển thị tên trong danh sách công khai)"
+                            />
+                        </Box>
+                    )}
+
+                    {/* STEP 2: QR CODE */}
+                    {step === 'qr' && qRInfo && (
+                        <Grid container spacing={2}>
+                            <Grid size={{ xs: 12 }}>
+                                <Alert severity="warning" sx={{ mb: 2 }}>
+                                    Vui lòng chuyển khoản chính xác <strong>Số tiền</strong> và <strong>Nội dung</strong> dưới đây để hệ thống tự động ghi nhận.
+                                </Alert>
+                            </Grid>
+
+                            {/* QR Image */}
+                            <Grid size={{ xs: 12, sm: 6 }} sx={{ textAlign: 'center' }}>
+                                <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                                    <img
+                                        src={qRInfo.qrUrl}
+                                        alt="QR Code"
+                                        style={{ maxWidth: '100%', borderRadius: 8, border: '1px solid #eee' }}
+                                    />
+                                    <Chip
+                                        icon={<RefreshIcon sx={{ animation: 'spin 1s linear infinite' }} />}
+                                        label="Đang chờ nhận tiền..."
+                                        color="primary"
+                                        size="small"
+                                        sx={{
+                                            position: 'absolute',
+                                            bottom: -15,
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            bgcolor: 'white',
+                                            boxShadow: 2,
+                                            '@keyframes spin': {
+                                                '0%': { transform: 'rotate(0deg)' },
+                                                '100%': { transform: 'rotate(360deg)' }
+                                            }
+                                        }}
+                                    />
+                                </Box>
+                            </Grid>
+
+                            {/* Info */}
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <Stack spacing={2} sx={{ bgcolor: '#fafafa', p: 2, borderRadius: 2 }}>
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" textTransform="uppercase">Ngân hàng</Typography>
+                                        <Typography variant="body1" fontWeight="bold">{qRInfo.bankName}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" textTransform="uppercase">Số tài khoản</Typography>
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Typography variant="h6" fontWeight="bold" sx={{ fontFamily: 'monospace' }}>{qRInfo.accountNo}</Typography>
+                                            <Tooltip title="Sao chép">
+                                                <IconButton size="small" onClick={() => copyToClipboard(qRInfo.accountNo)}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" textTransform="uppercase">Chủ tài khoản</Typography>
+                                        <Typography variant="body1" fontWeight="bold">{qRInfo.accountName}</Typography>
+                                    </Box>
+                                    <Divider />
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" textTransform="uppercase">Số tiền</Typography>
+                                        <Typography variant="h5" color="primary" fontWeight="bold">
+                                            {formatCurrency(qRInfo.amount)}
+                                        </Typography>
+                                    </Box>
+                                    <Box sx={{ bgcolor: '#e3f2fd', p: 1.5, borderRadius: 1, border: '1px dashed #2196f3' }}>
+                                        <Typography variant="caption" color="primary" fontWeight="bold" textTransform="uppercase">Nội dung chuyển khoản (Bắt buộc)</Typography>
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Typography variant="h6" fontWeight="bold" color="primary" sx={{ fontFamily: 'monospace' }}>
+                                                {qRInfo.transferContent}
+                                            </Typography>
+                                            <Tooltip title="Sao chép">
+                                                <IconButton size="small" color="primary" onClick={() => copyToClipboard(qRInfo.transferContent)}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </Box>
+                                </Stack>
+                            </Grid>
+
+
+                        </Grid>
+                    )}
+
+                    {/* STEP 3: SUCCESS */}
+                    {step === 'success' && (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+                            <Typography variant="h5" gutterBottom color="success.main" fontWeight="bold">
+                                Cảm ơn bạn!
+                            </Typography>
+                            <Typography color="text.secondary">
+                                Đóng góp của bạn đã được ghi nhận thành công.
+                            </Typography>
+                        </Box>
+                    )}
+
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDonateOpen(false)}>Hủy</Button>
-                    <Button variant="contained" onClick={handleDonate} disabled={submitting}>
-                        {submitting ? 'Đang xử lý...' : 'Xác nhận đóng góp'}
-                    </Button>
+                <DialogActions sx={{ p: 2 }}>
+                    {step === 'success' ? (
+                        <Button onClick={handleCloseModal} variant="contained" fullWidth size="large">Đóng</Button>
+                    ) : (
+                        <>
+                            <Button onClick={handleCloseModal} color="inherit">
+                                {step === 'qr' ? 'Thoát' : 'Hủy'}
+                            </Button>
+                            {step === 'input' && (
+                                <Button
+                                    variant="contained"
+                                    onClick={handleInitiateDonate}
+                                    disabled={submitting}
+                                    startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : <QrCodeScannerIcon />}
+                                >
+                                    {submitting ? 'Đang tạo mã...' : 'Tạo mã QR & Cú pháp'}
+                                </Button>
+                            )}
+                        </>
+                    )}
                 </DialogActions>
             </Dialog>
         </Box>

@@ -94,7 +94,38 @@ const donationApi = {
 
     // Resident: Donate to campaign
     donate: (data: { campaign_id: number; amount: number; payment_method: string; note?: string; is_anonymous?: boolean }) => {
-        return axiosClient.post<{ success: boolean }>('/donations/donate', data);
+        return axiosClient.post<{ success: boolean; data: Donation }>('/donations/donate', data);
+    },
+
+    // [New] Initiate Donation (Get QR)
+    initiateDonation: (data: { campaign_id: number; amount: number; note?: string; is_anonymous?: boolean }) => {
+        return axiosClient.post<{
+            success: boolean;
+            data: {
+                tempId: string;
+                qrUrl: string;
+                bankName: string;
+                accountNo: string;
+                accountName: string;
+                amount: number;
+                transferContent: string;
+            }
+        }>('/donations/initiate', data);
+    },
+
+    // [New] Check Donation Status
+    checkStatus: (tempId: string) => {
+        return axiosClient.get<{
+            success: boolean;
+            isPaid: boolean;
+            status: string;
+            realDonationId?: number
+        }>(`/donations/status/${tempId}`);
+    },
+
+    // [New] Simulate Payment (Dev)
+    simulatePayment: (tempId: string) => {
+        return axiosClient.post<{ success: boolean; data: Donation }>(`/donations/simulate/${tempId}`);
     },
 
     // Resident: Get my donation history

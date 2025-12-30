@@ -65,6 +65,29 @@ router.get('/me/history',
 );
 
 /**
+ * [NEW] Bắt đầu quyên góp (Lấy QR)
+ */
+router.post('/initiate',
+    checkAuth,
+    checkRole(['resident']),
+    donationController.initiateDonation
+);
+
+/**
+ * [NEW] Kiểm tra trạng thái đóng góp
+ */
+router.get('/status/:tempId',
+    donationController.checkDonationStatus
+);
+
+/**
+ * [NEW] Giả lập thanh toán (DEV)
+ */
+router.post('/simulate/:tempId',
+    donationController.simulateDonation
+);
+
+/**
  * Xem danh sách các đợt quyên góp
  * (Để hiển thị ra trang chủ App)
  */

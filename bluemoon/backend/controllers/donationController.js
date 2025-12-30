@@ -10,6 +10,9 @@ const getResidentIdFromUser = async (userId) => {
     return rows.length > 0 ? rows[0].id : null;
 };
 
+// Map lưu trữ các giao dịch đang chờ thanh toán (DEPRECATED - Moved to DB table pending_donations)
+// const pendingDonations = new Map();
+
 const donationController = {
 
     // ==========================================
@@ -130,7 +133,7 @@ const donationController = {
 
     /**
      * [POST] /api/donations/donate
-     * Cư dân tự quyên góp qua App
+     * (LEGACY) Cư dân tự quyên góp qua App - Flow cũ
      */
     donate: async (req, res) => {
         try {
@@ -146,16 +149,13 @@ const donationController = {
                 return res.status(400).json({ message: 'Quỹ này đã đóng, không thể quyên góp thêm.' });
             }
 
-            // 3. Giả lập thanh toán (Trong thực tế sẽ gọi VNPay/Momo ở đây)
-            // Nếu thanh toán OK mới chạy tiếp dòng dưới.
-
             // 4. Ghi nhận
             const newDonation = await Donation.createDonation({
                 campaign_id,
                 resident_id: residentId,
                 amount,
                 payment_method: 'AppPayment',
-                recorded_by: req.user.id, // ID Cư dân tự thao tác
+                recorded_by: req.user.id,
                 note,
                 is_anonymous
             });
@@ -167,6 +167,148 @@ const donationController = {
             });
 
         } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    // ==========================================
+    // 4. THANH TOÁN QR (NEW FLOW) - UPDATED TO USE DB
+    // ==========================================
+
+    /**
+     * [POST] /api/donations/initiate
+     * Bắt đầu quyên góp -> Trả về QR Code
+     * (Lưu transaction vào DB pending_donations)
+     */
+    initiateDonation: async (req, res) => {
+        try {
+            const { campaign_id, amount, note, is_anonymous } = req.body;
+            const residentId = await getResidentIdFromUser(req.user.id);
+            if (!residentId) return res.status(403).json({ message: 'Bạn chưa có hồ sơ cư dân.' });
+
+            // Kiểm tra quỹ
+            const campaign = await Donation.getCampaignById(campaign_id);
+            if (!campaign || campaign.status !== 'Active') {
+                return res.status(400).json({ message: 'Quỹ này đã đóng, không thể quyên góp thêm.' });
+            }
+
+            // Tạo mã giao dịch tạm
+            // Format: QG + Timestamp
+            const tempId = `QG${Date.now()}`;
+            const transferContent = `${tempId}`; // Nội dung CK
+
+            // Lưu vào DB pending_donations
+            const sqlInsert = `
+                INSERT INTO pending_donations 
+                (temp_id, campaign_id, resident_id, amount, note, is_anonymous, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending')
+            `;
+            await db.execute(sqlInsert, [tempId, campaign_id, residentId, amount, note, is_anonymous || false]);
+
+            // Bank Config (Simulated)
+            const bankConfig = {
+                bankId: 'MB',
+                bankCode: '970422',
+                accountNo: 'LE HOANG PHUONG LINH', // Changed per user request screenshot logic perhaps? No, user screenshot shows this name.
+                accountName: 'LE HOANG PHUONG LINH',
+                accountNoNum: '016785366886', // Keeping data consistent
+                template: 'compact2'
+            };
+
+            // QR Icon (Map tới file tĩnh)
+            const qrUrl = '/qr-mbbank.png';
+
+            res.json({
+                success: true,
+                data: {
+                    tempId,
+                    qrUrl,
+                    bankName: 'MB Bank',
+                    accountNo: bankConfig.accountNoNum,
+                    accountName: bankConfig.accountName,
+                    amount,
+                    transferContent,
+                    campaignTitle: campaign.title
+                }
+            });
+
+        } catch (error) {
+            console.error('Initiate Donation Error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [GET] /api/donations/status/:tempId
+     * Kiểm tra trạng thái đóng góp (Polling từ DB)
+     */
+    checkDonationStatus: async (req, res) => {
+        try {
+            const { tempId } = req.params;
+
+            // Check DB table
+            const [rows] = await db.execute(`SELECT * FROM pending_donations WHERE temp_id = ?`, [tempId]);
+            const record = rows[0];
+
+            if (!record) {
+                return res.json({ success: true, isPaid: false, status: 'not_found' });
+            }
+
+            if (record.status === 'completed') {
+                return res.json({ success: true, isPaid: true, status: 'completed' });
+            }
+
+            res.json({ success: true, isPaid: false, status: 'pending' });
+
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [POST] /api/donations/simulate/:tempId
+     * Giả lập thanh toán thành công (Triggered by button/dev tool)
+     */
+    simulateDonation: async (req, res) => {
+        try {
+            const { tempId } = req.params;
+
+            // Get pending record
+            const [rows] = await db.execute(`SELECT * FROM pending_donations WHERE temp_id = ?`, [tempId]);
+            const record = rows[0];
+
+            if (!record) {
+                return res.status(404).json({ message: 'Không tìm thấy giao dịch chờ.' });
+            }
+
+            if (record.status === 'completed') {
+                return res.json({ success: true, message: 'Giao dịch này đã được xử lý trước đó.' });
+            }
+
+            // Tạo Donation thật trong DB (chính thức ghi nhận)
+            const newDonation = await Donation.createDonation({
+                campaign_id: record.campaign_id,
+                resident_id: record.resident_id,
+                amount: record.amount,
+                payment_method: 'Transfer',
+                recorded_by: req.user ? req.user.id : null,
+                note: record.note,
+                is_anonymous: record.is_anonymous
+            });
+
+            // Update status pending -> completed
+            await db.execute(`UPDATE pending_donations SET status = 'completed' WHERE temp_id = ?`, [tempId]);
+
+            console.log(`[Simulate] Completed donation ${tempId} -> Real ID: ${newDonation.id}`);
+
+            res.json({
+                success: true,
+                message: 'Đã giả lập thanh toán thành công!',
+                data: newDonation
+            });
+
+        } catch (error) {
+            console.error('Simulate Donation Error:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     },

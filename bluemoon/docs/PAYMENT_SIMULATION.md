@@ -76,4 +76,32 @@ curl -X POST "http://localhost:3000/api/payment/webhook" -H "Content-Type: appli
 
 ---
 
-*Cập nhật lần cuối: 08/12/2024*
+## Giả lập Đóng góp Quỹ (Donation)
+
+Tương tự như thanh toán hóa đơn, luồng đóng góp quỹ cũng sử dụng QR code và polling để kiểm tra trạng thái.
+
+### Quy trình:
+
+1.  Cư dân vào trang chi tiết quỹ -> Chọn "Đóng góp ngay".
+2.  Nhập số tiền -> Bấm "Tạo mã QR".
+3.  Lấy mã giao dịch (Transfer Content) hiển thị trên màn hình (ví dụ: `QG1735598270123`).
+
+### Cách giả lập thanh toán (Command Line):
+
+Chạy lệnh sau trong Terminal/PowerShell:
+
+```powershell
+curl -X POST "http://localhost:3000/api/donations/simulate/MA_GIAO_DICH"
+```
+
+**Ví dụ:**
+
+```powershell
+curl -X POST "http://localhost:3000/api/donations/simulate/QG1735598270123"
+```
+
+⚠️ Lưu ý: Hệ thống donation sử dụng bảng `pending_donations` trong DB để lưu trạng thái giao dịch tạm thời (khác với `pendingPayments` map in-memory của phần thanh toán hóa đơn).
+
+---
+
+*Cập nhật lần cuối: 01/01/2026*

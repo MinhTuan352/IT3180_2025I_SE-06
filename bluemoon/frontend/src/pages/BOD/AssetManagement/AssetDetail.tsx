@@ -240,7 +240,6 @@ export default function AssetDetail() {
                 <HistoryIcon color="primary" sx={{ mr: 1 }} />
                 <Typography variant="h6">Lịch sử Bảo trì / Sửa chữa</Typography>
               </Box>
-              <Button size="small" variant="outlined">Ghi nhận mới</Button>
             </Box>
 
             {history.length > 0 ? (

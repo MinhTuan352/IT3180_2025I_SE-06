@@ -36,7 +36,7 @@ const assetController = {
             if (!asset_code) {
                 asset_code = await idGenerator.generateIncrementalId('assets', 'TS', 'asset_code', 3);
             }
-            
+
             // [FIX REQ 27] Status mặc định xử lý bên Model rồi, nhưng check ở đây cho chắc
             const status = req.body.status || 'Đang hoạt động';
 
@@ -69,6 +69,37 @@ const assetController = {
 
             const updatedAsset = await Asset.update(id, req.body);
 
+            // [MỚI] Nếu có next_maintenance, tạo lịch trong maintenance_schedules để cronJob quét
+            if (req.body.next_maintenance) {
+                try {
+                    // Kiểm tra xem đã có lịch cho ngày này chưa
+                    const [existing] = await db.execute(
+                        `SELECT id FROM maintenance_schedules 
+                         WHERE asset_id = ? AND scheduled_date = ? AND status = 'Lên lịch'`,
+                        [id, req.body.next_maintenance]
+                    );
+
+                    if (existing.length === 0) {
+                        // Tạo lịch bảo trì mới
+                        await db.execute(
+                            `INSERT INTO maintenance_schedules 
+                             (asset_id, title, description, scheduled_date, status)
+                             VALUES (?, ?, ?, ?, 'Lên lịch')`,
+                            [
+                                id,
+                                `Bảo trì định kỳ - ${oldAsset.name}`,
+                                `Lịch bảo trì được lập từ trang chi tiết tài sản`,
+                                req.body.next_maintenance
+                            ]
+                        );
+                        console.log(`📅 [ASSET] Đã tạo lịch bảo trì cho tài sản ${oldAsset.name} vào ngày ${req.body.next_maintenance}`);
+                    }
+                } catch (scheduleErr) {
+                    console.error('Lỗi tạo lịch bảo trì:', scheduleErr.message);
+                    // Không throw lỗi, vẫn cho update asset thành công
+                }
+            }
+
             AuditLog.create({
                 user_id: req.user.id,
                 action_type: 'UPDATE',
@@ -99,8 +130,8 @@ const assetController = {
             // 2. [QUAN TRỌNG] Kiểm tra xem có lịch sử bảo trì không
             // Hàm findById trong Model đã trả về mảng maintenance_history
             if (oldAsset.maintenance_history && oldAsset.maintenance_history.length > 0) {
-                return res.status(400).json({ 
-                    message: `Không thể xóa tài sản này vì đang có ${oldAsset.maintenance_history.length} bản ghi lịch sử bảo trì.` 
+                return res.status(400).json({
+                    message: `Không thể xóa tài sản này vì đang có ${oldAsset.maintenance_history.length} bản ghi lịch sử bảo trì.`
                 });
             }
 
@@ -161,10 +192,10 @@ const assetController = {
             if (schedule.status === 'Hoàn thành') throw new Error('Lịch này đã hoàn thành rồi.');
 
             // 2. Cập nhật thành Hoàn thành (Lưu Snapshot tại dòng này)
-            await Asset.completeMaintenance(scheduleId, { 
-                completed_date: completed_date || new Date(), 
-                cost: cost || 0, 
-                note 
+            await Asset.completeMaintenance(scheduleId, {
+                completed_date: completed_date || new Date(),
+                cost: cost || 0,
+                note
             }, connection);
 
             // 3. Nếu là lặp lại (is_recurring) -> Tạo dòng mới cho tương lai
@@ -178,11 +209,11 @@ const assetController = {
                     VALUES (?, ?, ?, ?, ?, 'Lên lịch', 1, ?)
                 `;
                 await connection.execute(queryNew, [
-                    schedule.asset_id, 
-                    schedule.title, 
-                    schedule.description, 
-                    nextDate, 
-                    schedule.technician_name, 
+                    schedule.asset_id,
+                    schedule.title,
+                    schedule.description,
+                    nextDate,
+                    schedule.technician_name,
                     schedule.recurring_interval
                 ]);
             }

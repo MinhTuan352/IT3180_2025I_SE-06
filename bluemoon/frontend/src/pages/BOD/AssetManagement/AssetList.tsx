@@ -90,7 +90,7 @@ export default function AssetList() {
       name: '',
       description: '',
       location: '',
-      status: 'Hoạt động',
+      status: 'Đang hoạt động',
       next_maintenance: null
     });
     setOpenDialog(true);
@@ -139,7 +139,32 @@ export default function AssetList() {
 
   // --- EXPORT REPORT ---
   const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(assets);
+    // Format dữ liệu với tên cột tiếng Việt và format giá trị
+    const dataToExport = assets.map((asset) => ({
+      'Mã TS': asset.asset_code,
+      'Tên Tài sản': asset.name,
+      'Mô tả / Loại': asset.description || '',
+      'Vị trí': asset.location || '',
+      'Trạng thái': asset.status,
+      'Giá trị (VNĐ)': asset.price ? new Intl.NumberFormat('vi-VN').format(asset.price) : '---',
+      'Ngày mua': asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString('vi-VN') : '---',
+      'Lịch bảo trì tới': formatDate(asset.next_maintenance),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 10 }, // Mã TS
+      { wch: 25 }, // Tên
+      { wch: 20 }, // Mô tả
+      { wch: 15 }, // Vị trí
+      { wch: 15 }, // Trạng thái
+      { wch: 15 }, // Giá trị
+      { wch: 12 }, // Ngày mua
+      { wch: 15 }, // Lịch bảo trì
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DanhSachTaiSan');
     XLSX.writeFile(wb, 'BaoCaoTaiSan.xlsx');
@@ -285,7 +310,7 @@ export default function AssetList() {
                 value={currentAsset.status}
                 onChange={handleChange}
               >
-                <MenuItem value="Hoạt động">Hoạt động</MenuItem>
+                <MenuItem value="Đang hoạt động">Đang hoạt động</MenuItem>
                 <MenuItem value="Đang bảo trì">Đang bảo trì</MenuItem>
                 <MenuItem value="Hỏng">Hỏng</MenuItem>
               </TextField>

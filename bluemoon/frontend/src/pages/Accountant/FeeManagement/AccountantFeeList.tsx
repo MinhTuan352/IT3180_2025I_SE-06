@@ -715,8 +715,9 @@ export default function AccountantFeeList() {
                   fullWidth
                   label="Số tiền (VNĐ)"
                   type="number"
+                  inputProps={{ min: 0 }}
                   value={newFee.total_amount}
-                  onChange={(e) => setNewFee({ ...newFee, total_amount: Number(e.target.value) })}
+                  onChange={(e) => setNewFee({ ...newFee, total_amount: Math.max(0, Number(e.target.value)) })}
                 />
               </Grid>
 

@@ -307,8 +307,9 @@ export default function AccountantFeeInvoice() {
             type="number"
             fullWidth
             sx={{ mt: 2 }}
+            inputProps={{ min: 0 }}
             value={payAmount}
-            onChange={(e) => setPayAmount(Number(e.target.value))}
+            onChange={(e) => setPayAmount(Math.max(0, Number(e.target.value)))}
           />
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Phương thức</InputLabel>

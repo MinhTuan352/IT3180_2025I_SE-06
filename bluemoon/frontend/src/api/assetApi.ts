@@ -15,33 +15,39 @@ export interface Asset {
     image?: string;
 }
 
+
 const assetApi = {
-    // Get all assets (for BOD/Accountant)
+    // Lấy toàn bộ danh sách tài sản (dành cho BOD/Kế toán)
     getAll: () => {
         return axiosClient.get('/assets');
     },
 
-    // Get assets for Resident (Read-only)
+    // Lấy danh sách tài sản cho Cư dân (Chỉ xem)
     getForResident: () => {
         return axiosClient.get('/assets/resident');
     },
 
-    // Get asset detail by ID
+    // Lấy chi tiết tài sản theo ID
     getDetail: (id: number) => {
         return axiosClient.get(`/assets/${id}`);
     },
 
-    // Create new asset
+    // Lấy lịch sử bảo trì của tài sản
+    getMaintenanceHistory: (id: number) => {
+        return axiosClient.get(`/assets/${id}/maintenance-history`);
+    },
+
+    // Tạo tài sản mới
     create: (data: Asset) => {
         return axiosClient.post('/assets', data);
     },
 
-    // Update asset
+    // Cập nhật thông tin tài sản
     update: (id: number, data: Asset) => {
         return axiosClient.put(`/assets/${id}`, data);
     },
 
-    // Delete asset
+    // Xóa tài sản
     delete: (id: number) => {
         return axiosClient.delete(`/assets/${id}`);
     }

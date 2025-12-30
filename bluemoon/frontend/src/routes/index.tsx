@@ -80,6 +80,7 @@ import VehicleList from '../pages/BOD/AccessControl/VehicleList';
 import AccessReport from '../pages/BOD/AccessControl/AccessReport';
 import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
 import CQCNDashboard from '../pages/CQCN/Dashboard/CQCNDashboard';
+import APIReport from '../pages/Admin/APIReport';
 
 export default function AppRoutes() {
   return (
@@ -165,6 +166,9 @@ export default function AppRoutes() {
 
             {/* Review Management */}
             <Route path="bod/reviews" element={<BODReviewList />} />
+
+            {/* API Report */}
+            <Route path="admin/api-report" element={<APIReport />} />
 
             {/* ... các route bod khác ... */}
           </Route>

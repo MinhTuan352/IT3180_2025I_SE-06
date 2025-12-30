@@ -13,24 +13,23 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Autocomplete, // <-- Để chọn Cư dân
+  Autocomplete,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Divider,
   Card,
+  CircularProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-
-// Mock danh sách cư dân (Thay bằng API)
-const mockResidents = [
-  { id: 'R0001', name: 'Trần Văn Hộ', apartment: 'A-101' },
-  { id: 'R0002', name: 'Lê Gia Đình', apartment: 'B-205' },
-];
+import toast from 'react-hot-toast';
+import { residentApi } from '../../../api/residentApi';
+import type { Resident } from '../../../api/residentApi';
+import feeApi from '../../../api/feeApi'; // feeApi is default export object
 
 // Định nghĩa kiểu cho một dòng trong bảng chi tiết
 interface InvoiceItem {
@@ -44,10 +43,41 @@ interface InvoiceItem {
 
 export default function AccountantFeeInvoiceCreate() {
   const navigate = useNavigate();
-  const [setSelectedResident] = useState<any>(null);
+
+  // State data
+  const [residents, setResidents] = useState<Resident[]>([]);
+  const [loadingResidents, setLoadingResidents] = useState(false);
+
+  // Form State
+  const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
+  const [kyHieu, setKyHieu] = useState('BM/23E');
+  const [soHD, setSoHD] = useState('');
+  const [ngayHD, setNgayHD] = useState(new Date().toISOString().split('T')[0]);
+  const [hinhThucTT, setHinhThucTT] = useState('Chuyển khoản');
+  const [trangThai, setTrangThai] = useState('Chưa thanh toán');
+
   const [items, setItems] = useState<InvoiceItem[]>([
     { id: 1, name: '', dvt: '', sl: 1, don_gia: 0, thanh_tien: 0 } // Bắt đầu với 1 dòng trống
   ]);
+
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch Residents on mount
+  useEffect(() => {
+    const fetchResidents = async () => {
+      try {
+        setLoadingResidents(true);
+        const data = await residentApi.getAll({ status: 'Đang sinh sống' });
+        setResidents(data);
+      } catch (error) {
+        console.error('Error fetching residents:', error);
+        toast.error('Không thể tải danh sách cư dân');
+      } finally {
+        setLoadingResidents(false);
+      }
+    };
+    fetchResidents();
+  }, []);
 
   // --- Logic thêm/xóa/sửa dòng ---
   const handleAddItem = () => {
@@ -77,25 +107,56 @@ export default function AccountantFeeInvoiceCreate() {
   // --- Tính tổng tiền ---
   const totalAmount = items.reduce((sum, item) => sum + item.thanh_tien, 0);
 
-  // (Hàm chuyển số thành chữ - Bạn có thể tìm thư viện hoặc tự viết)
+  // (Hàm chuyển số thành chữ - Placeholder đơn giản)
   const numberToWords = (num: number): string => {
     if (num === 0) return 'Không đồng';
-    // ... (logic chuyển đổi phức tạp) ...
-    return `${num.toLocaleString('vi-VN')} đồng`; // Placeholder
+    return `${new Intl.NumberFormat('vi-VN').format(num)} đồng`;
   }
   const totalInWords = numberToWords(totalAmount);
 
 
   // --- Logic Tạo Hóa đơn ---
-  const handleCreateInvoice = () => {
-    // 1. Thu thập dữ liệu từ state (selectedResident, items, totalAmount, totalInWords...)
-    // 2. Gọi API để lưu hóa đơn
-    // 3. Xử lý kết quả (thành công/thất bại)
-    alert('Đã tạo Hóa đơn (Giả lập)');
-    // Chuyển hướng về trang danh sách
-    navigate('/accountance/fee/list');
-    // Hoặc lý tưởng hơn là lấy ID hóa đơn mới trả về và chuyển sang trang chi tiết
-    // navigate(`/accountance/fee/list/invoice/${newInvoiceId}`);
+  const handleCreateInvoice = async () => {
+    if (!selectedResident) {
+      toast.error('Vui lòng chọn Cư dân / Căn hộ');
+      return;
+    }
+    if (items.length === 0 || totalAmount === 0) {
+      toast.error('Vui lòng nhập chi tiết hóa đơn');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Construct payload match with Backend API expectation
+      const payload = {
+        resident_id: selectedResident.id,
+        apartment_id: selectedResident.apartment_id,
+        fee_type_id: 1, // Mặc định phí quản lý hoặc để user chọn
+        description: items.map(i => `${i.name} (${i.sl} ${i.dvt})`).join(', '),
+        billing_period: `${new Date(ngayHD).getMonth() + 1}/${new Date(ngayHD).getFullYear()}`,
+        due_date: new Date(new Date(ngayHD).setDate(new Date(ngayHD).getDate() + 7)).toISOString(), // Hạn 7 ngày
+        items: items.map(i => ({
+          item_name: i.name,
+          unit: i.dvt,
+          quantity: i.sl,
+          unit_price: i.don_gia,
+          amount: i.thanh_tien
+        })),
+        total_amount: totalAmount,
+        status: trangThai,
+        payment_method: hinhThucTT
+      };
+
+      await feeApi.create(payload);
+      toast.success('Tạo hóa đơn thành công!');
+      navigate('/accountance/fee/list');
+    } catch (error: any) {
+      console.error('Create invoice error:', error);
+      toast.error(error.response?.data?.message || 'Có lỗi khi tạo hóa đơn');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -113,23 +174,41 @@ export default function AccountantFeeInvoiceCreate() {
               <Grid size={{ xs: 12, sm: 4 }}>
                 {/* Chọn Cư dân */}
                 <Autocomplete
-                  options={mockResidents}
-                  getOptionLabel={(option) => `${option.apartment} - ${option.name}`}
+                  options={residents}
+                  loading={loadingResidents}
+                  getOptionLabel={(option) => `${option.apartment_code || 'N/A'} - ${option.full_name}`}
                   onChange={(_, newValue) => setSelectedResident(newValue)}
-                  renderInput={(params) => <TextField {...params} label="Chọn Căn hộ/Chủ hộ" />}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Chọn Căn hộ/Chủ hộ"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loadingResidents ? <CircularProgress color="inherit" size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Ký hiệu HĐ"
                   fullWidth
-                  defaultValue="BM/23E"
+                  value={kyHieu}
+                  onChange={(e) => setKyHieu(e.target.value)}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Số HĐ"
                   fullWidth
+                  value={soHD}
+                  onChange={(e) => setSoHD(e.target.value)}
                   placeholder="Để trống để tự tạo"
                 />
               </Grid>
@@ -138,14 +217,19 @@ export default function AccountantFeeInvoiceCreate() {
                   label="Ngày HĐ"
                   type="date"
                   fullWidth
-                  defaultValue={new Date().toISOString().split('T')[0]}
+                  value={ngayHD}
+                  onChange={(e) => setNgayHD(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>Hình thức TT</InputLabel>
-                  <Select label="Hình thức TT" defaultValue="Chuyển khoản">
+                  <Select
+                    label="Hình thức TT"
+                    value={hinhThucTT}
+                    onChange={(e) => setHinhThucTT(e.target.value)}
+                  >
                     <MenuItem value="Chuyển khoản">Chuyển khoản</MenuItem>
                     <MenuItem value="Tiền mặt">Tiền mặt</MenuItem>
                     <MenuItem value="Khác">Khác</MenuItem>
@@ -155,7 +239,11 @@ export default function AccountantFeeInvoiceCreate() {
               <Grid size={{ xs: 12, sm: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>Trạng thái HĐ</InputLabel>
-                  <Select label="Trạng thái HĐ" defaultValue="Chưa thanh toán">
+                  <Select
+                    label="Trạng thái HĐ"
+                    value={trangThai}
+                    onChange={(e) => setTrangThai(e.target.value)}
+                  >
                     <MenuItem value="Chưa thanh toán">Chưa thanh toán</MenuItem>
                     <MenuItem value="Đã thanh toán">Đã thanh toán</MenuItem>
                     <MenuItem value="Đã hủy">Đã hủy</MenuItem>
@@ -248,7 +336,6 @@ export default function AccountantFeeInvoiceCreate() {
               <Typography sx={{ mr: 2, fontWeight: 'bold' }}>Tổng tiền hàng:</Typography>
               <Typography variant="h6">{totalAmount.toLocaleString('vi-VN')} đ</Typography>
             </Box>
-            {/* (Thêm Thuế nếu cần) */}
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
               <Typography sx={{ mr: 2, fontWeight: 'bold' }}>Tổng cộng tiền thanh toán:</Typography>
               <Typography variant="h6">{totalAmount.toLocaleString('vi-VN')} đ</Typography>
@@ -266,8 +353,13 @@ export default function AccountantFeeInvoiceCreate() {
 
       {/* Nút Tạo */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-        <Button variant="contained" size="large" onClick={handleCreateInvoice}>
-          Tạo Hóa đơn
+        <Button
+          variant="contained"
+          size="large"
+          onClick={handleCreateInvoice}
+          disabled={submitting}
+        >
+          {submitting ? 'Đang tạo...' : 'Tạo Hóa đơn'}
         </Button>
       </Box>
     </Paper>

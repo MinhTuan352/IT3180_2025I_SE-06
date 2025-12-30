@@ -90,13 +90,22 @@ const residentController = {
         try {
             await connection.beginTransaction();
 
-            const {
-                apartment_id, role, full_name,
-                dob, gender, cccd, phone, email,
-                hometown, occupation, relationship_with_owner,
-                identity_date, identity_place,
-                username, password
-            } = req.body;
+            const body = req.body;
+            const apartment_id = body.apartment_id;
+            const role = body.role;
+            const full_name = body.full_name?.trim();
+            const dob = body.dob || null;
+            const gender = body.gender;
+            const cccd = body.cccd?.trim() || null;
+            const phone = body.phone?.trim() || null;
+            const email = body.email?.trim() || null;
+            const hometown = body.hometown?.trim();
+            const occupation = body.occupation?.trim();
+            const relationship_with_owner = body.relationship_with_owner?.trim();
+            const identity_date = body.identity_date || null;
+            const identity_place = body.identity_place?.trim();
+            const username = body.username?.trim();
+            const password = body.password;
 
             // [CHECK 1] Single Owner Rule
             if (role === 'owner') {

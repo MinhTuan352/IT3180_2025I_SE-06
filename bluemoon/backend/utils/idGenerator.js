@@ -2,19 +2,22 @@
 const db = require('../config/db');
 
 const idGenerator = {
-    
+
     /**
      * 1. SINH ID TĂNG DẦN (Incremental)
      */
-    generateIncrementalId: async (table, prefix, colName = 'id', length = 4) => {
+    generateIncrementalId: async (table, prefix, colName = 'id', length = 4, connection = null) => {
         try {
+            // Sử dụng REGEXP để chỉ lấy các ID đúng định dạng (VD: R0001) và bỏ qua rác (VD: R_OLD_453)
             const query = `
                 SELECT ${colName} FROM ${table} 
-                WHERE ${colName} LIKE '${prefix}%' 
+                WHERE ${colName} REGEXP '^${prefix}[0-9]+$'
                 ORDER BY LENGTH(${colName}) DESC, ${colName} DESC 
                 LIMIT 1
             `;
-            const [rows] = await db.execute(query);
+            const dbConn = connection || db;
+            const [rows] = await dbConn.execute(query);
+            console.log(`[ID-GEN] Found max ID for ${table}:`, rows.length > 0 ? rows[0][colName] : 'None');
 
             let nextNum = 1;
             if (rows.length > 0) {
@@ -27,7 +30,7 @@ const idGenerator = {
             return `${prefix}${String(nextNum).padStart(length, '0')}`;
         } catch (error) {
             console.error(`Error generating ID for ${table}:`, error);
-            return `${prefix}${Date.now()}`; 
+            return `${prefix}${Date.now()}`;
         }
     },
 
@@ -40,8 +43,8 @@ const idGenerator = {
             const dd = String(now.getDate()).padStart(2, '0');
             const mm = String(now.getMonth() + 1).padStart(2, '0');
             const yyyy = now.getFullYear();
-            const dateStr = `${dd}${mm}${yyyy}`; 
-            const baseSearch = `${prefix}-${dateStr}-`; 
+            const dateStr = `${dd}${mm}${yyyy}`;
+            const baseSearch = `${prefix}-${dateStr}-`;
 
             const query = `
                 SELECT ${colName} FROM ${table} 
@@ -54,7 +57,7 @@ const idGenerator = {
             let seq = 1;
             if (rows.length > 0) {
                 const currentId = rows[0][colName];
-                const seqPart = currentId.split('-').pop(); 
+                const seqPart = currentId.split('-').pop();
                 if (!isNaN(seqPart)) {
                     seq = parseInt(seqPart) + 1;
                 }
@@ -77,7 +80,7 @@ const idGenerator = {
             // 1. Chuẩn hóa format cơ sở
             const cleanPeriod = billingPeriod.replace(/[^0-9]/g, '');
             const formattedPeriod = cleanPeriod.length === 5 ? '0' + cleanPeriod : cleanPeriod;
-            
+
             // Base ID: VD: PD-A101-012026
             const baseId = `${feeCode}-${aptCode}-${formattedPeriod}`;
 
@@ -101,7 +104,7 @@ const idGenerator = {
 
             for (const row of rows) {
                 const currentId = row.id;
-                
+
                 if (currentId === baseId) {
                     hasExactMatch = true;
                     continue;

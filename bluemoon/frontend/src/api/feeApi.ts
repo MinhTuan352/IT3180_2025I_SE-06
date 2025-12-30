@@ -61,6 +61,11 @@ const feeApi = {
         return axiosClient.get(`/fees/${id}`);
     },
 
+    // Xóa hóa đơn
+    delete: (id: string) => {
+        return axiosClient.delete(`/fees/${id}`);
+    },
+
     getTypes: () => {
         return axiosClient.get('/fees/types');
     },

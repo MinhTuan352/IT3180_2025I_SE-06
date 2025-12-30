@@ -110,4 +110,10 @@ router.post('/:id/remind',
     feeController.sendReminder
 );
 
+// [MỚI] Xóa hóa đơn (Chỉ BOD được phép xóa)
+router.delete('/:id',
+    checkRole(['bod']),
+    feeController.deleteInvoice
+);
+
 module.exports = router;

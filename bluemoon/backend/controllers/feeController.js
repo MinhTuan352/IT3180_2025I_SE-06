@@ -214,6 +214,58 @@ const feeController = {
     },
 
     /**
+     * Xóa hóa đơn
+     * DELETE /api/fees/:id
+     * Chỉ BOD được phép xóa
+     */
+    deleteInvoice: async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            // Lấy thông tin hóa đơn để ghi log
+            const [oldData] = await db.execute('SELECT * FROM fees WHERE id = ?', [id]);
+            if (oldData.length === 0) {
+                return res.status(404).json({ message: 'Hóa đơn không tồn tại.' });
+            }
+
+            // Xóa các items liên quan trước (nếu có bảng fee_items)
+            try {
+                await db.execute('DELETE FROM fee_items WHERE fee_id = ?', [id]);
+            } catch (itemErr) {
+                // Bỏ qua nếu bảng không tồn tại
+                console.log('Note: fee_items table may not exist or no items to delete');
+            }
+
+            // Xóa hóa đơn
+            await db.execute('DELETE FROM fees WHERE id = ?', [id]);
+
+            // Ghi Audit Log
+            AuditLog.create({
+                user_id: req.user.id,
+                action_type: 'DELETE',
+                entity_name: 'fees',
+                entity_id: id,
+                old_values: oldData[0],
+                new_values: null,
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent']
+            });
+
+            res.json({ success: true, message: 'Đã xóa hóa đơn thành công.' });
+
+        } catch (error) {
+            // Xử lý lỗi ràng buộc khóa ngoại
+            if (error.errno === 1451) {
+                return res.status(400).json({
+                    message: 'Không thể xóa hóa đơn này vì có dữ liệu liên quan (thanh toán, lịch sử...).'
+                });
+            }
+            console.error('Delete Invoice Error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
      * Cập nhật loại phí
      */
     updateFeeType: async (req, res) => {

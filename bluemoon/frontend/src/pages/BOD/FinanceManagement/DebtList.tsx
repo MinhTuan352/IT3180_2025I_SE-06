@@ -32,12 +32,14 @@ import * as XLSX from 'xlsx';
 import {
     DataGrid,
     type GridColDef,
+    type GridRowSelectionModel,
 } from '@mui/x-data-grid';
 
 // Icons
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import PrintIcon from '@mui/icons-material/Print';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
 import feeApi, { type Fee, type FeeItem } from '../../../api/feeApi';
@@ -101,6 +103,11 @@ export default function FeeList() {
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- BULK SELECTION STATE ---
+    const [selectionModel, setSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
+    const selectedIds = Array.from(selectionModel.ids);
+    const [deleting, setDeleting] = useState(false);
 
     // --- FETCH DATA ---
     useEffect(() => {
@@ -198,7 +205,13 @@ export default function FeeList() {
     };
 
     const handleExport = () => {
-        const dataToExport = fees.map(fee => ({
+        // Export all or selected items
+        let dataToProcess = fees;
+        if (selectedIds.length > 0) {
+            dataToProcess = fees.filter(fee => selectedIds.includes(fee.id));
+        }
+
+        const dataToExport = dataToProcess.map(fee => ({
             'Mã HĐ': fee.id,
             'Căn hộ': fee.apartment_code || fee.apartment_id,
             'Người TT': fee.resident_name || '',
@@ -217,6 +230,45 @@ export default function FeeList() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'DanhSachCongNo');
         XLSX.writeFile(wb, 'DanhSachCongNo.xlsx');
+    };
+
+    // --- BULK ACTIONS ---
+    const handleBulkDelete = async () => {
+        if (selectedIds.length === 0) return;
+
+        if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} công nợ đã chọn?`)) return;
+
+        setDeleting(true);
+        let successCount = 0;
+        let failCount = 0;
+        const errors: string[] = [];
+
+        for (const id of selectedIds) {
+            try {
+                await feeApi.delete(String(id));
+                successCount++;
+            } catch (err: any) {
+                failCount++;
+                const feeInfo = fees.find(f => f.id === id);
+                const feeName = feeInfo ? feeInfo.id : id;
+                console.error(`Failed to delete ${id}:`, err);
+                errors.push(`${feeName}: ${err.response?.data?.message || 'Lỗi không xác định'}`);
+            }
+        }
+
+        setDeleting(false);
+        setSelectionModel({ type: 'include', ids: new Set() });
+
+        if (failCount === 0) {
+            setSnackbar({ open: true, message: `Đã xóa thành công ${successCount} công nợ.`, severity: 'success' });
+            fetchFees();
+        } else {
+            setSnackbar({ open: true, message: `Đã xóa ${successCount}. Thất bại ${failCount}.`, severity: 'warning' });
+            if (errors.length > 0) {
+                console.warn('Delete Errors:', errors);
+            }
+            fetchFees();
+        }
     };
 
     // --- HELPERS FOR IMPORT ---
@@ -550,6 +602,10 @@ export default function FeeList() {
                                 pageSizeOptions={[10, 25, 50]}
                                 checkboxSelection
                                 disableRowSelectionOnClick
+                                rowSelectionModel={selectionModel}
+                                onRowSelectionModelChange={(newSelection) => {
+                                    setSelectionModel(newSelection);
+                                }}
                                 getRowId={(row) => row.id}
                                 sx={{
                                     height: '100%',
@@ -828,6 +884,45 @@ export default function FeeList() {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
+
+            {/* Bulk Action Footer */}
+            {selectedIds.length > 0 && (
+                <Box sx={{
+                    position: 'fixed',
+                    bottom: 20,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    bgcolor: 'white',
+                    boxShadow: 3,
+                    borderRadius: 2,
+                    p: 2,
+                    zIndex: 1000,
+                    display: 'flex',
+                    gap: 2,
+                    alignItems: 'center',
+                    border: '1px solid #ddd'
+                }}>
+                    <Typography variant="body1" fontWeight="bold">
+                        Đang chọn: {selectedIds.length}
+                    </Typography>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        startIcon={deleting ? <CircularProgress size={20} color="inherit" /> : <DeleteIcon />}
+                        onClick={handleBulkDelete}
+                        disabled={deleting}
+                    >
+                        {deleting ? 'Đang xóa...' : 'Xóa đã chọn'}
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<FileDownloadIcon />}
+                        onClick={handleExport}
+                    >
+                        Export đã chọn
+                    </Button>
+                </Box>
+            )}
         </>
     );
 }

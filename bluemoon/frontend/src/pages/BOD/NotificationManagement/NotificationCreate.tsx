@@ -27,7 +27,9 @@ import { residentApi, type Resident } from '../../../api/residentApi';
 export default function NotificationCreate() {
   const navigate = useNavigate();
   const [targetType, setTargetType] = useState('all_residents');
-  const [targetValue] = useState<string>('');
+  const [targetValue, setTargetValue] = useState<string>('');
+  const [building, setBuilding] = useState<string>('A');
+  const [floor, setFloor] = useState<number>(1);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -76,6 +78,7 @@ export default function NotificationCreate() {
     }
 
     let target = 'Tất cả Cư dân';
+    let computedTargetValue = '';
 
     // Logic mapping basic
     if (targetType === 'specific_users') {
@@ -84,6 +87,12 @@ export default function NotificationCreate() {
         return;
       }
       target = 'Cá nhân';
+    } else if (targetType === 'building') {
+      target = `Tòa ${building}`;
+      computedTargetValue = building;
+    } else if (targetType === 'floor') {
+      target = `Tầng ${floor}`;
+      computedTargetValue = floor.toString();
     }
 
     setLoading(true);
@@ -101,8 +110,10 @@ export default function NotificationCreate() {
         if (recipientId) {
           payload.specific_recipient_id = recipientId;
         }
-        if (targetValue) {
-          payload.target_value = targetValue;
+
+        // For building/floor, backend might need target_value or just use target string
+        if (computedTargetValue) {
+          payload.target_value = computedTargetValue;
         }
 
         // FIX: Send scheduled_at as local datetime string (not UTC)
@@ -207,12 +218,59 @@ export default function NotificationCreate() {
                 />
 
                 <FormControlLabel
+                  value="building"
+                  control={<Radio />}
+                  label="Theo Tòa nhà"
+                />
+
+                <FormControlLabel
+                  value="floor"
+                  control={<Radio />}
+                  label="Theo Tầng"
+                />
+
+                <FormControlLabel
                   value="specific_users"
                   control={<Radio />}
                   label="Cư dân cụ thể"
                 />
               </RadioGroup>
             </FormControl>
+
+            {targetType === 'building' && (
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Chọn Tòa</InputLabel>
+                  <Select
+                    value={building}
+                    label="Chọn Tòa"
+                    onChange={(e) => setBuilding(e.target.value)}
+                  >
+                    <MenuItem value="A">Tòa A</MenuItem>
+                    <MenuItem value="B">Tòa B</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+
+            {targetType === 'floor' && (
+              <Box sx={{ mt: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Chọn Tầng</InputLabel>
+                  <Select
+                    value={floor}
+                    label="Chọn Tầng"
+                    onChange={(e) => setFloor(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((f) => (
+                      <MenuItem key={f} value={f}>
+                        Tầng {f}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
 
             {targetType === 'specific_users' && (
               <Box sx={{ mt: 2 }}>

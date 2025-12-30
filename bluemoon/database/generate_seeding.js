@@ -53,9 +53,11 @@ class DateHelper {
     }
 
     static addMonths(date, months) {
-        const result = new Date(date);
-        result.setMonth(result.getMonth() + months);
-        return result;
+        // Safe month addition: sets to 1st of month, adds months, then restores day (or max day of month)
+        const d = new Date(date);
+        const targetMonth = d.getMonth() + months;
+        d.setMonth(targetMonth);
+        return d;
     }
 
     static toDDMMYYYY(date) {
@@ -89,7 +91,7 @@ class RandomHelper {
         const weights = items.map(item => item.weight);
         const totalWeight = weights.reduce((sum, w) => sum + w, 0);
         let random = Math.random() * totalWeight;
-        
+
         for (let i = 0; i < items.length; i++) {
             random -= weights[i];
             if (random <= 0) return items[i].value;
@@ -128,21 +130,21 @@ class IdGenerator {
 // ==================== VIETNAMESE DATA ====================
 const VietnameseData = {
     LAST_NAMES: ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'],
-    
+
     MIDDLE_NAMES_MALE: ['Văn', 'Đức', 'Thanh', 'Mạnh', 'Hữu', 'Quang', 'Minh', 'Tuấn', 'Công', 'Duy'],
     MIDDLE_NAMES_FEMALE: ['Thị', 'Kim', 'Ngọc', 'Thanh', 'Thu', 'Phương', 'Hồng', 'Lan', 'Mai'],
-    
+
     FIRST_NAMES_MALE: ['An', 'Bình', 'Cường', 'Dũng', 'Hùng', 'Khánh', 'Minh', 'Phúc', 'Quân', 'Sơn', 'Tuấn', 'Việt', 'Hoàng', 'Long', 'Nam', 'Hải', 'Tùng', 'Đạt'],
     FIRST_NAMES_FEMALE: ['Anh', 'Chi', 'Giang', 'Hà', 'Hương', 'Lan', 'Linh', 'Mai', 'Nga', 'Nhung', 'Oanh', 'Phương', 'Thảo', 'Trang', 'Vân', 'Yến'],
-    
+
     RELATIONSHIPS: ['Vợ', 'Chồng', 'Con trai', 'Con gái', 'Bố', 'Mẹ', 'Anh', 'Em', 'Ông', 'Bà'],
-    
+
     OCCUPATIONS: [
         'Kỹ sư', 'Bác sĩ', 'Giáo viên', 'Nhân viên văn phòng', 'Kinh doanh',
         'Kế toán', 'Lập trình viên', 'Luật sư', 'Kiến trúc sư', 'Dược sĩ',
         'Nhân viên ngân hàng', 'Marketing', 'Thiết kế', 'Nhà báo', 'Freelancer'
     ],
-    
+
     HOMETOWNS: [
         'Hà Nội', 'Hải Phòng', 'Nam Định', 'Thái Bình', 'Ninh Bình',
         'Hà Nam', 'Hưng Yên', 'Bắc Ninh', 'Bắc Giang', 'Vĩnh Phúc',
@@ -151,7 +153,7 @@ const VietnameseData = {
 
     CAR_BRANDS: ['Toyota', 'Honda', 'Hyundai', 'Mazda', 'Ford', 'Kia', 'Vinfast', 'Mercedes', 'BMW', 'Audi'],
     MOTORBIKE_BRANDS: ['Honda', 'Yamaha', 'SYM', 'Piaggio', 'Suzuki', 'Vinfast', 'Exciter', 'Wave', 'Vision'],
-    
+
     generateName(isMale = RandomHelper.boolean()) {
         const lastName = RandomHelper.item(this.LAST_NAMES);
         const middleName = RandomHelper.item(isMale ? this.MIDDLE_NAMES_MALE : this.MIDDLE_NAMES_FEMALE);
@@ -207,7 +209,7 @@ class SQLWriter {
         this.buffers = {};
         this.storedInserts = {}; // Store generated SQL strings by table name
         this.BATCH_SIZE = 1000;
-        
+
         // Define write order to strict satisfy Foreign Key constraints
         this.WRITE_ORDER = [
             'roles', 'fee_types', 'notification_types', 'service_types', 'building_info', 'building_regulations', // Static
@@ -239,6 +241,8 @@ class SQLWriter {
             'reviews',
             'assets',
             'maintenance_schedules',
+            'recurring_schedules', // [NEW] Link to users
+            'accounting_tasks',    // [NEW] Link to recurring_schedules, users
             'audit_logs'
         ];
     }
@@ -256,7 +260,7 @@ class SQLWriter {
             this.buffers[table] = { columns, values: [] };
         }
         this.buffers[table].values.push(value);
-        
+
         if (this.buffers[table].values.length >= this.BATCH_SIZE) {
             this.flushBatch(table);
         }
@@ -264,17 +268,17 @@ class SQLWriter {
 
     flushBatch(table) {
         if (!this.buffers[table] || this.buffers[table].values.length === 0) return;
-        
+
         const { columns, values } = this.buffers[table];
-        
+
         // Instead of writing to stream immediately, store in memory
         if (!this.storedInserts[table]) {
             this.storedInserts[table] = [];
         }
-        
+
         const sql = `INSERT INTO ${table} (${columns}) VALUES\n${values.join(',\n')};`;
         this.storedInserts[table].push(sql);
-        
+
         this.buffers[table].values = []; // Reset buffer
     }
 
@@ -285,7 +289,7 @@ class SQLWriter {
     writeHeader() {
         this.writeln('-- ================================================');
         this.writeln('-- BLUEMOON APARTMENT - SEEDING DATA');
-        this.writeln(`-- Generated: ${new Date().toLocaleString('vi-VN')}`);
+        this.writeln(`-- Generated: ${new Date().toLocaleString('vi-VN')} - DEBUG_VERSION_999`);
         this.writeln('-- ================================================\n');
         this.writeln('SET FOREIGN_KEY_CHECKS = 0;');
         this.writeln('SET NAMES utf8mb4;\n');
@@ -299,10 +303,11 @@ class SQLWriter {
             'report_attachments', 'reports', 'notification_attachments', 'notification_recipients',
             'notifications', 'notification_types', 'donations', 'fund_campaigns', 'reviews',
             'profile_edit_requests', 'temporary_residence', 'residence_history',
+            'profile_edit_requests', 'temporary_residence', 'residence_history',
             'residents', 'admins', 'users', 'apartments', 'roles', 'fee_types',
-            'building_info', 'building_regulations'
+            'building_info', 'building_regulations', 'accounting_tasks', 'recurring_schedules'
         ];
-        
+
         tables.forEach(table => this.writeln(`TRUNCATE TABLE ${table};`));
         this.writeln();
     }
@@ -313,7 +318,7 @@ class SQLWriter {
 
         // Write stored inserts in CORRECT ORDER
         console.log('💾 Writing buffered data to file in dependency order...');
-        
+
         this.WRITE_ORDER.forEach(table => {
             if (this.storedInserts[table] && this.storedInserts[table].length > 0) {
                 this.writeln(`-- Table: ${table}`);
@@ -354,7 +359,7 @@ class SQLWriter {
 class StaticDataGenerator {
     static generate(writer) {
         console.log('📝 Generating static data...');
-        
+
         // Roles
         writer.addBatch('roles', 'id, role_name, role_code', "(1, 'Ban Quản Trị', 'bod')");
         writer.addBatch('roles', 'id, role_name, role_code', "(2, 'Kế Toán', 'accountance')");
@@ -375,13 +380,13 @@ class StaticDataGenerator {
 
         // Service Types
         this.generateServiceTypes(writer);
-        
+
         // Building Info & Regulations
         this.generateBuildingInfo(writer);
-        
+
         // Vehicle Blacklist
         this.generateVehicleBlacklist(writer);
-        
+
         // Admin Users
         this.generateAdminUsers(writer);
     }
@@ -449,9 +454,9 @@ class StaticDataGenerator {
             const loginTime = DateHelper.addDays(DateHelper.TODAY, -d);
             const timeWithHours = new Date(loginTime);
             timeWithHours.setHours(RandomHelper.int(7, 9), RandomHelper.int(0, 59));
-            
+
             writer.addBatch('login_history', 'user_id, login_time, ip_address, user_agent', `('ID0001', '${DateHelper.format(timeWithHours)}', '192.168.1.10', '${RandomHelper.item(USER_AGENTS)}')`);
-            
+
             if (RandomHelper.boolean(0.8)) {
                 timeWithHours.setHours(RandomHelper.int(8, 10), RandomHelper.int(0, 59));
                 writer.addBatch('login_history', 'user_id, login_time, ip_address, user_agent', `('ID0002', '${DateHelper.format(timeWithHours)}', '192.168.1.11', '${RandomHelper.item(USER_AGENTS)}')`);
@@ -474,17 +479,18 @@ class BluemoonDataGenerator {
 
     generate() {
         console.log('🚀 Starting Bluemoon Seeding Data Generation...\n');
-        
+
         this.writer.writeHeader();
         this.writer.truncateTables();
-        
+
         StaticDataGenerator.generate(this.writer);
         this.generateApartmentsAndResidents();
+        this.generateVisitors(); // [NEW] Generate visitors
         this.generateSupplementaryData();
-        
+
         this.writer.writeFooter();
         this.writer.close();
-        
+
         console.log('\n✅ Generation completed!');
         console.log(`📁 Output file: ${CONFIG.OUTPUT_FILE}`);
         console.log(`📊 Statistics:`);
@@ -523,7 +529,7 @@ class BluemoonDataGenerator {
                 }
             }
         });
-        
+
         console.log(`   ✓ Created ${this.writer.stats.apartments} apartments`);
         console.log(`   ✓ Created ${this.writer.stats.residents} residents`);
     }
@@ -533,6 +539,8 @@ class BluemoonDataGenerator {
             new Date(2021, 0, 1),
             DateHelper.SIX_MONTHS_AGO
         );
+
+        const localFamilyIds = [];
 
         // Owner
         const ownerId = `R${String(this.residentCounter).padStart(4, '0')}`;
@@ -547,22 +555,27 @@ class BluemoonDataGenerator {
         const occupation = RandomHelper.item(VietnameseData.OCCUPATIONS);
 
         this.writer.addBatch('users', 'id, username, password, email, phone, role_id, created_at, updated_at', `('${ownerId}', '${username}', '${CONFIG.PASSWORD_HASH}', '${email}', '${phone}', 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
-        
-        // Use STANDARD COLUMNS for all residents (both owner and members)
+
         const resColumns = 'id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at';
 
         this.writer.addBatch('residents', resColumns, `('${ownerId}', '${ownerId}', ${aptId}, '${ownerName}', 'owner', 'Chủ hộ', '${phone}', '${email}', 'Đang sinh sống', '${cccd}', '${DateHelper.formatDateOnly(dob)}', '${ownerGender ? 'Nam' : 'Nữ'}', '${hometown}', '${occupation}', '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
-        
+
         this.writer.addBatch('residence_history', 'resident_id, apartment_id, event_type, event_date, note', `('${ownerId}', ${aptId}, 'Chuyển đến', '${DateHelper.formatDateOnly(moveInDate)}', 'Mua căn hộ mới')`);
 
-        this.activeResidents.push({ 
-            id: ownerId, 
-            aptId: aptId, 
-            name: ownerName, 
+        const building = aptCode.split('-')[0];
+        const floor = parseInt(aptCode.split('-')[1].substring(0, aptCode.split('-')[1].length - 2));
+
+        this.activeResidents.push({
+            id: ownerId,
+            aptId: aptId,
+            name: ownerName,
             isOwner: true,
-            moveInDate: moveInDate
+            moveInDate: moveInDate,
+            building: building,
+            floor: floor
         });
         this.activeUsers.push(ownerId);
+        localFamilyIds.push(ownerId);
         this.writer.stats.residents++;
         this.residentCounter++;
 
@@ -591,39 +604,41 @@ class BluemoonDataGenerator {
             const memName = VietnameseData.generateName(memGender);
             const relation = this.getRelationship(m, ownerGender);
             const memDob = this.getMemberDob(relation);
-            
+            const isAdult = (DateHelper.TODAY.getFullYear() - memDob.getFullYear()) >= 18;
+
             let memUserId = 'NULL';
             let memPhone = 'NULL';
             let memEmail = 'NULL';
-            
+
             if (RandomHelper.boolean(0.15) && relation !== 'Con') {
                 const memUsername = `mem_${memId.toLowerCase()}`;
                 const rawPhone = VietnameseData.generatePhone();
                 memPhone = `'${rawPhone}'`;
                 memEmail = `'${memUsername}@gmail.com'`;
-                
+
                 this.writer.addBatch('users', 'id, username, password, email, phone, role_id, created_at, updated_at', `('${memId}', '${memUsername}', '${CONFIG.PASSWORD_HASH}', ${memEmail}, ${memPhone}, 3, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
                 memUserId = `'${memId}'`;
                 this.activeUsers.push(memId);
             }
 
-            // FIX: Using standardized columns, passing NULL for missing fields
             this.writer.addBatch('residents', resColumns, `('${memId}', ${memUserId}, ${aptId}, '${memName}', 'member', '${relation}', ${memPhone}, ${memEmail}, 'Đang sinh sống', NULL, '${DateHelper.formatDateOnly(memDob)}', '${memGender ? 'Nam' : 'Nữ'}', NULL, NULL, '${DateHelper.format(moveInDate)}', '${DateHelper.format(moveInDate)}')`);
-            
-            this.activeResidents.push({ id: memId, aptId: aptId, name: memName, isOwner: false });
+
+            this.activeResidents.push({ id: memId, aptId: aptId, name: memName, isOwner: false, building: building, floor: floor, moveInDate: moveInDate });
+            if (isAdult) localFamilyIds.push(memId);
+
             this.writer.stats.residents++;
             this.residentCounter++;
         }
 
-        const familyVehicles = this.generateVehicles(ownerId, aptId, aptCode);
+        const familyVehicles = this.generateVehicles(localFamilyIds, aptId, aptCode);
         this.generateFees(aptId, ownerId, aptCode, area, familyVehicles);
     }
 
     getRelationship(index, ownerGender) {
-        const relationships = ownerGender 
+        const relationships = ownerGender
             ? ['Vợ', 'Con trai', 'Con gái', 'Mẹ', 'Bố']
             : ['Chồng', 'Con trai', 'Con gái', 'Mẹ', 'Bố'];
-        
+
         if (index === 0) return relationships[0];
         if (index === 1 || index === 2) return RandomHelper.item(['Con trai', 'Con gái']);
         return RandomHelper.item(['Mẹ', 'Bố', 'Anh', 'Em']);
@@ -643,15 +658,15 @@ class BluemoonDataGenerator {
         const oldRId = `R_OLD_${aptId}`;
         const name = VietnameseData.generateName();
         const moveOutDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
-        
+
         // Fix: Standard columns for historical resident too
         const resColumns = 'id, user_id, apartment_id, full_name, role, relationship_with_owner, phone, email, status, cccd, dob, gender, hometown, occupation, created_at, updated_at';
         this.writer.addBatch('residents', resColumns, `('${oldRId}', NULL, ${aptId}, '${name}', 'owner', 'Chủ hộ', NULL, NULL, 'Đã chuyển đi', NULL, NULL, NULL, NULL, NULL, NULL, NULL)`);
-        
+
         this.writer.addBatch('residence_history', 'resident_id, apartment_id, event_type, event_date, note', `('${oldRId}', ${aptId}, 'Chuyển đi', '${DateHelper.formatDateOnly(moveOutDate)}', 'Hết hợp đồng thuê')`);
     }
 
-    generateVehicles(ownerId, aptId, aptCode) {
+    generateVehicles(familyIds, aptId, aptCode) {
         const numVehicles = RandomHelper.weighted([
             { value: 0, weight: 20 },
             { value: 1, weight: 35 },
@@ -660,7 +675,7 @@ class BluemoonDataGenerator {
         ]);
 
         const vehicles = [];
-        
+
         for (let v = 0; v < numVehicles; v++) {
             const isMotorbike = v === 0 ? RandomHelper.boolean(0.6) : true;
             const type = isMotorbike ? 'Xe máy' : 'Ô tô';
@@ -669,35 +684,40 @@ class BluemoonDataGenerator {
             const img = `/uploads/vehicles/${plate.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`;
             const regDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.TODAY);
 
+            // Assign to random adult family member
+            const ownerId = RandomHelper.item(familyIds);
+
             this.writer.addBatch('vehicles', 'id, resident_id, apartment_id, vehicle_type, license_plate, brand, status, vehicle_image, registration_date', `(${this.vehicleCounter}, '${ownerId}', ${aptId}, '${type}', '${plate}', '${brand}', 'Đang sử dụng', '${img}', '${DateHelper.formatDateOnly(regDate)}')`);
-            
-            vehicles.push({ plate, type, brand, regDate });
+
+            vehicles.push({ plate, type, brand, regDate, ownerId }); // Keep ownerId for logs
             this.writer.stats.vehicles++;
             this.vehicleCounter++;
         }
 
-        this.generateAccessLogs(ownerId, vehicles);
+        this.generateAccessLogs(vehicles);
         return vehicles;
     }
 
-    generateAccessLogs(ownerId, vehicles) {
+    generateAccessLogs(vehicles) {
         vehicles.forEach(vehicle => {
             const numLogs = RandomHelper.int(15, 45);
-            
+
             for (let d = 0; d < numLogs; d++) {
-                const logDate = DateHelper.randomBetween(
-                    DateHelper.addDays(DateHelper.TODAY, -30),
-                    DateHelper.TODAY
-                );
-                
+                const minLogDate = vehicle.regDate > DateHelper.addDays(DateHelper.TODAY, -30) ? vehicle.regDate : DateHelper.addDays(DateHelper.TODAY, -30);
+
+                // Safety check
+                if (minLogDate > DateHelper.TODAY) continue;
+
+                const logDate = DateHelper.randomBetween(minLogDate, DateHelper.TODAY);
+
                 const outTime = new Date(logDate);
                 outTime.setHours(RandomHelper.int(6, 9), RandomHelper.int(0, 59));
-                this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'Out', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(outTime)}', '/uploads/access/out_${Date.now()}.jpg')`);
-                
+                this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'Out', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${vehicle.ownerId}', '${DateHelper.format(outTime)}', '/uploads/access/out_${Date.now()}.jpg')`);
+
                 if (RandomHelper.boolean(0.9)) {
                     const inTime = new Date(logDate);
                     inTime.setHours(RandomHelper.int(17, 22), RandomHelper.int(0, 59));
-                    this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'In', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${ownerId}', '${DateHelper.format(inTime)}', '/uploads/access/in_${Date.now()}.jpg')`);
+                    this.writer.addBatch('access_logs', 'plate_number, vehicle_type, direction, gate, status, resident_id, created_at, image_url', `('${vehicle.plate}', '${vehicle.type}', 'In', 'Cổng ${RandomHelper.item(['A', 'B'])}', 'Normal', '${vehicle.ownerId}', '${DateHelper.format(inTime)}', '/uploads/access/in_${Date.now()}.jpg')`);
                 }
             }
         });
@@ -708,11 +728,14 @@ class BluemoonDataGenerator {
         let waterIndex = RandomHelper.int(500, 2000);
 
         for (let i = -1; i <= 6; i++) {
-            const monthDate = DateHelper.addMonths(DateHelper.TODAY, -i);
+            // Use 1st of CURRENT MONTH as base to avoid "day 31" rollover issues (e.g. Nov 31 -> Dec 1)
+            const baseDate = new Date(DateHelper.TODAY.getFullYear(), DateHelper.TODAY.getMonth(), 1);
+            const monthDate = DateHelper.addMonths(baseDate, -i);
+
             const period = DateHelper.getBillingPeriod(monthDate);
             const feeSuffix = `${(monthDate.getMonth() + 1).toString().padStart(2, '0')}${monthDate.getFullYear()}`;
             const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 10);
-            
+
             const getFeeStatusAndPayment = (amount, monthIndex) => {
                 const rand = Math.random();
                 let status = 'Đã thanh toán';
@@ -746,10 +769,10 @@ class BluemoonDataGenerator {
 
             const elecUsage = RandomHelper.int(150, 400);
             const waterUsage = RandomHelper.int(15, 45);
-            
+
             this.writer.addBatch('utility_readings', 'apartment_id, service_type, billing_period, old_index, new_index, recorded_date', `(${aptId}, 'Điện', '${period}', ${elecIndex}, ${elecIndex + elecUsage}, '${DateHelper.formatDateOnly(dueDate)}')`);
             this.writer.addBatch('utility_readings', 'apartment_id, service_type, billing_period, old_index, new_index, recorded_date', `(${aptId}, 'Nước', '${period}', ${waterIndex}, ${waterIndex + waterUsage}, '${DateHelper.formatDateOnly(dueDate)}')`);
-            
+
             elecIndex += elecUsage;
             waterIndex += waterUsage;
 
@@ -757,7 +780,7 @@ class BluemoonDataGenerator {
             const pqlId = `PQL-${aptCode}-${feeSuffix}`;
             const pqlAmount = Math.round(area * CONFIG.FEE_PRICES.MANAGEMENT);
             const pqlState = getFeeStatusAndPayment(pqlAmount, i);
-            
+
             this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pqlId}', ${aptId}, '${ownerId}', 1, 'Phí Quản Lý ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pqlAmount}, ${pqlState.paid}, ${pqlState.remaining}, '${pqlState.status}')`);
             this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pqlId}', 'Phí Quản Lý ${period}', 'm²', ${area}, ${CONFIG.FEE_PRICES.MANAGEMENT}, ${pqlAmount})`);
             this.writer.stats.fees++;
@@ -766,7 +789,7 @@ class BluemoonDataGenerator {
             const pdId = `PD-${aptCode}-${feeSuffix}`;
             const pdAmount = elecUsage * CONFIG.FEE_PRICES.ELECTRICITY;
             const pdState = getFeeStatusAndPayment(pdAmount, i);
-            
+
             this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pdId}', ${aptId}, '${ownerId}', 3, 'Tiền Điện ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pdAmount}, ${pdState.paid}, ${pdState.remaining}, '${pdState.status}')`);
             this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pdId}', 'Điện sinh hoạt ${period}', 'kWh', ${elecUsage}, ${CONFIG.FEE_PRICES.ELECTRICITY}, ${pdAmount})`);
             this.writer.stats.fees++;
@@ -775,14 +798,14 @@ class BluemoonDataGenerator {
             const pnId = `PN-${aptCode}-${feeSuffix}`;
             const pnAmount = waterUsage * CONFIG.FEE_PRICES.WATER;
             const pnState = getFeeStatusAndPayment(pnAmount, i);
-            
+
             this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pnId}', ${aptId}, '${ownerId}', 4, 'Tiền Nước ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pnAmount}, ${pnState.paid}, ${pnState.remaining}, '${pnState.status}')`);
             this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pnId}', 'Nước sinh hoạt ${period}', 'm³', ${waterUsage}, ${CONFIG.FEE_PRICES.WATER}, ${pnAmount})`);
             this.writer.stats.fees++;
 
             // Parking Fee
             const activeVehicles = vehicles.filter(v => v.regDate <= monthDate);
-            
+
             if (activeVehicles.length > 0) {
                 const pgxId = `PGX-${aptCode}-${feeSuffix}`;
                 let pgxTotal = 0;
@@ -800,7 +823,7 @@ class BluemoonDataGenerator {
                 const pgxState = getFeeStatusAndPayment(pgxTotal, i);
 
                 this.writer.addBatch('fees', 'id, apartment_id, resident_id, fee_type_id, description, billing_period, due_date, total_amount, amount_paid, amount_remaining, status', `('${pgxId}', ${aptId}, '${ownerId}', 2, 'Phí Gửi Xe ${period}', '${period}', '${DateHelper.formatDateOnly(dueDate)}', ${pgxTotal}, ${pgxState.paid}, ${pgxState.remaining}, '${pgxState.status}')`);
-                
+
                 parkingItems.forEach(item => {
                     this.writer.addBatch('fee_items', 'fee_id, item_name, unit, quantity, unit_price, amount', `('${pgxId}', '${item.name}', 'Xe', 1, ${item.price}, ${item.price})`);
                 });
@@ -808,30 +831,123 @@ class BluemoonDataGenerator {
             }
 
             if (pqlState.paid > 0) {
-                const paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
+                let paymentDate = DateHelper.addDays(dueDate, RandomHelper.int(-5, 10));
+                if (paymentDate > DateHelper.TODAY) paymentDate = DateHelper.TODAY;
                 this.writer.addBatch('payment_history', 'fee_id, amount, payment_method, payment_date, processed_by', `('${pqlId}', ${pqlState.paid}, '${RandomHelper.item(['Chuyển khoản', 'Tiền mặt', 'Ví điện tử'])}', '${DateHelper.formatDateOnly(paymentDate)}', 'ID0002')`);
             }
         }
     }
 
+    generateVisitors() {
+        console.log('   - Visitors...');
+
+        for (let i = 0; i < 200; i++) {
+            const apt = RandomHelper.item(this.activeApartments);
+            const visitorName = VietnameseData.generateName();
+            const identityCard = RandomHelper.boolean(0.7) ? VietnameseData.generateCCCD() : null;
+            const vehiclePlate = RandomHelper.boolean(0.3) ? VietnameseData.generateLicensePlate(true) : null;
+            const securityGuardId = 'ID0003';
+            const purpose = RandomHelper.item(['Thăm người thân', 'Giao hàng', 'Sửa chữa', 'Khách mời', 'Công việc']);
+
+            // Status logic
+            const rand = Math.random();
+            let status = 'Đã ra';
+
+            // Thời gian dự kiến (làm tròn giờ)
+            let expectedArrival = null;
+            let expectedDeparture = null;
+
+            // Thời gian thực tế (có thể chênh lệch)
+            let checkInTime = null;
+            let checkOutTime = null;
+
+            if (rand < 0.1) {
+                // 10% - Đăng ký trước (chưa đến)
+                status = 'Đăng ký';
+
+                // Dự kiến đến trong 1-7 ngày tới (làm tròn giờ)
+                expectedArrival = DateHelper.randomBetween(DateHelper.TODAY, DateHelper.addDays(DateHelper.TODAY, 7));
+                expectedArrival.setMinutes(0, 0, 0);
+
+                // Dự kiến đi sau 2-5 giờ (làm tròn giờ)
+                expectedDeparture = new Date(expectedArrival);
+                expectedDeparture.setHours(expectedDeparture.getHours() + RandomHelper.int(2, 5));
+                expectedDeparture.setMinutes(0, 0, 0);
+
+            } else {
+                // 90% - Khách đã đến hoặc đã ra
+
+                // Dự kiến đến (6 tháng trước -> hôm nay, làm tròn giờ)
+                expectedArrival = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
+                expectedArrival.setMinutes(0, 0, 0);
+
+                // Dự kiến đi sau 2-5 giờ (làm tròn giờ)
+                expectedDeparture = new Date(expectedArrival);
+                expectedDeparture.setHours(expectedDeparture.getHours() + RandomHelper.int(2, 5));
+                expectedDeparture.setMinutes(0, 0, 0);
+
+                // Thực tế đến (chênh lệch -15 đến +30 phút so với dự kiến)
+                checkInTime = new Date(expectedArrival);
+                checkInTime.setMinutes(checkInTime.getMinutes() + RandomHelper.int(-15, 30));
+
+                // Đảm bảo không vượt quá hiện tại
+                if (checkInTime > DateHelper.TODAY) {
+                    checkInTime = new Date(DateHelper.TODAY);
+                }
+
+                if (rand < 0.25) {
+                    // 25% - Đang ở (chưa ra)
+                    status = 'Đã vào';
+                    checkOutTime = null;
+
+                } else {
+                    // 75% - Đã ra
+                    status = 'Đã ra';
+
+                    // Thực tế ra (chênh lệch -30 đến +60 phút so với dự kiến)
+                    checkOutTime = new Date(expectedDeparture);
+                    checkOutTime.setMinutes(checkOutTime.getMinutes() + RandomHelper.int(-30, 60));
+
+                    // Đảm bảo ra >= đến (ít nhất cách nhau 30 phút)
+                    if (checkOutTime <= checkInTime) {
+                        checkOutTime = new Date(checkInTime.getTime() + 30 * 60 * 1000); // +30 phút
+                    }
+
+                    // Đảm bảo không vượt quá hiện tại
+                    if (checkOutTime > DateHelper.TODAY) {
+                        checkOutTime = new Date(DateHelper.TODAY);
+                    }
+                }
+            }
+
+            // Format dates safely
+            const fmtDate = (d) => d ? `'${DateHelper.format(d)}'` : 'NULL';
+
+            this.writer.addBatch('visitors',
+                'apartment_id, visitor_name, identity_card, vehicle_plate, security_guard_id, check_in_time, check_out_time, expected_arrival, expected_departure, purpose, status',
+                `(${apt.id}, '${visitorName}', ${identityCard ? `'${identityCard}'` : 'NULL'}, ${vehiclePlate ? `'${vehiclePlate}'` : 'NULL'}, '${securityGuardId}', ${fmtDate(checkInTime)}, ${fmtDate(checkOutTime)}, ${fmtDate(expectedArrival)}, ${fmtDate(expectedDeparture)}, '${purpose}', '${status}')`
+            );
+        }
+    }
+
     generateSupplementaryData() {
         console.log('📋 Generating supplementary data...');
-        
+
         this.generateNotifications();
         this.generateReports();
         this.generateServiceBookings();
-        this.generateVisitors();
         this.generateTemporaryResidence();
         this.generateProfileEditRequests();
         this.generateFundCampaigns();
         this.generateReviews();
         this.generateAssets();
+        this.generateAccounting();
         this.generateAuditLogs();
     }
 
     generateNotifications() {
         console.log('   - Notifications...');
-        
+
         const templates = [
             { type: 1, title: 'Thông báo cắt điện bảo trì', content: 'Kính gửi Quý cư dân, Tòa nhà sẽ tiến hành cắt điện bảo trì hệ thống điện từ 8h-12h ngày {date}. Vui lòng chuẩn bị và sắp xếp công việc hợp lý.' },
             { type: 1, title: 'Khẩn cấp: Sự cố thang máy', content: 'Thang máy tòa {building} tạm ngưng hoạt động để khắc phục sự cố. Dự kiến hoàn thành trong 2-3 giờ.' },
@@ -848,30 +964,52 @@ class BluemoonDataGenerator {
             const scheduledAt = DateHelper.randomBetween(createdAt, maxSchedule);
 
             const id = this.idGen.generateDailyId('TB', scheduledAt);
-            const isSent = scheduledAt <= DateHelper.TODAY;
-            
+            const isSent = scheduledAt <= DateHelper.TODAY; // Strictly check SENT logic
+
+            // Diverse Targets
+            const targetType = RandomHelper.weighted([
+                { value: 'all', weight: 40 },
+                { value: 'building', weight: 30 },
+                { value: 'floor', weight: 30 }
+            ]);
+
+            let target = 'Tất cả Cư dân';
+            let targetFilter = (r) => true;
+
+            if (targetType === 'building') {
+                const b = RandomHelper.item(['A', 'B']);
+                target = `Tòa ${b}`;
+                targetFilter = (r) => r.building === b;
+            } else if (targetType === 'floor') {
+                const f = RandomHelper.int(1, 31);
+                target = `Tầng ${f}`;
+                targetFilter = (r) => r.floor === f;
+            }
+
+            // Replace mapping in template
             let content = tpl.content
                 .replace('{date}', DateHelper.formatDateOnly(scheduledAt))
                 .replace('{time}', `${RandomHelper.int(14, 19)}h00`)
                 .replace('{month}', scheduledAt.getMonth() + 1)
                 .replace('{building}', RandomHelper.item(['A', 'B']))
                 .replace('{service}', 'Phòng Gym');
-            
-            this.writer.addBatch('notifications', 'id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at', `('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, 'Tất cả Cư dân', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}')`);
-            
+
+            this.writer.addBatch('notifications', 'id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at', `('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, '${target}', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}')`);
+
             if (RandomHelper.boolean(0.3)) {
                 const fileName = `thongbao_${id}.jpg`;
                 this.writer.addBatch('notification_attachments', 'notification_id, file_name, file_path, file_size', `('${id}', '${fileName}', '/uploads/notifications/${id}/${fileName}', ${RandomHelper.int(500, 3000)})`);
             }
 
+            // Only generate recipients if it is SENT
             if (isSent) {
                 const eligibleResidents = this.activeResidents.filter(r => {
-                    return r.moveInDate <= scheduledAt;
+                    return r.moveInDate <= scheduledAt && targetFilter(r);
                 });
 
                 eligibleResidents.forEach(resident => {
                     const isRead = RandomHelper.boolean(0.7);
-                    const readAt = isRead 
+                    const readAt = isRead
                         ? DateHelper.format(DateHelper.randomBetween(scheduledAt, DateHelper.TODAY))
                         : 'NULL';
 
@@ -884,7 +1022,7 @@ class BluemoonDataGenerator {
 
     generateReports() {
         console.log('   - Reports...');
-        
+
         const reportTypes = [
             { title: 'Vỡ ống nước', location: 'Hầm B1', priority: 'Khẩn cấp', desc: 'Phát hiện ống nước bị vỡ gây ngập úng tại hầm để xe.' },
             { title: 'Đèn hành lang hỏng', location: 'Hành lang tầng {floor}', priority: 'Trung bình', desc: 'Đèn hành lang không sáng, cần thay bóng đèn mới.' },
@@ -897,11 +1035,11 @@ class BluemoonDataGenerator {
         for (let i = 0; i < 80; i++) {
             const tpl = RandomHelper.item(reportTypes);
             const reporter = RandomHelper.item(this.activeResidents.filter(r => r.isOwner));
-            
+
             const minDate = reporter.moveInDate;
             const date = DateHelper.randomBetween(minDate, DateHelper.TODAY);
             const id = this.idGen.generateDailyId('SC', date);
-            
+
             const status = RandomHelper.weighted([
                 { value: 'Mới', weight: 10 },
                 { value: 'Đang xử lý', weight: 20 },
@@ -936,13 +1074,14 @@ class BluemoonDataGenerator {
                     ratingSQL = rating;
                     feedbackSQL = `'${RandomHelper.item(feedbacks)}'`;
                 }
-                
-                const completedDate = DateHelper.addDays(date, RandomHelper.int(1, 5));
+
+                let completedDate = DateHelper.addDays(date, RandomHelper.int(1, 5));
+                if (completedDate > DateHelper.TODAY) completedDate = DateHelper.TODAY;
                 completedAtSQL = `'${DateHelper.format(completedDate)}'`;
             }
 
             this.writer.addBatch('reports', 'id, title, description, location, reported_by, status, priority, created_at, rating, feedback, completed_at', `('${id}', '${tpl.title}', '${tpl.desc}', '${location}', '${reporter.id}', '${status}', '${tpl.priority}', '${DateHelper.format(date)}', ${ratingSQL}, ${feedbackSQL}, ${completedAtSQL})`);
-            
+
             if (RandomHelper.boolean(0.6)) {
                 const fileName = `suco_${id}.jpg`;
                 this.writer.addBatch('report_attachments', 'report_id, file_name, file_path, file_size', `('${id}', '${fileName}', '/uploads/reports/${id}/${fileName}', ${RandomHelper.int(800, 4000)})`);
@@ -953,7 +1092,7 @@ class BluemoonDataGenerator {
 
     generateServiceBookings() {
         console.log('   - Service Bookings...');
-        
+
         for (let i = 0; i < 50; i++) {
             const resident = RandomHelper.item(this.activeResidents);
             const serviceTypeId = RandomHelper.int(1, 6);
@@ -975,24 +1114,9 @@ class BluemoonDataGenerator {
         }
     }
 
-    generateVisitors() {
-        console.log('   - Visitors...');
-        
-        for (let i = 0; i < 200; i++) {
-            const apt = RandomHelper.item(this.activeApartments);
-            const checkInTime = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
-            const stayDuration = RandomHelper.int(30, 300); // 30 mins to 5 hours
-            const checkOutTime = DateHelper.addDays(checkInTime, stayDuration / (24 * 60));
-            const visitorName = VietnameseData.generateName();
-            const identityCard = RandomHelper.boolean(0.7) ? VietnameseData.generateCCCD() : null;
-
-            this.writer.addBatch('visitors', 'apartment_id, visitor_name, identity_card, check_in_time, check_out_time, security_guard_id', `(${apt.id}, '${visitorName}', ${identityCard ? `'${identityCard}'` : 'NULL'}, '${DateHelper.format(checkInTime)}', '${DateHelper.format(checkOutTime)}', 'ID0003')`);
-        }
-    }
-
     generateTemporaryResidence() {
         console.log('   - Temporary Residence...');
-        
+
         // Fix: Standardize columns for temporary_residence
         const trColumns = 'resident_id, type, start_date, end_date, reason, status, approved_by';
 
@@ -1001,7 +1125,7 @@ class BluemoonDataGenerator {
             const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
             const startDate = DateHelper.randomBetween(DateHelper.ONE_YEAR_AGO, DateHelper.SIX_MONTHS_AGO);
             const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 60));
-            const reasons = type === 'Tạm vắng' 
+            const reasons = type === 'Tạm vắng'
                 ? ['Du lịch gia đình', 'Công tác dài hạn', 'Điều trị y tế', 'Thăm người thân', 'Học tập']
                 : ['Người nhà lên thăm', 'Thuê phòng trọ ngắn hạn', 'Bạn bè ở nhờ', 'Ôn thi đại học', 'Thực tập'];
             const reason = RandomHelper.item(reasons);
@@ -1014,7 +1138,7 @@ class BluemoonDataGenerator {
             const type = RandomHelper.item(['Tạm vắng', 'Tạm trú']);
             const startDate = DateHelper.randomBetween(DateHelper.TODAY, DateHelper.addDays(DateHelper.TODAY, 30));
             const endDate = DateHelper.addDays(startDate, RandomHelper.int(7, 45));
-            const reasons = type === 'Tạm vắng' 
+            const reasons = type === 'Tạm vắng'
                 ? ['Đi công tác', 'Nghỉ dưỡng', 'Thăm con ở xa']
                 : ['Bạn bè tạm trú', 'Người giúp việc ở lại', 'Thợ sửa chữa'];
             const reason = RandomHelper.item(reasons);
@@ -1026,21 +1150,21 @@ class BluemoonDataGenerator {
 
     generateProfileEditRequests() {
         console.log('   - Profile Edit Requests...');
-        
+
         for (let i = 0; i < 30; i++) {
             const resident = RandomHelper.item(this.activeResidents);
             const date = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.TODAY);
-            
+
             const changeTypes = [
                 { field: 'phone', value: VietnameseData.generatePhone(), reason: 'Đổi số điện thoại mới' },
                 { field: 'email', value: `${resident.id.toLowerCase()}@newmail.com`, reason: 'Cập nhật email cá nhân' },
                 { field: 'occupation', value: RandomHelper.item(VietnameseData.OCCUPATIONS), reason: 'Thay đổi công việc' },
                 { field: 'hometown', value: RandomHelper.item(VietnameseData.HOMETOWNS), reason: 'Chỉnh sửa thông tin quê quán' }
             ];
-            
+
             const change = RandomHelper.item(changeTypes);
             const requestedChanges = `{"${change.field}": "${change.value}"}`;
-            
+
             const status = RandomHelper.weighted([
                 { value: 'Chờ duyệt', weight: 30 },
                 { value: 'Đã duyệt', weight: 60 },
@@ -1053,7 +1177,7 @@ class BluemoonDataGenerator {
 
     generateFundCampaigns() {
         console.log('   - Fund Campaigns & Donations...');
-        
+
         this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(1, 'Quỹ Vui Hội Trăng Rằm 2024', 'Tổ chức chương trình Trung thu cho trẻ em trong tòa nhà. Quỹ sẽ được dùng để mua đèn lồng, bánh kẹo và tổ chức các trò chơi vui nhộn.', '2024-08-01', '2024-09-01', 20000000, 25500000, 'Closed', 'ID0002')");
         this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(2, 'Quỹ Khuyến Học 2025', 'Hỗ trợ học bổng cho con em cư dân có hoàn cảnh khó khăn, học giỏi. Mỗi suất học bổng 5 triệu đồng.', '2025-01-01', '2025-12-31', 50000000, 18750000, 'Active', 'ID0002')");
         this.writer.addBatch('fund_campaigns', 'id, title, description, start_date, end_date, target_amount, current_amount, status, created_by', "(3, 'Quỹ Tết Sum Vầy 2026', 'Tổ chức chương trình Tết cộng đồng, trao quà cho người cao tuổi và trẻ em. Dự kiến tổ chức tại Hội trường tầng 1.', '2026-01-01', '2026-02-01', 100000000, 0, 'Planned', 'ID0002')");
@@ -1079,7 +1203,7 @@ class BluemoonDataGenerator {
 
     generateReviews() {
         console.log('   - Reviews...');
-        
+
         const feedbacks = [
             'Dịch vụ tốt, nhân viên nhiệt tình',
             'Cần cải thiện thái độ phục vụ',
@@ -1114,7 +1238,7 @@ class BluemoonDataGenerator {
 
     generateAssets() {
         console.log('   - Assets & Maintenance...');
-        
+
         const assets = [
             { name: 'Thang máy A1', code: 'TS001', location: 'Tòa A', price: 500000000 },
             { name: 'Thang máy A2', code: 'TS002', location: 'Tòa A', price: 500000000 },
@@ -1151,7 +1275,7 @@ class BluemoonDataGenerator {
 
     generateAuditLogs() {
         console.log('   - Audit Logs...');
-        
+
         const actions = [
             { type: 'UPDATE', entity: 'fees', description: 'Cập nhật trạng thái phí' },
             { type: 'CREATE', entity: 'notifications', description: 'Tạo thông báo mới' },
@@ -1169,6 +1293,71 @@ class BluemoonDataGenerator {
             const entityId = RandomHelper.int(1, 100);
 
             this.writer.addBatch('audit_logs', 'user_id, action_type, entity_name, entity_id, created_at, ip_address, user_agent', `('${user}', '${action.type}', '${action.entity}', '${entityId}', '${DateHelper.format(time)}', '${RandomHelper.ip()}', '${RandomHelper.item(USER_AGENTS)}')`);
+        }
+    }
+
+    generateAccounting() {
+        console.log('   - Accounting Tasks & Schedules...');
+
+        // 1. Recurring Schedules
+        const schedules = [
+            { title: 'Kê khai thuế GTGT', cat: 'Thuế', freq: 'quarterly', day: 20 },
+            { title: 'Báo cáo tài chính năm', cat: 'Báo cáo', freq: 'yearly', month: 3, day: 30 },
+            { title: 'Thanh toán lương nhân viên', cat: 'Chi phí', freq: 'monthly', day: 5 },
+            { title: 'Kiểm kê quỹ tiền mặt', cat: 'Kiểm soát', freq: 'weekly', day: 1, dow: 5 }, // Thứ 6 hàng tuần
+            { title: 'Thanh toán tiền điện tòa nhà', cat: 'Chi phí', freq: 'monthly', day: 15 }
+        ];
+
+        let scheduleId = 1;
+        schedules.forEach(s => {
+            const nextRun = DateHelper.addDays(DateHelper.TODAY, RandomHelper.int(1, 30));
+            const dow = s.dow || 'NULL';
+            const dom = s.day || 'NULL';
+            const moy = s.month || 'NULL';
+
+            this.writer.addBatch('recurring_schedules',
+                'id, title, description, category, frequency, day_of_week, day_of_month, month_of_year, default_assignee, next_run_date, created_by',
+                `(${scheduleId}, '${s.title}', 'Lịch định kỳ tự động', '${s.cat}', '${s.freq}', ${dow}, ${dom}, ${moy}, 'ID0002', '${DateHelper.formatDateOnly(nextRun)}', 'ID0001')`
+            );
+
+            // Generate tasks from this schedule (Past & Future)
+            this.generateTasksFromSchedule(scheduleId, s);
+            scheduleId++;
+        });
+
+        // 2. Manual Tasks
+        for (let i = 0; i < 20; i++) {
+            const date = DateHelper.randomBetween(DateHelper.SIX_MONTHS_AGO, DateHelper.addDays(DateHelper.TODAY, 30));
+            const status = date < DateHelper.TODAY ? 'completed' : 'pending';
+            const completedDate = status === 'completed' ? `'${DateHelper.format(DateHelper.addDays(date, 2))}'` : 'NULL';
+
+            const titles = ['Mua văn phòng phẩm', 'Sửa chữa máy in', 'Tiếp đoàn kiểm tra PCCC', 'Họp giao ban tài chính', 'Rà soát công nợ cư dân'];
+
+            this.writer.addBatch('accounting_tasks',
+                'title, description, task_type, category, period_type, period_value, start_date, due_date, assigned_to, assigned_by, status, priority, recurring_schedule_id, completed_date',
+                `('${RandomHelper.item(titles)}', 'Công việc phát sinh', 'manual', 'Hành chính', 'other', NULL, '${DateHelper.formatDateOnly(date)}', '${DateHelper.formatDateOnly(DateHelper.addDays(date, 3))}', 'ID0002', 'ID0001', '${status}', 'medium', NULL, ${completedDate})`
+            );
+        }
+    }
+
+    generateTasksFromSchedule(scheduleId, s) {
+        // Generate past 6 months tasks
+        for (let i = 0; i < 6; i++) {
+            const taskDate = DateHelper.addMonths(DateHelper.TODAY, -i);
+            taskDate.setDate(s.day || 1);
+
+            // Skip future dates in this loop
+            if (taskDate > DateHelper.TODAY) continue;
+
+            const dueDate = DateHelper.addDays(taskDate, 5);
+            const status = 'completed';
+            const completedDate = `'${DateHelper.format(DateHelper.addDays(taskDate, 2))}'`;
+            const periodVal = `${(taskDate.getMonth() + 1).toString().padStart(2, '0')}-${taskDate.getFullYear()}`;
+
+            this.writer.addBatch('accounting_tasks',
+                'title, description, task_type, category, period_type, period_value, start_date, due_date, assigned_to, assigned_by, status, priority, recurring_schedule_id, completed_date',
+                `('${s.title} - ${periodVal}', 'Tự động tạo từ lịch định kỳ', 'recurring', '${s.cat}', 'monthly', '${periodVal}', '${DateHelper.formatDateOnly(taskDate)}', '${DateHelper.formatDateOnly(dueDate)}', 'ID0002', 'ID0001', '${status}', 'high', ${scheduleId}, ${completedDate})`
+            );
         }
     }
 }

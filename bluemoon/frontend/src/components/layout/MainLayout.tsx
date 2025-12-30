@@ -60,6 +60,7 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import HomeIcon from '@mui/icons-material/Home';
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism'; // NEW: For Fund Management
+import BadgeIcon from '@mui/icons-material/Badge'; // For Visitor
 import ChatButton from '../Chatbot/ChatButton';
 import ChatWindow from '../Chatbot/ChatWindow';
 //import HistoryIcon from '@mui/icons-material/History';
@@ -80,6 +81,7 @@ const bodMenuItems = [
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' },
+  { text: 'Quản lý Khách', icon: <BadgeIcon />, path: '/bod/visitor/list' },
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
 
   { text: 'Tài chính', icon: <AccountBalanceIcon />, path: '/bod/finance' }, // [cite: 45] Updated
@@ -104,6 +106,7 @@ const residentMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/resident/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Thông tin Cá nhân', icon: <AccountCircleIcon />, path: '/resident/profile/edit' },
+  { text: 'Đăng ký Khách', icon: <BadgeIcon />, path: '/resident/visitor' },
   { text: 'Căn hộ', icon: <HomeIcon />, path: '/resident/apartment' },
   { text: 'Tài khoản', icon: <VpnKeyIcon />, path: '/resident/account_info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/resident/fee/list' },

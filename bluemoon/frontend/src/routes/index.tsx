@@ -83,6 +83,9 @@ import AccessReport from '../pages/BOD/AccessControl/AccessReport';
 import BarrierSimulator from '../pages/Simulator/BarrierSimulator';
 import CQCNDashboard from '../pages/CQCN/Dashboard/CQCNDashboard';
 import APIReport from '../pages/Admin/APIReport';
+// Visitor
+import ResidentVisitorRegistration from '../pages/Resident/Visitor/ResidentVisitorRegistration';
+import BODVisitorList from '../pages/BOD/Visitor/BODVisitorList';
 
 export default function AppRoutes() {
   return (
@@ -169,6 +172,9 @@ export default function AppRoutes() {
             {/* Review Management */}
             <Route path="bod/reviews" element={<BODReviewList />} />
 
+            {/* Visitor Management */}
+            <Route path="bod/visitor/list" element={<BODVisitorList />} />
+
             {/* API Report */}
             <Route path="admin/api-report" element={<APIReport />} />
 
@@ -236,6 +242,9 @@ export default function AppRoutes() {
 
             {/* Auto-redirect for /resident/profile */}
             <Route path="resident/profile" element={<ResidentProfileEdit />} />
+
+            {/* Visitor Routes */}
+            <Route path="resident/visitor" element={<ResidentVisitorRegistration />} />
 
             {/* Review */}
             <Route path="resident/review" element={<ResidentReview />} />

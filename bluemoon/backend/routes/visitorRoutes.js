@@ -20,8 +20,8 @@ router.use(checkAuth);
  * - BOD: Quản lý an ninh.
  * - CQCN: Kiểm tra hành chính/an ninh.
  */
-router.get('/', 
-    checkRole(['bod', 'cqcn']), 
+router.get('/',
+    checkRole(['bod', 'cqcn', 'resident']),
     visitorController.getAllVisitors
 );
 
@@ -30,12 +30,22 @@ router.get('/',
 // ==========================================
 
 /**
+ * [POST] /api/visitors/register
+ * Cư dân đăng ký khách trước
+ * Quyền hạn: Resident, BOD
+ */
+router.post('/register',
+    checkRole(['resident', 'bod']),
+    visitorController.registerVisitor
+);
+
+/**
  * [POST] /api/visitors/check-in
  * Ghi nhận khách vào
  * Quyền hạn: Chỉ BOD (Bảo vệ/Lễ tân)
  */
-router.post('/check-in', 
-    checkRole(['bod']), 
+router.post('/check-in',
+    checkRole(['bod']),
     visitorController.checkIn
 );
 
@@ -44,8 +54,8 @@ router.post('/check-in',
  * Ghi nhận khách ra
  * Quyền hạn: Chỉ BOD
  */
-router.put('/:id/check-out', 
-    checkRole(['bod']), 
+router.put('/:id/check-out',
+    checkRole(['bod']),
     visitorController.checkOut
 );
 
@@ -54,8 +64,8 @@ router.put('/:id/check-out',
  * Xóa lịch sử (Xử lý sai sót)
  * Quyền hạn: Chỉ BOD
  */
-router.delete('/:id', 
-    checkRole(['bod']), 
+router.delete('/:id',
+    checkRole(['bod']),
     visitorController.deleteVisitor
 );
 

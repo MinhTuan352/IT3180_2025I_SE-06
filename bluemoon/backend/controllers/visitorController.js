@@ -3,7 +3,7 @@
 const Visitor = require('../models/visitorModel');
 
 const visitorController = {
-    
+
     /**
      * [GET] /api/visitors
      * Xem danh sách khách (Hỗ trợ lọc)
@@ -14,7 +14,8 @@ const visitorController = {
             const filters = {
                 status: req.query.status,       // 'active' (chưa về) hoặc 'history' (đã về)
                 keyword: req.query.keyword,     // Tên, CCCD, Biển số
-                apartment_id: req.query.apartment_id
+                apartment_id: req.query.apartment_id,
+                resident_id: req.user.role === 'resident' ? req.user.id : null // Chỉ lấy khách của chính mình
             };
 
             const visitors = await Visitor.getAll(filters);
@@ -31,13 +32,59 @@ const visitorController = {
     },
 
     /**
+     * [POST] /api/visitors/register
+     * Cư dân đăng ký khách
+     */
+    registerVisitor: async (req, res) => {
+        try {
+            const { visitor_name, visitor_id_card, expected_arrival, expected_departure, purpose } = req.body;
+            const resident_id = req.user.id; // Lấy ID cư dân từ token
+
+            // 1. Validate
+            if (!visitor_name || !expected_arrival) {
+                return res.status(400).json({ message: 'Vui lòng nhập tên khách và thời gian dự kiến đến.' });
+            }
+
+            // 2. Tạo bản ghi đăng ký
+            const newVisitor = await Visitor.createRegistration({
+                resident_id,
+                visitor_name,
+                visitor_id_card,
+                expected_arrival,
+                expected_departure,
+                purpose
+            });
+
+            res.status(201).json({
+                success: true,
+                message: 'Đăng ký khách thành công.',
+                data: newVisitor
+            });
+
+        } catch (error) {
+            console.error('Error registerVisitor:', error);
+            res.status(500).json({ message: 'Lỗi server khi đăng ký khách.', error: error.message });
+        }
+    },
+
+    /**
      * [POST] /api/visitors/check-in
      * Ghi nhận khách vào
      */
     checkIn: async (req, res) => {
         try {
-            const { apartment_id, visitor_name, identity_card, vehicle_plate } = req.body;
+            const { id, apartment_id, visitor_name, identity_card, vehicle_plate } = req.body;
 
+            // CASE 1: Confirm Check-in for Registered Visitor
+            if (id) {
+                const isSuccess = await Visitor.updateCheckIn(id, req.user.id);
+                if (!isSuccess) {
+                    return res.status(400).json({ message: 'Không thể check-in. Khách có thể đã vào hoặc ID không hợp lệ.' });
+                }
+                return res.json({ success: true, message: 'Check-in thành công.' });
+            }
+
+            // CASE 2: Walk-in Guest (Create New)
             // 1. Validate
             if (!apartment_id || !visitor_name) {
                 return res.status(400).json({ message: 'Vui lòng nhập Căn hộ và Tên khách.' });
@@ -45,12 +92,12 @@ const visitorController = {
 
             // 2. Tạo bản ghi
             // security_guard_id lấy từ token người đang đăng nhập (Bảo vệ/BQT)
-            const newVisitor = await Visitor.create({
+            const newVisitor = await Visitor.createCheckIn({
                 apartment_id,
                 visitor_name,
                 identity_card,
                 vehicle_plate,
-                security_guard_id: req.user.id 
+                security_guard_id: req.user.id
             });
 
             res.status(201).json({
@@ -74,13 +121,13 @@ const visitorController = {
             const { id } = req.params;
 
             // 1. Kiểm tra tồn tại (Optional - Model update sẽ trả về false nếu ko tìm thấy)
-            
+
             // 2. Cập nhật giờ ra
             const isSuccess = await Visitor.updateCheckOut(id);
 
             if (!isSuccess) {
-                return res.status(400).json({ 
-                    message: 'Không thể check-out. Có thể khách đã về rồi hoặc ID không tồn tại.' 
+                return res.status(400).json({
+                    message: 'Không thể check-out. Có thể khách đã về rồi hoặc ID không tồn tại.'
                 });
             }
 
@@ -102,7 +149,7 @@ const visitorController = {
     deleteVisitor: async (req, res) => {
         try {
             const { id } = req.params;
-            
+
             await Visitor.delete(id);
 
             res.json({ success: true, message: 'Đã xóa thông tin khách.' });

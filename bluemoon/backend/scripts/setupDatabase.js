@@ -85,10 +85,7 @@ async function setupDatabase() {
             console.log('   Hãy chạy lệnh: node database/generate_seeding.js');
         }
 
-        // 4. Chạy create_accounting_tables.sql (Bảng Kế toán & Tiến độ)
-        const accountingPath = path.join(__dirname, 'create_accounting_tables.sql');
-        console.log('📊 BƯỚC 3: Tạo bảng Kế toán & Tiến độ (Accounting)...');
-        await runSqlFile(connection, accountingPath);
+
 
         console.log('🎉🎉🎉 CÀI ĐẶT DATABASE HOÀN TẤT! 🎉🎉🎉');
 

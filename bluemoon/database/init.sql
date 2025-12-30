@@ -411,6 +411,13 @@ CREATE TABLE visitors (
     check_out_time DATETIME,
     vehicle_plate VARCHAR(20),
     security_guard_id VARCHAR(20) COMMENT 'Bảo vệ ghi nhận (User ID)',
+    
+    -- [BỔ SUNG] Cho tính năng Đăng ký khách
+    expected_arrival DATETIME DEFAULT NULL,
+    expected_departure DATETIME DEFAULT NULL,
+    purpose TEXT DEFAULT NULL,
+    status VARCHAR(20) DEFAULT 'Đã vào', -- 'Đăng ký', 'Đã vào', 'Đã ra', 'Hủy'
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (apartment_id) REFERENCES apartments(id),
     FOREIGN KEY (security_guard_id) REFERENCES users(id) ON DELETE SET NULL
@@ -546,3 +553,54 @@ CREATE TABLE IF NOT EXISTS profile_edit_requests (
     FOREIGN KEY (resident_id) REFERENCES residents(id) ON DELETE CASCADE,
     FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
 );
+
+-- ===================================
+-- 5. MODULE CÔNG VIỆC KẾ TOÁN
+-- ===================================
+
+-- 34. RECURRING_SCHEDULES (LỊCH ĐỊNH KỲ)
+CREATE TABLE IF NOT EXISTS recurring_schedules (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(50) COMMENT 'tax, audit, report...',
+    frequency ENUM('daily', 'weekly', 'monthly', 'quarterly', 'yearly') NOT NULL,
+    day_of_week INT COMMENT '0-6 (CN-T7) for weekly',
+    day_of_month INT COMMENT '1-31 for monthly/yearly',
+    month_of_year INT COMMENT '1-12 for yearly',
+    deadline_offset_days INT DEFAULT 7 COMMENT 'Deadline sau bao nhiêu ngày từ khi tạo',
+    default_assignee VARCHAR(20) COMMENT 'User ID mặc định',
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_run_date DATE,
+    next_run_date DATE,
+    created_by VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (default_assignee) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- 35. ACCOUNTING_TASKS (CÔNG VIỆC KẾ TOÁN)
+CREATE TABLE IF NOT EXISTS accounting_tasks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    task_type ENUM('manual', 'recurring') DEFAULT 'manual',
+    category VARCHAR(50),
+    period_type ENUM('monthly', 'quarterly', 'yearly', 'other') DEFAULT 'monthly',
+    period_value VARCHAR(50) COMMENT 'T10-2025, Q4-2025...',
+    start_date DATE,
+    due_date DATE,
+    completed_date DATETIME,
+    assigned_to VARCHAR(20),
+    assigned_by VARCHAR(20),
+    status ENUM('pending', 'in_progress', 'review', 'completed', 'overdue') DEFAULT 'pending',
+    priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
+    recurring_schedule_id INT COMMENT 'Link tới lịch định kỳ nếu có',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (recurring_schedule_id) REFERENCES recurring_schedules(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

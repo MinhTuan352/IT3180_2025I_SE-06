@@ -533,14 +533,16 @@ export default function ResidentList() {
         </Typography>
 
         <Box>
-          <Button
-            variant="outlined"
-            startIcon={<FileUploadIcon />}
-            sx={{ mr: 1, backgroundColor: 'white' }}
-            onClick={handleImportClick}
-          >
-            Import
-          </Button>
+          {!isCQCN && (
+            <Button
+              variant="outlined"
+              startIcon={<FileUploadIcon />}
+              sx={{ mr: 1, backgroundColor: 'white' }}
+              onClick={handleImportClick}
+            >
+              Import
+            </Button>
+          )}
           <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
@@ -557,20 +559,24 @@ export default function ResidentList() {
           >
             Tìm kiếm nâng cao
           </Button>
-          <Button
-            variant="outlined"
-            color="warning"
-            sx={{ mr: 1, backgroundColor: 'white' }}
-            onClick={() => setOpenEditRequestsModal(true)}
-          >
-            Yêu cầu chỉnh sửa {pendingCount > 0 && `(${pendingCount})`}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreateResident}
-          >
-            Thêm cư dân
-          </Button>
+          {!isCQCN && (
+            <>
+              <Button
+                variant="outlined"
+                color="warning"
+                sx={{ mr: 1, backgroundColor: 'white' }}
+                onClick={() => setOpenEditRequestsModal(true)}
+              >
+                Yêu cầu chỉnh sửa {pendingCount > 0 && `(${pendingCount})`}
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleCreateResident}
+              >
+                Thêm cư dân
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 

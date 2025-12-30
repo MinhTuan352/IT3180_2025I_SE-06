@@ -42,7 +42,7 @@ router.get('/export', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.e
 // Import danh sách xe từ Excel
 router.post('/import',
     checkAuth,
-    checkRole(['bod', 'cqcn']),
+    checkRole(['bod']), // CQCN cannot import
     excelUpload.single('file'),
     vehicleController.importVehicles
 );
@@ -53,7 +53,7 @@ router.get('/resident/:residentId', checkAuth, checkRole(['bod', 'cqcn']), vehic
 // BOD thêm xe mới (status = Đang sử dụng)
 router.post('/',
     checkAuth,
-    checkRole(['bod', 'cqcn']),
+    checkRole(['bod']), // CQCN cannot create
     upload.fields([
         { name: 'vehicle_image', maxCount: 1 },
         { name: 'registration_cert', maxCount: 1 }
@@ -62,9 +62,9 @@ router.post('/',
 );
 
 // Duyệt / Từ chối xe (Update status)
-router.put('/:id/status', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.updateVehicleStatus);
+router.put('/:id/status', checkAuth, checkRole(['bod']), vehicleController.updateVehicleStatus); // CQCN cannot update status
 
 // Chỉnh sửa thông tin xe (Sửa sai sót)
-router.put('/:id', checkAuth, checkRole(['bod', 'cqcn']), vehicleController.updateVehicleInfo);
+router.put('/:id', checkAuth, checkRole(['bod']), vehicleController.updateVehicleInfo); // CQCN cannot update info
 
 module.exports = router;

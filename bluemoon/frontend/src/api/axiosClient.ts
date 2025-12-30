@@ -3,8 +3,10 @@ import axios from 'axios';
 
 
 const axiosClient = axios.create({
-  // URL này trỏ đến proxy bạn đã cài trong vite.config.ts
-  baseURL: '/api',
+  // Sử dụng environment variable cho API URL
+  // Development: http://localhost:3000/api
+  // Production: https://it3180-2025i-se-06.onrender.com/api
+  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api`,
   headers: {
     'Content-Type': 'application/json',
   },

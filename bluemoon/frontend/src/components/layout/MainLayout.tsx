@@ -81,7 +81,6 @@ const bodMenuItems = [
   { text: 'QTV', icon: <AdminPanelSettingsIcon />, path: '/bod/admin/list' }, // 
   { text: 'Cư dân', icon: <PeopleIcon />, path: '/bod/resident' }, // [cite: 28]
   { text: 'Quản lý Đăng nhập', icon: <ManageAccountsIcon />, path: '/bod/login-management' },
-  { text: 'Quản lý Khách', icon: <BadgeIcon />, path: '/bod/visitor/list' },
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
 
   { text: 'Tài chính', icon: <AccountBalanceIcon />, path: '/bod/finance' }, // [cite: 45] Updated

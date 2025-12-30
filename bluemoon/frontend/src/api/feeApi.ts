@@ -84,7 +84,7 @@ const feeApi = {
 
     // Import water meter readings and create invoices
     importWater: (data: { billingPeriod: string, readings: any[] }) => {
-        return axiosClient.post('/fees/import-water', data);
+        return axiosClient.post('/fees/import-utility', data);
     },
 
     triggerScan: () => {

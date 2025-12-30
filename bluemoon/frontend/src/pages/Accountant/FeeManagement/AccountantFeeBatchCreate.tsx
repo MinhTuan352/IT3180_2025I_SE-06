@@ -195,7 +195,14 @@ export default function AccountantFeeBatchCreate() {
               </Grid>
               <Grid sx={{ xs: 12 }}>
                 <Alert severity="info">
-                  Quy trình: Tất cả căn hộ có chủ hộ sẽ được quét. Phí Quản lý (PQL) và các phí cố định sẽ được tự động tính toán dựa trên diện tích.
+                  <strong>Quy trình:</strong> Tất cả căn hộ có chủ hộ sẽ được quét. Các loại phí sẽ được tự động tính toán:
+                  <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                    <li><strong>Phí Quản lý (PQL):</strong> Theo diện tích căn hộ</li>
+                    <li><strong>Phí Gửi xe (PGX):</strong> Theo số xe đăng ký</li>
+                    <li><strong>Phí Điện (PD) & Nước (PN):</strong> Placeholder (cần nhập chỉ số riêng)</li>
+                  </ul>
+                  <br />
+                  <strong style={{ color: '#d32f2f' }}>⚠️ Lưu ý:</strong> Mỗi kỳ thanh toán chỉ được chạy <strong>1 lần</strong>. Nếu đã tạo hóa đơn cho kỳ này, hệ thống sẽ không cho phép chạy lại.
                 </Alert>
               </Grid>
             </Grid>

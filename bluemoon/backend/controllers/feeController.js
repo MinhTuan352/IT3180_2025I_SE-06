@@ -698,6 +698,7 @@ const feeController = {
     /**
      * Bước 1: Xem trước danh sách hóa đơn sẽ được tạo
      * GET /api/fees/batch-preview?billing_period=2025-12
+     * [CẬP NHẬT] Hỗ trợ tất cả loại phí và kiểm tra kỳ đã chạy
      */
     batchPreview: async (req, res) => {
         try {
@@ -705,6 +706,19 @@ const feeController = {
 
             if (!billing_period) {
                 return res.status(400).json({ message: 'Vui lòng chọn kỳ thanh toán (billing_period).' });
+            }
+
+            // [MỚI] Kiểm tra xem kỳ này đã có hóa đơn chưa
+            const [existingInvoices] = await db.execute(`
+                SELECT COUNT(*) as count FROM fees WHERE billing_period = ?
+            `, [billing_period]);
+
+            if (existingInvoices[0].count > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Kỳ ${billing_period} đã được tạo hóa đơn (${existingInvoices[0].count} hóa đơn). Không thể chạy lại.`,
+                    data: { existingCount: existingInvoices[0].count }
+                });
             }
 
             // 1. Lấy danh sách căn hộ có chủ hộ
@@ -731,11 +745,10 @@ const feeController = {
                 });
             }
 
-            // 2. Lấy danh sách loại phí cố định (PQL, Gửi xe)
+            // [CẬP NHẬT] 2. Lấy TẤT CẢ loại phí từ bảng fee_types
             const [feeTypes] = await db.execute(`
                 SELECT id, fee_code, fee_name, default_price, unit
                 FROM fee_types
-                WHERE fee_code IN ('PQL', 'GX', 'DV')
                 ORDER BY id
             `);
 
@@ -743,6 +756,23 @@ const feeController = {
             const feeTypeMap = {};
             feeTypes.forEach(ft => {
                 feeTypeMap[ft.fee_code] = ft;
+            });
+
+            // [MỚI] Lấy danh sách xe cho từng căn hộ
+            const [vehicles] = await db.execute(`
+                SELECT v.*, r.apartment_id
+                FROM vehicles v
+                JOIN residents r ON v.resident_id = r.id
+                WHERE v.status = 'Đang sử dụng'
+            `);
+
+            // Gom xe theo căn hộ
+            const vehicleMap = {};
+            vehicles.forEach(v => {
+                if (!vehicleMap[v.apartment_id]) {
+                    vehicleMap[v.apartment_id] = [];
+                }
+                vehicleMap[v.apartment_id].push(v);
             });
 
             // 3. Tính toán hóa đơn cho từng căn hộ
@@ -755,9 +785,10 @@ const feeController = {
 
                 // Phí Quản lý (PQL) = Diện tích x Đơn giá
                 if (feeTypeMap['PQL']) {
-                    const pqlPrice = feeTypeMap['PQL'].default_price || 15000;
+                    const pqlPrice = feeTypeMap['PQL'].default_price || 7000;
                     const pqlAmount = apt.area * pqlPrice;
                     items.push({
+                        fee_type_id: feeTypeMap['PQL'].id,
                         item_name: `Phí quản lý (${apt.area} m²)`,
                         unit: 'm²',
                         quantity: apt.area,
@@ -767,10 +798,56 @@ const feeController = {
                     invoiceTotal += pqlAmount;
                 }
 
+                // [MỚI] Phí Gửi xe (PGX) - Tính theo số xe của căn hộ
+                const aptVehicles = vehicleMap[apt.apartment_id] || [];
+                if (aptVehicles.length > 0 && feeTypeMap['PGX']) {
+                    const pgxPrice = feeTypeMap['PGX'].default_price || 0;
+                    // Nếu phí gửi xe > 0, tính theo số xe
+                    if (pgxPrice > 0) {
+                        const pgxAmount = aptVehicles.length * pgxPrice;
+                        items.push({
+                            fee_type_id: feeTypeMap['PGX'].id,
+                            item_name: `Phí gửi xe (${aptVehicles.length} xe)`,
+                            unit: 'Tháng',
+                            quantity: aptVehicles.length,
+                            unit_price: pgxPrice,
+                            amount: pgxAmount
+                        });
+                        invoiceTotal += pgxAmount;
+                    }
+                }
+
+                // [MỚI] Phí Điện (PD) - Thêm mục để nhập sau (số lượng = 0)
+                if (feeTypeMap['PD']) {
+                    items.push({
+                        fee_type_id: feeTypeMap['PD'].id,
+                        item_name: `Phí điện (chưa có chỉ số)`,
+                        unit: 'kWh',
+                        quantity: 0,
+                        unit_price: feeTypeMap['PD'].default_price || 3000,
+                        amount: 0
+                    });
+                    // Không cộng vào tổng vì chưa có số liệu
+                }
+
+                // [MỚI] Phí Nước (PN) - Thêm mục để nhập sau (số lượng = 0)
+                if (feeTypeMap['PN']) {
+                    items.push({
+                        fee_type_id: feeTypeMap['PN'].id,
+                        item_name: `Phí nước (chưa có chỉ số)`,
+                        unit: 'm³',
+                        quantity: 0,
+                        unit_price: feeTypeMap['PN'].default_price || 15000,
+                        amount: 0
+                    });
+                    // Không cộng vào tổng vì chưa có số liệu
+                }
+
                 // Phí Dịch vụ chung (DV) - nếu có
                 if (feeTypeMap['DV']) {
                     const dvPrice = feeTypeMap['DV'].default_price || 100000;
                     items.push({
+                        fee_type_id: feeTypeMap['DV'].id,
                         item_name: 'Phí dịch vụ chung',
                         unit: 'tháng',
                         quantity: 1,
@@ -798,10 +875,11 @@ const feeController = {
 
             res.json({
                 success: true,
-                message: `Đã tính toán ${invoices.length} hóa đơn.`,
+                message: `Đã tính toán ${invoices.length} hóa đơn với ${feeTypes.length} loại phí.`,
                 data: {
                     billing_period,
                     invoices,
+                    feeTypes: feeTypes.map(ft => ({ code: ft.fee_code, name: ft.fee_name })),
                     summary: {
                         total: invoices.length,
                         totalAmount
@@ -819,17 +897,43 @@ const feeController = {
      * Bước 2: Tạo hóa đơn hàng loạt
      * POST /api/fees/batch-create
      * Body: { billing_period: '2025-12', invoices: [...] }
+     * [CẬP NHẬT] Xử lý tất cả loại phí và lọc items không có số liệu
      */
     batchCreate: async (req, res) => {
         try {
+            console.log('[batchCreate] Start processing...');
             const { billing_period, invoices } = req.body;
-            if (!invoices || !Array.isArray(invoices)) return res.status(400).json({ message: 'Dữ liệu lỗi.' });
 
-            // Lấy mã phí mặc định là PQL nếu không có trong invoices (hoặc check từng cái)
-            // Giả sử batch này cho PQL
-            const [feeTypes] = await db.execute("SELECT id, fee_code FROM fee_types WHERE fee_code = 'PQL' LIMIT 1");
-            const defaultFeeCode = feeTypes.length > 0 ? feeTypes[0].fee_code : 'PQL';
-            const defaultFeeId = feeTypes.length > 0 ? feeTypes[0].id : 1;
+            if (!invoices || !Array.isArray(invoices)) {
+                console.error('[batchCreate] Invalid data:', req.body);
+                return res.status(400).json({ message: 'Dữ liệu lỗi.' });
+            }
+
+            console.log(`[batchCreate] Received ${invoices.length} invoices for period ${billing_period}`);
+
+            // Lấy mã phí mặc định là PQL nếu không có trong invoices
+            let defaultFeeCode = 'PQL';
+            let defaultFeeId = 1;
+            try {
+                const [feeTypes] = await db.execute("SELECT id, fee_code FROM fee_types WHERE fee_code = 'PQL' LIMIT 1");
+                if (feeTypes.length > 0) {
+                    defaultFeeCode = feeTypes[0].fee_code;
+                    defaultFeeId = feeTypes[0].id;
+                } else {
+                    console.warn('[batchCreate] Warning: Fee Type PQL not found. Trying fallback...');
+                    const [anyFee] = await db.execute("SELECT id, fee_code FROM fee_types LIMIT 1");
+                    if (anyFee.length > 0) {
+                        defaultFeeId = anyFee[0].id;
+                        defaultFeeCode = anyFee[0].fee_code;
+                    } else {
+                        throw new Error('No fee types defined in database');
+                    }
+                }
+                console.log(`[batchCreate] Using Default Fee: ${defaultFeeCode} (ID: ${defaultFeeId})`);
+            } catch (err) {
+                console.error('[batchCreate] Error fetching default fee:', err);
+                // Don't crash, just log. invoice looping might fail if defaultFeeId is invalid but we try anyway.
+            }
 
             const now = new Date();
             const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
@@ -839,6 +943,18 @@ const feeController = {
 
             for (const inv of invoices) {
                 try {
+                    // [CẬP NHẬT] Lọc bỏ các items có quantity = 0 (Điện, Nước chưa có chỉ số)
+                    const validItems = (inv.items || []).filter(item => item.quantity > 0 && item.amount > 0);
+
+                    if (validItems.length === 0) {
+                        // Skip silently or log warning
+                        errors.push({ code: inv.apartment_code, error: 'Không có mục phí hợp lệ (quantity=0)' });
+                        continue;
+                    }
+
+                    // Tính lại tổng tiền từ các items hợp lệ
+                    const actualTotal = validItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+
                     // ID: PQL-A101-122025
                     const invoiceId = await idGenerator.generateInvoiceId(
                         defaultFeeCode,
@@ -851,23 +967,45 @@ const feeController = {
                         apartment_id: inv.apartment_id,
                         resident_id: inv.resident_id,
                         fee_type_id: inv.fee_type_id || defaultFeeId,
-                        description: inv.description || `Phí quản lý ${billing_period}`,
+                        description: inv.description || `Phí tháng ${billing_period}`,
                         billing_period,
                         due_date: dueDate.toISOString().split('T')[0],
-                        total_amount: inv.total_amount,
-                        created_by: req.user.id
+                        total_amount: actualTotal,
+                        created_by: req.user ? req.user.id : 1 // Fallback if req.user is missing
                     };
 
-                    await Fee.createInvoice(invoiceData, inv.items);
+                    // [CẬP NHẬT] Làm sạch items trước khi lưu (loại bỏ fee_type_id thừa trong items)
+                    const cleanedItems = validItems.map(item => ({
+                        item_name: item.item_name,
+                        unit: item.unit,
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        amount: item.amount
+                    }));
+
+                    await Fee.createInvoice(invoiceData, cleanedItems);
                     success++;
                 } catch (e) {
-                    if (e.code !== 'ER_DUP_ENTRY') errors.push({ code: inv.apartment_code, error: e.message });
+                    console.error(`[batchCreate] Error for ${inv.apartment_code}:`, e.message);
+                    if (e.code !== 'ER_DUP_ENTRY') {
+                        errors.push({ code: inv.apartment_code, error: e.message });
+                    } else {
+                        errors.push({ code: inv.apartment_code, error: 'Đã tồn tại hóa đơn' });
+                    }
                 }
             }
-            res.json({ success: true, message: `Đã tạo ${success}/${invoices.length} hóa đơn.`, errors });
+
+            console.log(`[batchCreate] Completed. Success: ${success}, Errors: ${errors.length}`);
+            res.json({
+                success: true,
+                message: `Đã tạo ${success}/${invoices.length} hóa đơn.`,
+                data: { created: success, failed: errors.length },
+                errors
+            });
 
         } catch (error) {
-            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+            console.error('[batchCreate] CRITICAL Server Error:', error);
+            res.status(500).json({ message: 'Lỗi server nghiêm trọng.', error: error.toString(), stack: error.stack });
         }
     },
 

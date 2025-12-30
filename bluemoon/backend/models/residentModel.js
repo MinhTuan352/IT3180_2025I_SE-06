@@ -43,6 +43,12 @@ const Resident = {
                 params.push(filters.status);
             }
 
+            // 4. Lọc theo Vai trò (Chủ hộ / Thành viên)
+            if (filters.role) {
+                query += ` AND r.role = ?`;
+                params.push(filters.role);
+            }
+
             // Sắp xếp: Mới nhất lên đầu
             query += ` ORDER BY r.created_at DESC`;
 

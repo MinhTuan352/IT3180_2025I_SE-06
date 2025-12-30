@@ -24,6 +24,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import SaveIcon from '@mui/icons-material/Save';
 import toast, { Toaster } from 'react-hot-toast';
 import feeApi from '../../../api/feeApi';
+import { residentApi } from '../../../api/residentApi';
 
 // --- MOCK CONFIG (Lấy từ FeeSetup) ---
 const UNIT_PRICE_WATER = 15000; // 15k/m3
@@ -39,22 +40,62 @@ export default function AccountantMeasureImport() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState('');
 
-  // 1. Tải file mẫu
-  const handleDownloadTemplate = () => {
-    // Tạo dữ liệu mẫu giả lập
-    const templateData = [
-      { MaCanHo: 'A-101', ChuHo: 'Trần Văn Hộ', ChiSoCu: 120, ChiSoMoi: '' },
-      { MaCanHo: 'A-102', ChuHo: 'Nguyễn Thị B', ChiSoCu: 345, ChiSoMoi: '' },
-      { MaCanHo: 'B-205', ChuHo: 'Lê Văn C', ChiSoCu: 88, ChiSoMoi: '' },
-    ];
+  // 1. Tải file mẫu (ĐYNAMIC DATA)
+  const handleDownloadTemplate = async () => {
+    setIsProcessing(true);
+    try {
+      // Gọi API lấy danh sách chủ hộ đang sinh sống
+      // residentApi đã được import chưa? Nếu chưa thì cần import ở trên.
+      // Kiểm tra file outline: line 26 imported feeApi. Cần thêm residentApi.
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'NhapChiSoNuoc');
-    XLSX.writeFile(wb, 'Mau_Nhap_Chi_So_Nuoc_T12_2025.xlsx');
+      const response: any = await residentApi.getAll({
+        role: 'owner',
+        status: 'Đang sinh sống'
+      });
 
-    toast.success('Đã tải file mẫu thành công!');
-    setActiveStep(1); // Chuyển sang bước 2
+      const residents = Array.isArray(response) ? response : (response.data || []);
+
+      if (residents.length === 0) {
+        toast.error('Không tìm thấy căn hộ nào có chủ hộ đang sinh sống.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Map dữ liệu sang format Excel
+      const templateData = residents.map((r: any) => ({
+        MaCanHo: r.apartment_code || '',
+        ChuHo: r.full_name || '',
+        ChiSoCu: 0, // Mặc định 0, kế toán tự điền hoặc update sau
+        ChiSoMoi: ''
+      }));
+
+      // Sort theo mã căn hộ
+      templateData.sort((a: any, b: any) => a.MaCanHo.localeCompare(b.MaCanHo));
+
+      const ws = XLSX.utils.json_to_sheet(templateData);
+
+      // Auto-width columns
+      const wscols = [
+        { wch: 15 }, // MaCanHo
+        { wch: 25 }, // ChuHo
+        { wch: 15 }, // ChiSoCu
+        { wch: 15 }  // ChiSoMoi
+      ];
+      ws['!cols'] = wscols;
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'NhapChiSoNuoc');
+      XLSX.writeFile(wb, `Mau_Nhap_Chi_So_Nuoc_T12_2025_${new Date().getTime()}.xlsx`);
+
+      toast.success(`Đã tải file mẫu với ${residents.length} căn hộ!`);
+      setActiveStep(1);
+
+    } catch (error) {
+      console.error('Download template error:', error);
+      toast.error('Lỗi khi tải danh sách căn hộ.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // 2. Xử lý Upload & Đọc file
@@ -202,7 +243,7 @@ export default function AccountantMeasureImport() {
           Quay lại
         </Button>
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-          Import Chỉ Số Nước (Kỳ T12/2025)
+          Import Chỉ Số Nước
         </Typography>
       </Box>
 

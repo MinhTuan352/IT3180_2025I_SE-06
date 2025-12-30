@@ -303,7 +303,12 @@ export default function MainLayout() {
 
   return (
     <LayoutContext.Provider value={{ isSidebarCollapsed: isCollapsed }}>
-      <Box sx={{ display: 'flex' }}>
+      <Box sx={{
+        display: 'flex',
+        width: '100%',
+        maxWidth: 'none',  // Remove any maxWidth constraint
+        margin: 0          // Remove auto margins that center narrow content
+      }}>
         <CssBaseline />
 
         {/* 1. Header (CẬP NHẬT) */}
@@ -545,7 +550,7 @@ export default function MainLayout() {
           sx={{
             flexGrow: 1,
             flexShrink: 0,  // KHÔNG cho phép co lại
-            p: 3,
+            p: 2, // Reduced from 3 to 2 for better desktop layout
             backgroundColor: 'background.default',
             minHeight: '100vh',
             // --- CẬP NHẬT --- (Yêu cầu 2: Điều chỉnh width)

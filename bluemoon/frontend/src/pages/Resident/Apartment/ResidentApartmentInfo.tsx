@@ -379,30 +379,30 @@ export default function ResidentApartmentInfo() {
 
                 <Divider sx={{ mb: 3 }} />
 
-                {/* Responsive Grid for apartment details - FULL WIDTH */}
+                {/* Responsive Grid for apartment details - OPTIMIZED FOR DESKTOP */}
                 <Grid container spacing={2}>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <InfoBox
                             icon={<HomeIcon fontSize="large" />}
                             label="Tòa nhà"
                             value={apartment.building}
                         />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <InfoBox
                             icon={<LayersIcon fontSize="large" />}
                             label="Tầng"
                             value={apartment.floor}
                         />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <InfoBox
                             icon={<SquareFootIcon fontSize="large" />}
                             label="Diện tích"
                             value={`${apartment.area} m²`}
                         />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                         <InfoBox
                             icon={<PersonIcon fontSize="large" />}
                             label="Số thành viên"

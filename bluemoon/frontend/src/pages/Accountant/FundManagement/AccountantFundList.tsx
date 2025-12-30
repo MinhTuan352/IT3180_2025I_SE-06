@@ -162,7 +162,7 @@ export default function AccountantFundList() {
             ) : (
                 <Grid container spacing={3}>
                     {campaigns.map((campaign) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={campaign.id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={campaign.id}>
                             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 } }}>
                                 <CardMedia
                                     component="img"

@@ -146,9 +146,32 @@ export default function ResidentList() {
           bVal = b.full_name.toLowerCase();
           break;
         case 'apartment_code':
-          aVal = (a.apartment_code || '').toLowerCase();
-          bVal = (b.apartment_code || '').toLowerCase();
-          break;
+          // Natural sort: extract prefix and number for proper numeric comparison
+          // e.g., "A-101" -> ["A", 101], "A-1008" -> ["A", 1008]
+          const parseCode = (code: string) => {
+            const match = code.match(/^([A-Za-z]+)-?(\d+)$/);
+            if (match) {
+              return { prefix: match[1].toUpperCase(), num: parseInt(match[2], 10) };
+            }
+            return { prefix: code.toUpperCase(), num: 0 };
+          };
+          const aParsed = parseCode(a.apartment_code || '');
+          const bParsed = parseCode(b.apartment_code || '');
+
+          // First compare prefix (A, B, C...)
+          if (aParsed.prefix !== bParsed.prefix) {
+            if (sort.sortOrder === 'asc') {
+              return aParsed.prefix < bParsed.prefix ? -1 : 1;
+            } else {
+              return aParsed.prefix > bParsed.prefix ? -1 : 1;
+            }
+          }
+          // Then compare number
+          if (sort.sortOrder === 'asc') {
+            return aParsed.num - bParsed.num;
+          } else {
+            return bParsed.num - aParsed.num;
+          }
         case 'id':
           aVal = a.id;
           bVal = b.id;

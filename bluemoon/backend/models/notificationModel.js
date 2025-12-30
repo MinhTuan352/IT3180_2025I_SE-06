@@ -74,7 +74,23 @@ const Notification = {
                 SELECT * FROM notification_attachments WHERE notification_id = ?
             `, [id]);
 
-            return { ...notification, attachments };
+            // Lấy danh sách người nhận (cho BOD xem)
+            const [recipients] = await db.execute(`
+                SELECT 
+                    r.id, 
+                    r.full_name, 
+                    r.apartment_id,
+                    a.apartment_code,
+                    nr.is_read, 
+                    nr.read_at
+                FROM notification_recipients nr
+                JOIN residents r ON nr.recipient_id = r.id
+                LEFT JOIN apartments a ON r.apartment_id = a.id
+                WHERE nr.notification_id = ?
+                ORDER BY r.full_name
+            `, [id]);
+
+            return { ...notification, attachments, recipients };
         } catch (error) {
             throw error;
         }
@@ -188,7 +204,9 @@ const Notification = {
                 params.push(targetValue);
             }
             else if (targetType === 'Cá nhân' && targetValue) {
-                return [targetValue];
+                // targetValue can be single ID 'R0001' or comma-separated 'R0001,R0002,R0003'
+                const ids = targetValue.split(',').map(id => id.trim());
+                return ids;
             }
             // Nếu targetType === 'Tất cả Cư dân', query sẽ giữ nguyên baseQuery -> Lấy tất cả
 

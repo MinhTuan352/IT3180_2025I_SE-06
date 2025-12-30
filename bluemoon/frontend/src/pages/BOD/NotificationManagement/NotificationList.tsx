@@ -102,7 +102,29 @@ export default function NotificationList() {
         return params.value.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
       }
     },
-    { field: 'target', headerName: 'Đối tượng', width: 150 },
+    {
+      field: 'target',
+      headerName: 'Đối tượng',
+      width: 200,
+      renderCell: (params) => {
+        const target = params.row.target;
+        const targetValue = params.row.target_value;
+
+        if (target === 'Tất cả Cư dân') {
+          return 'Tất cả Cư dân';
+        }
+        if (target === 'Theo tòa nhà' && targetValue) {
+          return `Theo tòa nhà (Tòa ${targetValue})`;
+        }
+        if (target === 'Theo căn hộ' && targetValue) {
+          return `Theo căn hộ (${targetValue})`;
+        }
+        if (target === 'Cá nhân' && targetValue) {
+          return `Cá nhân (${targetValue})`;
+        }
+        return target || 'Không xác định';
+      }
+    },
     {
       field: 'actions',
       headerName: 'Hành động',

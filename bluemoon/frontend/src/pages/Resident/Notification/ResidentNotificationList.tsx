@@ -64,13 +64,22 @@ export default function ResidentNotificationList() {
 
   // Handle row click to show detail
   const handleRowClick = async (params: any) => {
-    const notification = params.row as Notification;
-    setSelectedNotification(notification);
-    setDialogOpen(true);
+    try {
+      // Fetch full detail including attachments and recipients
+      const response = await notificationApi.getDetail(params.row.id);
+      const body = (response as any).data || response;
+      const fullNotification = body.data || body;
 
-    // Mark as read when opened
-    if (!notification.is_read) {
-      await handleMarkRead(notification.id);
+      setSelectedNotification(fullNotification);
+      setDialogOpen(true);
+
+      // Mark as read when opened
+      if (!params.row.is_read) {
+        await handleMarkRead(params.row.id);
+      }
+    } catch (error) {
+      console.error('Error fetching notification detail:', error);
+      alert('Không thể tải chi tiết thông báo. Vui lòng thử lại.');
     }
   };
 
@@ -188,11 +197,45 @@ export default function ResidentNotificationList() {
             <Typography variant="body2" color="text.secondary">
               Ngày gửi: <strong>{selectedNotification?.created_at ? new Date(selectedNotification.created_at).toLocaleString('vi-VN') : ''}</strong>
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gửi tới: <strong>{(() => {
+                const target = selectedNotification?.target;
+                const targetValue = selectedNotification?.target_value;
+                if (target === 'Tất cả Cư dân') return 'Tất cả Cư dân';
+                if (target === 'Theo tòa nhà' && targetValue) return `Tòa ${targetValue}`;
+                if (target === 'Theo căn hộ' && targetValue) return `Căn hộ ${targetValue}`;
+                if (target === 'Cá nhân') return 'Bạn (cá nhân)';
+                return target || 'Không xác định';
+              })()}</strong>
+            </Typography>
           </Box>
           <Divider sx={{ mb: 2 }} />
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>
             {selectedNotification?.content}
           </Typography>
+
+          {/* File đính kèm */}
+          {selectedNotification?.attachments && selectedNotification.attachments.length > 0 && (
+            <>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                File đính kèm:
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {selectedNotification.attachments.map((file, idx) => (
+                  <Button
+                    key={idx}
+                    href={`http://localhost:3000${file.file_path}`}
+                    target="_blank"
+                    variant="outlined"
+                    size="small"
+                  >
+                    {file.file_name}
+                  </Button>
+                ))}
+              </Box>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Đóng</Button>

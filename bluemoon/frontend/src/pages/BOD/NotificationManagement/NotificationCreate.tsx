@@ -27,9 +27,7 @@ import { residentApi, type Resident } from '../../../api/residentApi';
 export default function NotificationCreate() {
   const navigate = useNavigate();
   const [targetType, setTargetType] = useState('all_residents');
-  const [targetValue, setTargetValue] = useState<string>('');
   const [building, setBuilding] = useState<string>('A');
-  const [floor, setFloor] = useState<number>(1);
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -80,60 +78,45 @@ export default function NotificationCreate() {
     let target = 'Tất cả Cư dân';
     let computedTargetValue = '';
 
-    // Logic mapping basic
+    // Logic mapping to match database ENUM
     if (targetType === 'specific_users') {
       if (selectedResidents.length === 0) {
         setError("Vui lòng chọn ít nhất một cư dân.");
         return;
       }
-      target = 'Cá nhân';
+      target = 'Cá nhân';  // ENUM value
+      // Send comma-separated list of resident IDs for backend to parse
+      computedTargetValue = selectedResidents.map(r => r.id).join(',');
     } else if (targetType === 'building') {
-      target = `Tòa ${building}`;
-      computedTargetValue = building;
-    } else if (targetType === 'floor') {
-      target = `Tầng ${floor}`;
-      computedTargetValue = floor.toString();
+      target = 'Theo tòa nhà';  // ENUM value
+      computedTargetValue = building;  // 'A' or 'B'
     }
+    // Note: 'floor' option removed - not supported in database ENUM
 
     setLoading(true);
 
     try {
-      const sendNoti = async (recipientId?: string) => {
-        // Send as JSON instead of FormData (no files anymore)
-        const payload: any = {
-          title,
-          content,
-          type_id: typeLabel === 'Chung' ? 1 : (typeLabel === 'Thu phí' ? 2 : 3),
-          target,
-        };
+      // Send as JSON instead of FormData (no files anymore)
+      const payload: any = {
+        title,
+        content,
+        type_id: typeLabel === 'Chung' ? 1 : (typeLabel === 'Thu phí' ? 2 : 3),
+        target,
+      };
 
-        if (recipientId) {
-          payload.specific_recipient_id = recipientId;
-        }
-
-        // For building/floor, backend might need target_value or just use target string
-        if (computedTargetValue) {
-          payload.target_value = computedTargetValue;
-        }
-
-        // FIX: Send scheduled_at as local datetime string (not UTC)
-        if (scheduleEnabled && scheduledAt) {
-          // scheduledAt from datetime-local is already in format "YYYY-MM-DDTHH:mm"
-          // Convert to MySQL datetime format: "YYYY-MM-DD HH:mm:ss"
-          payload.scheduled_at = scheduledAt.replace('T', ' ') + ':00';
-        }
-
-        await notificationApi.create(payload);
+      // Always send target_value if we have it (building or specific residents)
+      if (computedTargetValue) {
+        payload.target_value = computedTargetValue;
       }
 
-      if (targetType === 'specific_users') {
-        // Loop send if multiple (since backend might limit to 1)
-        for (const res of selectedResidents) {
-          await sendNoti(res.id);
-        }
-      } else {
-        await sendNoti();
+      // FIX: Send scheduled_at as local datetime string (not UTC)
+      if (scheduleEnabled && scheduledAt) {
+        // scheduledAt from datetime-local is already in format "YYYY-MM-DDTHH:mm"
+        // Convert to MySQL datetime format: "YYYY-MM-DD HH:mm:ss"
+        payload.scheduled_at = scheduledAt.replace('T', ' ') + ':00';
       }
+
+      await notificationApi.create(payload);
 
       const successMsg = scheduleEnabled
         ? `Đã lên lịch gửi thông báo vào ${new Date(scheduledAt).toLocaleString('vi-VN')}!`
@@ -224,12 +207,6 @@ export default function NotificationCreate() {
                 />
 
                 <FormControlLabel
-                  value="floor"
-                  control={<Radio />}
-                  label="Theo Tầng"
-                />
-
-                <FormControlLabel
                   value="specific_users"
                   control={<Radio />}
                   label="Cư dân cụ thể"
@@ -253,24 +230,6 @@ export default function NotificationCreate() {
               </Box>
             )}
 
-            {targetType === 'floor' && (
-              <Box sx={{ mt: 2 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Chọn Tầng</InputLabel>
-                  <Select
-                    value={floor}
-                    label="Chọn Tầng"
-                    onChange={(e) => setFloor(Number(e.target.value))}
-                  >
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((f) => (
-                      <MenuItem key={f} value={f}>
-                        Tầng {f}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
 
             {targetType === 'specific_users' && (
               <Box sx={{ mt: 2 }}>

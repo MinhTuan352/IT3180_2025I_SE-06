@@ -968,22 +968,26 @@ class BluemoonDataGenerator {
 
             // Diverse Targets
             const targetType = RandomHelper.weighted([
-                { value: 'all', weight: 40 },
-                { value: 'building', weight: 30 },
-                { value: 'floor', weight: 30 }
+                { value: 'all', weight: 50 },
+                { value: 'building', weight: 40 },
+                { value: 'individual', weight: 10 }
             ]);
 
             let target = 'Tất cả Cư dân';
+            let targetValue = null;
             let targetFilter = (r) => true;
 
             if (targetType === 'building') {
                 const b = RandomHelper.item(['A', 'B']);
-                target = `Tòa ${b}`;
+                target = 'Theo tòa nhà';
+                targetValue = b;  // Just 'A' or 'B'
                 targetFilter = (r) => r.building === b;
-            } else if (targetType === 'floor') {
-                const f = RandomHelper.int(1, 31);
-                target = `Tầng ${f}`;
-                targetFilter = (r) => r.floor === f;
+            } else if (targetType === 'individual') {
+                // Pick random resident
+                const randomResident = RandomHelper.item(this.activeResidents);
+                target = 'Cá nhân';
+                targetValue = randomResident.id;
+                targetFilter = (r) => r.id === randomResident.id;
             }
 
             // Replace mapping in template
@@ -994,7 +998,7 @@ class BluemoonDataGenerator {
                 .replace('{building}', RandomHelper.item(['A', 'B']))
                 .replace('{service}', 'Phòng Gym');
 
-            this.writer.addBatch('notifications', 'id, title, content, type_id, target, scheduled_at, is_sent, created_by, created_at', `('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, '${target}', '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}')`);
+            this.writer.addBatch('notifications', 'id, title, content, type_id, target, target_value, scheduled_at, is_sent, created_by, created_at', `('${id}', '${tpl.title.replace('{month}', scheduledAt.getMonth() + 1)}', '${content}', ${tpl.type}, '${target}', ${targetValue ? `'${targetValue}'` : 'NULL'}, '${DateHelper.format(scheduledAt)}', ${isSent ? 1 : 0}, 'ID0001', '${DateHelper.format(createdAt)}')`);
 
             if (RandomHelper.boolean(0.3)) {
                 const fileName = `thongbao_${id}.jpg`;

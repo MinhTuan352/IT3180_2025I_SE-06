@@ -62,30 +62,30 @@ const notificationController = {
                 created_by: req.user.id
             }, files);
 
-            // [LOGIC EMAIL] Chỉ gửi ngay nếu KHÔNG hẹn giờ
+            // [LOGIC EMAIL] DISABLED - Causes connection errors
             let emailCount = 0;
-            if (is_sent) {
-                // Lấy danh sách người nhận để gửi mail
-                const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
+            // if (is_sent) {
+            //     // Lấy danh sách người nhận để gửi mail
+            //     const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
 
-                if (recipientIds.length > 0) {
-                    const placeholders = recipientIds.map(() => '?').join(',');
-                    const [residents] = await db.execute(
-                        `SELECT email, full_name FROM residents WHERE id IN (${placeholders}) AND email IS NOT NULL`,
-                        recipientIds
-                    );
+            //     if (recipientIds.length > 0) {
+            //         const placeholders = recipientIds.map(() => '?').join(',');
+            //         const [residents] = await db.execute(
+            //             `SELECT email, full_name FROM residents WHERE id IN (${placeholders}) AND email IS NOT NULL`,
+            //             recipientIds
+            //         );
 
-                    // Gửi background (không await để API phản hồi nhanh)
-                    residents.forEach(resident => {
-                        emailService.sendNotificationEmail(resident.email, resident.full_name, {
-                            title: title,
-                            content: content,
-                            type: 'Thông báo chung' // Có thể map từ type_id
-                        }).catch(e => console.error(`Failed to send email to ${resident.email}:`, e.message));
-                    });
-                    emailCount = residents.length;
-                }
-            }
+            //         // Gửi background (không await để API phản hồi nhanh)
+            //         residents.forEach(resident => {
+            //             emailService.sendNotificationEmail(resident.email, resident.full_name, {
+            //                 title: title,
+            //                 content: content,
+            //                 type: 'Thông báo chung' // Có thể map từ type_id
+            //             }).catch(e => console.error(`Failed to send email to ${resident.email}:`, e.message));
+            //         });
+            //         emailCount = residents.length;
+            //     }
+            // }
 
             res.status(201).json({
                 success: true,

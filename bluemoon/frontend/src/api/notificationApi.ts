@@ -9,13 +9,23 @@ export interface NotificationAttachment {
     uploaded_at: string;
 }
 
+export interface NotificationRecipient {
+    id: string;
+    full_name: string;
+    apartment_id: number;
+    apartment_code: string;
+    is_read: boolean;
+    read_at: string | null;
+}
+
 export interface Notification {
     id: string;
     title: string;
     content: string;
     type_id: number;
     type_name?: string; // from join
-    target: 'Tất cả Cư dân' | 'Theo tòa nhà' | 'Cá nhân';
+    target: 'Tất cả Cư dân' | 'Theo tòa nhà' | 'Cá nhân' | 'Theo căn hộ';
+    target_value?: string;
     created_by: number;
     created_by_name?: string; // from join
     created_at: string;
@@ -23,6 +33,8 @@ export interface Notification {
     scheduled_at?: string | null;
     // attachments
     attachments?: NotificationAttachment[];
+    // recipients (for BOD view)
+    recipients?: NotificationRecipient[];
     // for resident view
     is_read?: boolean;
     read_at?: string | null;

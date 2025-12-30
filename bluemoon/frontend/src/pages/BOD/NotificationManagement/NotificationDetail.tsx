@@ -93,7 +93,16 @@ export default function NotificationDetail() {
             <strong>Người gửi:</strong> {notification.created_by_name || notification.created_by}
           </Typography>
           <Typography variant="body2">
-            <strong>Đối tượng:</strong> {notification.target}
+            <strong>Đối tượng:</strong> {(() => {
+              const target = notification.target;
+              const targetValue = notification.target_value;
+
+              if (target === 'Tất cả Cư dân') return 'Tất cả Cư dân';
+              if (target === 'Theo tòa nhà' && targetValue) return `Theo tòa nhà (Tòa ${targetValue})`;
+              if (target === 'Theo căn hộ' && targetValue) return `Theo căn hộ (${targetValue})`;
+              if (target === 'Cá nhân' && targetValue) return `Cá nhân (${targetValue})`;
+              return target || 'Không xác định';
+            })()}
           </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
@@ -120,6 +129,37 @@ export default function NotificationDetail() {
           {notification.content}
         </Typography>
       </Box>
+
+      {/* Danh sách người nhận */}
+      {notification.recipients && notification.recipients.length > 0 && (
+        <>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="h6" sx={{ mb: 1.5 }}>
+            Danh sách người nhận ({notification.recipients.length} cư dân)
+          </Typography>
+          <Box sx={{
+            maxHeight: 300,
+            overflow: 'auto',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 2,
+            bgcolor: 'background.default'
+          }}>
+            {notification.recipients.map((recipient) => (
+              <Chip
+                key={recipient.id}
+                label={`${recipient.full_name} (${recipient.apartment_code})`}
+                color={recipient.is_read ? 'success' : 'default'}
+                variant={recipient.is_read ? 'filled' : 'outlined'}
+                size="small"
+                icon={recipient.is_read ? <Typography fontSize="small">✓</Typography> : undefined}
+                sx={{ m: 0.5 }}
+              />
+            ))}
+          </Box>
+        </>
+      )}
 
       {/* Hàng 4: File đính kèm (nếu có) */}
       {notification.attachments && notification.attachments.length > 0 && (

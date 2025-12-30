@@ -104,4 +104,21 @@ curl -X POST "http://localhost:3000/api/donations/simulate/QG1735598270123"
 
 ---
 
+## ⚠️ Quan trọng: Khi Deploy (Production) thì sao?
+
+Lệnh `curl localhost...` **CHỈ DÙNG** khi bạn đang phát triển (Dev) trên máy cá nhân để test thử tính năng mà không cần chuyển tiền thật.
+
+Khi đưa hệ thống lên mạng (Deploy/Production), quy trình sẽ hoạt động tự động như sau:
+
+1.  **Không dùng lệnh curl nữa**: Bạn hoặc admin không cần gõ lệnh gì cả.
+2.  **Webhook từ Ngân hàng**: Khi cư dân chuyển khoản thật, Ngân hàng (hoặc dịch vụ trung gian như Casso/Sepay) sẽ đóng vai trò người gọi API.
+    *   Thay vì bạn gõ `curl`, hệ thống của Ngân hàng sẽ tự động gửi một request đến server của bạn (ví dụ: `https://bluemoon-app.com/api/payment/webhook`).
+3.  **Endpoint**:
+    *   Dev: Dùng `/api/donations/simulate` (để giả lập).
+    *   Prod: Dùng `/api/payment/webhook` (để nhận tin báo tiền về thật từ ngân hàng).
+
+**Tóm lại:** Lệnh `curl` chỉ là "đóng vai" ngân hàng để test lúc code thôi nhé!
+
+---
+
 *Cập nhật lần cuối: 01/01/2026*

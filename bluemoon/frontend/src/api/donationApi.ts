@@ -92,6 +92,16 @@ const donationApi = {
         return axiosClient.post<{ success: boolean }>('/donations/record-offline', data);
     },
 
+    // Resident: Donate to campaign
+    donate: (data: { campaign_id: number; amount: number; payment_method: string; note?: string; is_anonymous?: boolean }) => {
+        return axiosClient.post<{ success: boolean }>('/donations/donate', data);
+    },
+
+    // Resident: Get my donation history
+    getMyHistory: () => {
+        return axiosClient.get<{ success: boolean; data: Donation[] }>('/donations/me/history');
+    },
+
     // Statistics
     getStatistics: () => {
         return axiosClient.get<{ success: boolean; data: FundStatistics }>('/donations/statistics');

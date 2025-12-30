@@ -153,6 +153,7 @@ const Donation = {
 
     /**
      * Cập nhật thông tin chiến dịch
+     * [ENHANCEMENT] Auto-reopen if end_date extended to future
      */
     updateCampaign: async (id, data) => {
         const { title, description, start_date, end_date, target_amount, image_path } = data;
@@ -163,7 +164,17 @@ const Donation = {
         if (title !== undefined) { updates.push('title = ?'); params.push(title); }
         if (description !== undefined) { updates.push('description = ?'); params.push(description); }
         if (start_date !== undefined) { updates.push('start_date = ?'); params.push(start_date); }
-        if (end_date !== undefined) { updates.push('end_date = ?'); params.push(end_date); }
+        if (end_date !== undefined) {
+            updates.push('end_date = ?');
+            params.push(end_date);
+
+            // Auto-reopen if extending to future
+            const futureDate = new Date(end_date);
+            const now = new Date();
+            if (futureDate > now) {
+                updates.push("status = 'Active'");
+            }
+        }
         if (target_amount !== undefined) { updates.push('target_amount = ?'); params.push(target_amount); }
         if (image_path !== undefined) { updates.push('image_path = ?'); params.push(image_path); }
 

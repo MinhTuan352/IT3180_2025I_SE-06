@@ -110,6 +110,7 @@ const residentMenuItems = [
   { text: 'Căn hộ', icon: <HomeIcon />, path: '/resident/apartment' },
   { text: 'Tài khoản', icon: <VpnKeyIcon />, path: '/resident/account_info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/resident/fee/list' },
+  { text: 'Quỹ đóng góp', icon: <VolunteerActivismIcon />, path: '/resident/fund/list' }, // NEW: Fund
   { text: 'Tài sản', icon: <InventoryIcon />, path: '/resident/asset/list' },
   { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/resident/service/list' },
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/resident/notification/list' },

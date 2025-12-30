@@ -61,6 +61,9 @@ import ResidentAccountInfo from '../pages/Resident/Account/ResidentAccountInfo.t
 import ResidentProfileEdit from '../pages/Resident/Profile/ResidentProfileEdit.tsx';
 import ResidentFeeList from '../pages/Resident/Fee/ResidentFeeList.tsx';
 import ResidentFeeInvoiceInfo from '../pages/Resident/Fee/ResidentFeeInvoiceInfo.tsx';
+import ResidentFundList from '../pages/Resident/Fund/ResidentFundList.tsx';
+import ResidentFundDetail from '../pages/Resident/Fund/ResidentFundDetail.tsx';
+import ResidentDonationHistory from '../pages/Resident/Fund/ResidentDonationHistory.tsx';
 import ResidentFeePayment from '../pages/Resident/Fee/ResidentFeePayment.tsx';
 import ResidentNotificationList from '../pages/Resident/Notification/ResidentNotificationList.tsx';
 import ResidentReportSend from '../pages/Resident/Report/ResidentReportSend.tsx';
@@ -228,6 +231,11 @@ export default function AppRoutes() {
             <Route path="resident/fee/list" element={<ResidentFeeList />} />
             <Route path="resident/fee/invoice_info/:id" element={<ResidentFeeInvoiceInfo />} />
             <Route path="resident/fee/payment/:id" element={<ResidentFeePayment />} /> {/* Assuming payment is for a specific invoice */}
+
+            {/* Fund/Donation */}
+            <Route path="resident/fund/list" element={<ResidentFundList />} />
+            <Route path="resident/fund/detail/:id" element={<ResidentFundDetail />} />
+            <Route path="resident/fund/history" element={<ResidentDonationHistory />} />
 
             <Route path="resident/asset/list" element={<ResidentAssetList />} />
 

@@ -35,11 +35,8 @@ import {
 } from '@mui/x-data-grid';
 
 // Icons
-import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import PaymentIcon from '@mui/icons-material/Payment';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import PrintIcon from '@mui/icons-material/Print';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -488,24 +485,6 @@ export default function FeeList() {
                             <VisibilityIcon />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title="Xác nhận thanh toán">
-                        <IconButton
-                            size="small"
-                            onClick={() => handleViewDetail(params.row.id)}
-                            disabled={params.row.status === 'Đã thanh toán'}
-                        >
-                            <PaymentIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Gửi nhắc nhở">
-                        <IconButton
-                            size="small"
-                            onClick={() => handleSendReminder(params.row)}
-                            disabled={params.row.status === 'Đã thanh toán'}
-                        >
-                            <NotificationsIcon />
-                        </IconButton>
-                    </Tooltip>
                 </Box>
             )
         }
@@ -534,23 +513,8 @@ export default function FeeList() {
                     <Box>
                         <Button
                             variant="outlined"
-                            startIcon={<FileUploadIcon />}
-                            sx={{
-                                mr: 1,
-                                backgroundColor: 'white',
-                                color: '#333',
-                                borderColor: '#ccc',
-                                '&:hover': { backgroundColor: '#f9f9f9', borderColor: '#bbb' }
-                            }}
-                            onClick={handleImportClick}
-                        >
-                            Import
-                        </Button>
-                        <Button
-                            variant="outlined"
                             startIcon={<FileDownloadIcon />}
                             sx={{
-                                mr: 1,
                                 backgroundColor: 'white',
                                 color: '#333',
                                 borderColor: '#ccc',
@@ -559,12 +523,6 @@ export default function FeeList() {
                             onClick={handleExport}
                         >
                             Export
-                        </Button>
-                        <Button
-                            variant="contained"
-                            onClick={handleOpenAddModal}
-                        >
-                            Thêm mới
                         </Button>
                     </Box>
                 </Grid>

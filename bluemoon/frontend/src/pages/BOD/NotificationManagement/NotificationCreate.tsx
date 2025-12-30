@@ -17,12 +17,9 @@ import {
   Select,
   InputLabel,
   Checkbox,
-  Chip,
-  Stack,
   Alert,
 } from '@mui/material';
-import { useState, type ChangeEvent, useRef, useEffect } from 'react';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import notificationApi from '../../../api/notificationApi';
 import { residentApi, type Resident } from '../../../api/residentApi';
@@ -38,9 +35,6 @@ export default function NotificationCreate() {
 
   const [selectedResidents, setSelectedResidents] = useState<Resident[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
-
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
@@ -68,6 +62,19 @@ export default function NotificationCreate() {
       return;
     }
 
+    // Validate schedule time if enabled
+    if (scheduleEnabled) {
+      if (!scheduledAt) {
+        setError("Vui lòng chọn thời gian hẹn lịch gửi.");
+        return;
+      }
+      const scheduleDate = new Date(scheduledAt);
+      if (scheduleDate <= new Date()) {
+        setError("Thời gian hẹn lịch phải ở tương lai.");
+        return;
+      }
+    }
+
     let target = 'Tất cả Cư dân';
 
     // Logic mapping basic
@@ -83,29 +90,29 @@ export default function NotificationCreate() {
 
     try {
       const sendNoti = async (recipientId?: string) => {
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('content', content);
-
-        let tId = 1;
-        if (typeLabel === 'Thu phí') tId = 2;
-        if (typeLabel === 'Khẩn cấp') tId = 3;
-
-        formData.append('type_id', tId.toString());
-        formData.append('target', target);
+        // Send as JSON instead of FormData (no files anymore)
+        const payload: any = {
+          title,
+          content,
+          type_id: typeLabel === 'Chung' ? 1 : (typeLabel === 'Thu phí' ? 2 : 3),
+          target,
+        };
 
         if (recipientId) {
-          formData.append('specific_recipient_id', recipientId);
+          payload.specific_recipient_id = recipientId;
         }
-        if (targetValue) formData.append('target_value', targetValue);
-
-        if (selectedFiles.length > 0) {
-          selectedFiles.forEach((file) => {
-            formData.append('attachments', file);
-          });
+        if (targetValue) {
+          payload.target_value = targetValue;
         }
 
-        await notificationApi.create(formData);
+        // FIX: Send scheduled_at as local datetime string (not UTC)
+        if (scheduleEnabled && scheduledAt) {
+          // scheduledAt from datetime-local is already in format "YYYY-MM-DDTHH:mm"
+          // Convert to MySQL datetime format: "YYYY-MM-DD HH:mm:ss"
+          payload.scheduled_at = scheduledAt.replace('T', ' ') + ':00';
+        }
+
+        await notificationApi.create(payload);
       }
 
       if (targetType === 'specific_users') {
@@ -117,7 +124,10 @@ export default function NotificationCreate() {
         await sendNoti();
       }
 
-      alert('Gửi thông báo thành công!');
+      const successMsg = scheduleEnabled
+        ? `Đã lên lịch gửi thông báo vào ${new Date(scheduledAt).toLocaleString('vi-VN')}!`
+        : 'Gửi thông báo thành công!';
+      alert(successMsg);
       navigate('/bod/notification/list');
 
     } catch (err: any) {
@@ -128,21 +138,6 @@ export default function NotificationCreate() {
     }
   };
 
-  const handleFileSelectClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedFiles(prevFiles => [...prevFiles, ...Array.from(e.target.files!)]);
-    }
-    e.target.value = '';
-  };
-
-  const handleFileDelete = (fileToDelete: File) => {
-    setSelectedFiles(prevFiles => prevFiles.filter(file => file !== fileToDelete));
-  };
-
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
       <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -150,15 +145,6 @@ export default function NotificationCreate() {
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelected}
-        style={{ display: 'none' }}
-        multiple
-        accept="image/*, application/pdf, .doc, .docx, .xls, .xlsx"
-      />
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
@@ -200,26 +186,6 @@ export default function NotificationCreate() {
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 />
-              </Grid>
-
-              <Grid size={{ xs: 12 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<UploadFileIcon />}
-                  onClick={handleFileSelectClick}
-                >
-                  Đính kèm file/ảnh
-                </Button>
-                <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap' }}>
-                  {selectedFiles.map((file, index) => (
-                    <Chip
-                      key={index}
-                      label={file.name}
-                      onDelete={() => handleFileDelete(file)}
-                      sx={{ mb: 0.5 }}
-                    />
-                  ))}
-                </Stack>
               </Grid>
 
             </Grid>
@@ -288,6 +254,7 @@ export default function NotificationCreate() {
                   InputLabelProps={{ shrink: true }}
                   value={scheduledAt}
                   onChange={(e) => setScheduledAt(e.target.value)}
+                  helperText="Thông báo sẽ được gửi vào thời gian này"
                 />
               )}
             </FormControl>
@@ -306,9 +273,10 @@ export default function NotificationCreate() {
           onClick={handleSendNotification}
           disabled={loading}
         >
-          {loading ? 'Đang gửi...' : 'Gửi thông báo'}
+          {loading ? 'Đang gửi...' : (scheduleEnabled ? 'Lên lịch gửi' : 'Gửi thông báo')}
         </Button>
       </Box>
     </Paper>
   );
 }
+

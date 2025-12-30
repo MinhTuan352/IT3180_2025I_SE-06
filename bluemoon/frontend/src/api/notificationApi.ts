@@ -44,12 +44,16 @@ const notificationApi = {
         return axiosClient.get<{ success: boolean; data: Notification }>(`/notifications/${id}`);
     },
 
-    create: (formData: FormData) => {
-        return axiosClient.post<{ success: boolean; message: string; data: Notification }>('/notifications', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
+    create: (data: FormData | Record<string, any>) => {
+        // Support both FormData (with files) and plain object (without files)
+        if (data instanceof FormData) {
+            return axiosClient.post<{ success: boolean; message: string; data: Notification }>('/notifications', data, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+        }
+        return axiosClient.post<{ success: boolean; message: string; data: Notification }>('/notifications', data);
     },
 
     markAsRead: (id: string) => {

@@ -382,10 +382,19 @@ interface SimpleBarChartProps {
 function SimpleBarChart({ data }: SimpleBarChartProps) {
     const maxValue = Math.max(...data.map(d => Number(d.total_collected) || 0), 1);
 
-    const monthNames: Record<string, string> = {
-        '01': 'T1', '02': 'T2', '03': 'T3', '04': 'T4',
-        '05': 'T5', '06': 'T6', '07': 'T7', '08': 'T8',
-        '09': 'T9', '10': 'T10', '11': 'T11', '12': 'T12'
+    // Helper function to extract month label from both formats: "YYYY-MM" or "Tx/YYYY"
+    const getMonthLabel = (monthStr: string): string => {
+        if (!monthStr) return '?';
+        // Format "Tx/YYYY" (e.g., "T7/2025")
+        if (monthStr.startsWith('T') && monthStr.includes('/')) {
+            return monthStr.split('/')[0]; // Returns "T7"
+        }
+        // Format "YYYY-MM" (e.g., "2025-07")
+        if (monthStr.includes('-')) {
+            const monthNum = monthStr.split('-')[1];
+            return 'T' + parseInt(monthNum, 10);
+        }
+        return monthStr;
     };
 
     return (
@@ -404,7 +413,7 @@ function SimpleBarChart({ data }: SimpleBarChartProps) {
                     <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ height: 180 }}>
                         {data.map((item, index) => {
                             const height = maxValue > 0 ? (Number(item.total_collected) / maxValue) * 140 : 0;
-                            const monthKey = item.month.split('-')[1];
+                            const monthLabel = getMonthLabel(item.month);
                             return (
                                 <Box key={index} sx={{ flex: 1, textAlign: 'center' }}>
                                     <Typography variant="caption" fontWeight="bold" color="primary" fontSize="0.65rem">
@@ -421,7 +430,7 @@ function SimpleBarChart({ data }: SimpleBarChartProps) {
                                         }}
                                     />
                                     <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                                        {monthNames[monthKey] || monthKey}
+                                        {monthLabel}
                                     </Typography>
                                 </Box>
                             );

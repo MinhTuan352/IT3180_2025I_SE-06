@@ -78,19 +78,20 @@ const dashboardController = {
                     : 0;
             } catch (e) { console.log('fees stats error:', e.message); }
 
-            // 6. Dữ liệu biểu đồ: Thống kê 6 tháng gần nhất
+            // 6. Dữ liệu biểu đồ: Thống kê 6 tháng gần nhất (dùng billing_period)
             let monthlyData = [];
             try {
                 const [data] = await db.execute(`
                     SELECT 
-                        DATE_FORMAT(created_at, '%Y-%m') as month,
+                        billing_period as month,
                         COUNT(*) as total_invoices,
                         SUM(CASE WHEN status = 'Đã thanh toán' THEN 1 ELSE 0 END) as paid_invoices,
                         COALESCE(SUM(amount_paid), 0) as total_collected
                     FROM fees 
-                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-                    ORDER BY month ASC
+                    WHERE billing_period IS NOT NULL
+                    GROUP BY billing_period
+                    ORDER BY billing_period ASC
+                    LIMIT 12
                 `);
                 monthlyData = data;
             } catch (e) { console.log('monthly fees error:', e.message); }
@@ -165,7 +166,7 @@ const dashboardController = {
             // ... (Phần logic Kế toán của bạn đã Tốt - Giữ nguyên không thay đổi)
             // Tôi rút gọn phần này trong hiển thị để tập trung vào phần Resident thay đổi nhiều
             // Bạn hãy giữ nguyên code cũ của getAccountantStats ở đây
-            
+
             // 1. Thống kê hóa đơn tổng quan
             let invoiceStats = { total: 0, paid: 0, unpaid: 0, overdue: 0 };
             let totalRevenue = 0;
@@ -434,7 +435,7 @@ const dashboardController = {
             let recentServiceRequests = [];
             let pendingServiceCount = 0;
             let recentIncidents = [];
-            
+
             if (residentId) {
                 try {
                     const [services] = await db.execute(`
@@ -514,13 +515,13 @@ const dashboardController = {
             try {
                 // Tổng số cư dân hiện tại
                 const [total] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status != 'Đã chuyển đi'`);
-                
+
                 // Thường trú (Đang sinh sống)
                 const [permanent] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Đang sinh sống'`);
-                
+
                 // Tạm trú
                 const [tempStay] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Tạm trú'`);
-                
+
                 // Tạm vắng
                 const [tempAbsence] = await db.execute(`SELECT COUNT(*) as count FROM residents WHERE status = 'Tạm vắng'`);
 

@@ -500,20 +500,27 @@ export default function AccountantDashboard() {
     const handleExportFinanceReport = () => {
         const now = new Date();
         const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        const fileName = `BaoCaoTaiChinh_${dateStr}.xlsx`;
+        const fileName = `BaoCaoTaiChinh_CoThue_${dateStr}.xlsx`;
 
         // Current dashboard data
         const currentStats = data?.stats;
 
+        // Calculate total tax (Assumed 10% VAT included in Revenue)
+        const totalRevenue = currentStats?.totalRevenue || 0;
+        const totalTax = Math.round(totalRevenue - (totalRevenue / 1.1));
+        const totalRevenuePreTax = totalRevenue - totalTax;
+
         // === Sheet 1: Tổng quan (Overview) ===
         const overviewData = [
-            ['BÁO CÁO TÀI CHÍNH'],
+            ['BÁO CÁO TÀI CHÍNH (KÈM THUẾ GTGT)'],
             [`Ngày xuất: ${now.toLocaleDateString('vi-VN')} ${now.toLocaleTimeString('vi-VN')}`],
             [],
             ['THỐNG KÊ TỔNG QUAN'],
             ['Chỉ số', 'Giá trị'],
             ['Tổng số hóa đơn', currentStats?.totalInvoices || 0],
-            ['Tổng thu dự kiến', formatCurrencyFull(currentStats?.totalRevenue || 0)],
+            ['Tổng doanh thu (Bao gồm thuế)', formatCurrencyFull(totalRevenue)],
+            ['Doanh thu trước thuế', formatCurrencyFull(totalRevenuePreTax)],
+            ['Thuế GTGT (10%)', formatCurrencyFull(totalTax)],
             ['Đã thu', formatCurrencyFull((currentStats?.totalRevenue || 0) - (currentStats?.totalDebt || 0))],
             ['Dư nợ', formatCurrencyFull(currentStats?.totalDebt || 0)],
             ['Tỷ lệ thu', `${currentStats?.collectionRate || 0}%`],
@@ -530,7 +537,7 @@ export default function AccountantDashboard() {
         // === Sheet 2: Theo loại phí (By Fee Type) ===
         const feeTypeData = [
             ['THỐNG KÊ THEO LOẠI PHÍ'],
-            ['Tên loại phí', 'Số lượng hóa đơn', 'Tổng thu', 'Đã thu', 'Dư nợ', 'Tỷ lệ thu (%)'],
+            ['Tên loại phí', 'Số lượng hóa đơn', 'Tổng thu (Đã có thuế)', 'Tiền thuế (10%)', 'Đã thu', 'Dư nợ', 'Tỷ lệ thu (%)'],
         ];
         // Group fees by fee type
         const feeByType: { [key: string]: { count: number; total: number; paid: number; remaining: number } } = {};
@@ -546,10 +553,13 @@ export default function AccountantDashboard() {
         });
         Object.entries(feeByType).forEach(([typeName, data]) => {
             const rate = data.total > 0 ? ((data.paid / data.total) * 100).toFixed(1) : '0';
+            const typeTax = Math.round(data.total - (data.total / 1.1));
+
             feeTypeData.push([
                 typeName,
                 data.count as any,
                 formatCurrencyFull(data.total) as any,
+                formatCurrencyFull(typeTax) as any,
                 formatCurrencyFull(data.paid) as any,
                 formatCurrencyFull(data.remaining) as any,
                 `${rate}%` as any
@@ -573,9 +583,13 @@ export default function AccountantDashboard() {
         // === Sheet 4: Chi tiết hóa đơn (Invoice Details) ===
         const invoiceDetailData = [
             ['CHI TIẾT HÓA ĐƠN'],
-            ['Mã HĐ', 'Căn hộ', 'Người thanh toán', 'Loại phí', 'Nội dung', 'Kỳ thanh toán', 'Hạn thanh toán', 'Tổng thu', 'Đã thu', 'Dư nợ', 'Trạng thái', 'Ngày thanh toán'],
+            ['Mã HĐ', 'Căn hộ', 'Người thanh toán', 'Loại phí', 'Nội dung', 'Kỳ thanh toán', 'Hạn thanh toán', 'Tiền trước thuế', 'Thuế GTGT (10%)', 'Tổng tiền (Sau thuế)', 'Đã thu', 'Dư nợ', 'Trạng thái', 'Ngày thanh toán'],
         ];
         fees.forEach(fee => {
+            const amountTotal = Number(fee.total_amount) || 0;
+            const amountTax = Math.round(amountTotal - (amountTotal / 1.1));
+            const amountPreTax = amountTotal - amountTax;
+
             invoiceDetailData.push([
                 fee.id as any,
                 (fee.apartment_code || fee.apartment_id) as any,
@@ -584,7 +598,9 @@ export default function AccountantDashboard() {
                 (fee.description || '') as any,
                 (fee.billing_period || '') as any,
                 fee.due_date ? new Date(fee.due_date).toLocaleDateString('vi-VN') : '' as any,
-                formatCurrencyFull(Number(fee.total_amount) || 0) as any,
+                formatCurrencyFull(amountPreTax) as any,
+                formatCurrencyFull(amountTax) as any,
+                formatCurrencyFull(amountTotal) as any,
                 formatCurrencyFull(Number(fee.amount_paid) || 0) as any,
                 formatCurrencyFull(Number(fee.amount_remaining) || 0) as any,
                 fee.status as any,

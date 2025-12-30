@@ -54,7 +54,9 @@ import AccountantFeeBatchCreate from '../pages/Accountant/FeeManagement/Accounta
 import AccountantTaskProgress from '../pages/Accountant/FeeManagement/AccountantTaskProgress.tsx'; // --- ADDED ---
 import AccountantMeasureImport from '../pages/Accountant/Setup/AccountantMeasureImport.tsx'; // Import từ folder Setup
 import AccountantDashboard from '../pages/Accountant/Dashboard/AccountantDashboard';
-
+import AccountantFundList from '../pages/Accountant/FundManagement/AccountantFundList';
+import AccountantFundDetail from '../pages/Accountant/FundManagement/AccountantFundDetail';
+import AccountantFundStats from '../pages/Accountant/FundManagement/AccountantFundStats';
 import ResidentAccountInfo from '../pages/Resident/Account/ResidentAccountInfo.tsx';
 import ResidentProfileEdit from '../pages/Resident/Profile/ResidentProfileEdit.tsx';
 import ResidentFeeList from '../pages/Resident/Fee/ResidentFeeList.tsx';
@@ -197,7 +199,13 @@ export default function AppRoutes() {
             <Route path="accountance/fee/setup/paymentSetup" element={<AccountantPaymentSetupList />} />
             <Route path="accountance/fee/setup/paymentSetup/create" element={<AccountantPaymentSetupCreate />} />
             <Route path="accountance/fee/setup/paymentSetup/edit/:id" element={<AccountantPaymentSetupEdit />} />
+            <Route path="accountance/fee/setup/paymentSetup/edit/:id" element={<AccountantPaymentSetupEdit />} />
             <Route path="accountance/fee/setup/import-measure" element={<AccountantMeasureImport />} />
+
+            {/* === FUND MANAGEMENT (NEW) === */}
+            <Route path="accountance/fund/list" element={<AccountantFundList />} />
+            <Route path="accountance/fund/detail/:id" element={<AccountantFundDetail />} />
+            <Route path="accountance/fund/stats" element={<AccountantFundStats />} />
           </Route>
 
           {/* === RESIDENT Routes (THÊM MỚI) === */}

@@ -94,7 +94,8 @@ const accountantMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/accountance/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/accountance/fee/list' },
-  { text: 'Tiến độ công việc', icon: <AssignmentIcon />, path: '/accountance/task-progress' }, // --- ADDED ---
+  { text: 'Tiến độ công việc', icon: <AssignmentIcon />, path: '/accountance/task-progress' },
+  { text: 'Quản lý quỹ', icon: <VolunteerActivismIcon />, path: '/accountance/fund/list' },
   { text: 'Thiết lập', icon: <SettingsIcon />, path: '/accountance/fee/setup' },
 ];
 

@@ -111,6 +111,11 @@ const feeApi = {
     // Xác nhận thanh toán (manual payment by Accountant)
     pay: (id: string, data: { amount_paid: number; payment_method: string }) => {
         return axiosClient.post(`/fees/${id}/pay`, data);
+    },
+
+    // [MỚI] Lấy thống kê tài chính tổng hợp (Chỉ BOD)
+    getStats: () => {
+        return axiosClient.get('/fees/stats');
     }
 };
 

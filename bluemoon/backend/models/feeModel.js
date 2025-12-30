@@ -119,12 +119,12 @@ const Fee = {
         `;
         // service_type map từ code: PN -> Nước, PD -> Điện
         const serviceType = data.fee_code === 'PN' ? 'Nước' : 'Điện';
-        
+
         await connection.execute(query, [
-            data.apartment_id, 
-            serviceType, 
-            data.billing_period, 
-            data.old_index, 
+            data.apartment_id,
+            serviceType,
+            data.billing_period,
+            data.old_index,
             data.new_index
         ]);
     },
@@ -309,6 +309,150 @@ const Fee = {
         try {
             const query = `DELETE FROM fee_types WHERE id = ?`;
             await db.execute(query, [id]);
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * [MỚI] Lấy thống kê tài chính tổng hợp
+     * Dùng cho trang Finance Stats (BOD)
+     */
+    getFinanceStats: async () => {
+        try {
+            // 1. Tổng quan doanh thu
+            const [summary] = await db.execute(`
+                SELECT 
+                    COALESCE(SUM(total_amount), 0) as total_revenue,
+                    COALESCE(SUM(amount_paid), 0) as collected,
+                    COALESCE(SUM(amount_remaining), 0) as pending
+                FROM fees
+            `);
+
+            // 2. Tỷ lệ thanh toán theo trạng thái
+            const [statusCount] = await db.execute(`
+                SELECT 
+                    status,
+                    COUNT(*) as count
+                FROM fees
+                GROUP BY status
+            `);
+
+            // Tính tổng và tỷ lệ phần trăm
+            const totalInvoices = statusCount.reduce((sum, row) => sum + row.count, 0);
+            const paymentRate = [];
+
+            // Map status to colors
+            const statusConfig = {
+                'Đã thanh toán': { color: '#4caf50', label: 'Đã thanh toán' },
+                'Chưa thanh toán': { color: '#ff9800', label: 'Chưa thanh toán' },
+                'Quá hạn': { color: '#f44336', label: 'Quá hạn' },
+                'Thanh toán một phần': { color: '#2196f3', label: 'Thanh toán một phần' }
+            };
+
+            statusCount.forEach((row, index) => {
+                const config = statusConfig[row.status] || { color: '#9e9e9e', label: row.status };
+                paymentRate.push({
+                    id: index,
+                    value: totalInvoices > 0 ? Math.round((row.count / totalInvoices) * 100) : 0,
+                    label: config.label,
+                    color: config.color
+                });
+            });
+
+            // 3. Doanh thu 6 tháng gần nhất - lấy tất cả rồi sort bằng JS để đúng thứ tự
+            const [monthlyRevenue] = await db.execute(`
+                SELECT 
+                    billing_period,
+                    COALESCE(SUM(amount_paid), 0) as revenue
+                FROM fees
+                WHERE billing_period IS NOT NULL
+                    AND billing_period != ''
+                GROUP BY billing_period
+            `);
+
+            // Parse billing_period để sort đúng thứ tự thời gian
+            const parseDate = (period) => {
+                if (!period) return new Date(0);
+                // Xử lý format "2025-12" hoặc "12/2025" hoặc "T12/2025"
+                let year, month;
+                if (period.includes('-')) {
+                    // Format: 2025-12
+                    [year, month] = period.split('-').map(Number);
+                } else if (period.startsWith('T')) {
+                    // Format: T12/2025
+                    const clean = period.replace('T', '');
+                    [month, year] = clean.split('/').map(Number);
+                } else if (period.includes('/')) {
+                    // Format: 12/2025
+                    [month, year] = period.split('/').map(Number);
+                } else {
+                    return new Date(0);
+                }
+                return new Date(year, month - 1, 1);
+            };
+
+            // Sort theo thời gian tăng dần (tháng cũ trước)
+            const sortedMonthly = monthlyRevenue
+                .sort((a, b) => parseDate(a.billing_period) - parseDate(b.billing_period))
+                .slice(-6); // Lấy 6 tháng gần nhất
+
+            // Format cho biểu đồ
+            const formattedMonthly = sortedMonthly.map(row => {
+                const date = parseDate(row.billing_period);
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                return {
+                    month: `T${month}/${year}`,
+                    revenue: Math.round(parseFloat(row.revenue) / 1000000) // Đổi sang triệu VNĐ
+                };
+            });
+
+            // 4. Số căn hộ quá hạn > 3 tháng
+            const [overdueApartments] = await db.execute(`
+                SELECT COUNT(DISTINCT apartment_id) as count
+                FROM fees
+                WHERE status = 'Quá hạn'
+                    AND due_date < DATE_SUB(NOW(), INTERVAL 3 MONTH)
+            `);
+
+            // 5. Số ngày còn lại trong tháng (để hiển thị thông báo)
+            const now = new Date();
+            const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const daysRemaining = Math.max(0, Math.ceil((lastDayOfMonth - now) / (1000 * 60 * 60 * 24)));
+
+            // 6. So sánh với tháng trước
+            const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7);
+
+            const [currentMonthRevenue] = await db.execute(`
+                SELECT COALESCE(SUM(amount_paid), 0) as revenue
+                FROM fees
+                WHERE billing_period LIKE ?
+            `, [currentMonth + '%']);
+
+            const [lastMonthRevenue] = await db.execute(`
+                SELECT COALESCE(SUM(amount_paid), 0) as revenue
+                FROM fees
+                WHERE billing_period LIKE ?
+            `, [lastMonth + '%']);
+
+            let percentChange = 0;
+            if (parseFloat(lastMonthRevenue[0].revenue) > 0) {
+                percentChange = Math.round(((parseFloat(currentMonthRevenue[0].revenue) - parseFloat(lastMonthRevenue[0].revenue)) / parseFloat(lastMonthRevenue[0].revenue)) * 100);
+            }
+
+            return {
+                totalRevenue: parseFloat(summary[0].total_revenue),
+                collected: parseFloat(summary[0].collected),
+                pending: parseFloat(summary[0].pending),
+                paymentRate,
+                monthlyRevenue: formattedMonthly,
+                overdueApartments: overdueApartments[0].count,
+                daysRemaining,
+                percentChange,
+                currentMonth: `${now.getMonth() + 1}/${now.getFullYear()}`
+            };
         } catch (error) {
             throw error;
         }

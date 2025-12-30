@@ -141,17 +141,17 @@ const feeController = {
             if (items && items.some(i => i.unit_price < 0 || i.amount < 0)) {
                 return res.status(400).json({ message: 'Số tiền trong hóa đơn không được âm.' });
             }
-            
+
             const [meta] = await db.execute(`SELECT ft.fee_code, a.apartment_code FROM fee_types ft, apartments a WHERE ft.id = ? AND a.id = ?`, [fee_type_id, apartment_id]);
             if (meta.length === 0) return res.status(404).json({ message: 'Dữ liệu không hợp lệ.' });
-            
+
             // [MỚI] Sinh ID thông minh
             const invoiceId = await idGenerator.generateInvoiceId(
-                meta[0].fee_code, 
-                meta[0].apartment_code, 
+                meta[0].fee_code,
+                meta[0].apartment_code,
                 billing_period
             );
-            
+
             let totalAmount = 0;
             const processedItems = items.map(item => {
                 const amt = item.quantity * item.unit_price;
@@ -160,8 +160,8 @@ const feeController = {
             });
 
             const invoiceData = {
-                id: invoiceId, apartment_id, resident_id, fee_type_id, 
-                description: req.body.description, billing_period, due_date, 
+                id: invoiceId, apartment_id, resident_id, fee_type_id,
+                description: req.body.description, billing_period, due_date,
                 total_amount: totalAmount, created_by: req.user.id
             };
 
@@ -556,7 +556,7 @@ const feeController = {
 
             const [feeTypes] = await db.execute("SELECT id, fee_name, default_price, unit FROM fee_types WHERE fee_code = ?", [fee_code]);
             if (feeTypes.length === 0) return res.status(400).json({ message: `Mã phí ${fee_code} không tồn tại.` });
-            
+
             const feeType = feeTypes[0];
             const now = new Date();
             const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
@@ -584,7 +584,7 @@ const feeController = {
 
                     const { apartment_id, resident_id } = data[0];
                     const actualUsage = usage !== undefined ? usage : (newIndex - oldIndex);
-                    
+
                     // [CHECK] Usage không được âm
                     if (actualUsage < 0) {
                         errors.push({ apartmentCode, error: 'Chỉ số mới nhỏ hơn chỉ số cũ.' });
@@ -595,8 +595,8 @@ const feeController = {
 
                     // Sinh ID
                     const invoiceId = await idGenerator.generateInvoiceId(
-                        fee_code, 
-                        apartmentCode, 
+                        fee_code,
+                        apartmentCode,
                         billingPeriod
                     );
 
@@ -621,7 +621,7 @@ const feeController = {
                         old_index: oldIndex || 0,
                         new_index: newIndex || (oldIndex + actualUsage)
                     };
-                    
+
                     await Fee.createUtilityInvoice(invoiceData, itemsData, readingData);
                     results.push({ apartmentCode, status: 'OK' });
 
@@ -778,7 +778,7 @@ const feeController = {
             const [feeTypes] = await db.execute("SELECT id, fee_code FROM fee_types WHERE fee_code = 'PQL' LIMIT 1");
             const defaultFeeCode = feeTypes.length > 0 ? feeTypes[0].fee_code : 'PQL';
             const defaultFeeId = feeTypes.length > 0 ? feeTypes[0].id : 1;
-            
+
             const now = new Date();
             const dueDate = new Date(now.getFullYear(), now.getMonth() + 1, 15);
 
@@ -789,11 +789,11 @@ const feeController = {
                 try {
                     // ID: PQL-A101-122025
                     const invoiceId = await idGenerator.generateInvoiceId(
-                        defaultFeeCode, 
-                        inv.apartment_code, 
+                        defaultFeeCode,
+                        inv.apartment_code,
                         billing_period
                     );
-                    
+
                     const invoiceData = {
                         id: invoiceId,
                         apartment_id: inv.apartment_id,
@@ -827,7 +827,7 @@ const feeController = {
 
             // 1. Lấy tất cả các loại phí liên quan đến xe để lấy đơn giá chuẩn
             const [feeTypes] = await db.query("SELECT * FROM fee_types WHERE fee_code IN ('PGX', 'PGX_OTO', 'PGX_MAY')");
-            
+
             // Tìm giá mặc định (Ưu tiên mã cụ thể, nếu không có lấy PGX chung)
             let carFee = feeTypes.find(f => f.fee_code === 'PGX_OTO')?.default_price;
             let bikeFee = feeTypes.find(f => f.fee_code === 'PGX_MAY')?.default_price;
@@ -863,8 +863,8 @@ const feeController = {
             for (const aptId in vehicleMap) {
                 const { code: aptCode, list: vehicles } = vehicleMap[aptId];
                 const invoiceId = await idGenerator.generateInvoiceId(
-                    'PGX', 
-                    aptCode, 
+                    'PGX',
+                    aptCode,
                     billing_period
                 );
                 const feeItems = [];
@@ -874,7 +874,7 @@ const feeController = {
                     // Logic giá: Nếu xe có giá riêng (ví dụ xe VIP) thì lấy, ko thì lấy giá chung
                     // (Ở đây tạm dùng giá chung theo loại)
                     let price = (v.vehicle_type === 'Ô tô') ? parseFloat(carFee) : parseFloat(bikeFee);
-                    
+
                     totalAmount += price;
                     feeItems.push({
                         item_name: `Phí gửi xe: ${v.license_plate} (${v.vehicle_type})`,
@@ -900,6 +900,29 @@ const feeController = {
             res.json({ success: true, message: `Tạo: ${successCount}, Trùng: ${skipCount}.` });
         } catch (error) {
             res.status(500).json({ message: error.message });
+        }
+    },
+
+    /**
+     * [MỚI] Lấy thống kê tài chính tổng hợp
+     * GET /api/fees/stats
+     * Chỉ BOD được xem
+     */
+    getFinanceStats: async (req, res) => {
+        console.log('[getFinanceStats] === BẮT ĐẦU ===');
+        console.log('[getFinanceStats] User:', req.user?.id, req.user?.role);
+        try {
+            console.log('[getFinanceStats] Đang gọi Fee.getFinanceStats()...');
+            const stats = await Fee.getFinanceStats();
+            console.log('[getFinanceStats] Thành công! Stats:', JSON.stringify(stats, null, 2));
+            res.json({
+                success: true,
+                data: stats
+            });
+        } catch (error) {
+            console.error('[getFinanceStats] LỖI:', error);
+            console.error('[getFinanceStats] Error stack:', error.stack);
+            res.status(500).json({ success: false, message: 'Lỗi server.', error: error.message });
         }
     }
 };

@@ -3,42 +3,62 @@ import { Box, Typography, Grid, Paper, CircularProgress, Alert } from '@mui/mate
 import { useEffect, useState } from 'react';
 import { PieChart } from '@mui/x-charts/PieChart';
 import { BarChart } from '@mui/x-charts/BarChart';
+import feeApi from '../../../api/feeApi';
 
+// Interface cho dữ liệu thống kê từ API
+interface FinanceStatsData {
+    totalRevenue: number;
+    collected: number;
+    pending: number;
+    paymentRate: Array<{
+        id: number;
+        value: number;
+        label: string;
+        color: string;
+    }>;
+    monthlyRevenue: Array<{
+        month: string;
+        revenue: number;
+    }>;
+    overdueApartments: number;
+    daysRemaining: number;
+    percentChange: number;
+    currentMonth: string;
+}
 
 export default function FinanceStats() {
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState<FinanceStatsData | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Simulate fetching stats (or fetch real data if API ready)
         const fetchData = async () => {
             try {
                 setLoading(true);
-                // const res = await feeApi.getStats(); // TODO: Implement stats API
-                // Mock data
-                setTimeout(() => {
-                    setStats({
-                        totalRevenue: 1540000000,
-                        collected: 1250000000,
-                        pending: 290000000,
-                        paymentRate: [
-                            { id: 0, value: 75, label: 'Đã thanh toán', color: '#4caf50' },
-                            { id: 1, value: 20, label: 'Chưa thanh toán', color: '#ff9800' },
-                            { id: 2, value: 5, label: 'Quá hạn', color: '#f44336' },
-                        ],
-                        monthlyRevenue: [
-                            { month: 'T1', revenue: 120 },
-                            { month: 'T2', revenue: 135 },
-                            { month: 'T3', revenue: 110 },
-                            { month: 'T4', revenue: 160 },
-                            { month: 'T5', revenue: 145 },
-                            { month: 'T6', revenue: 180 },
-                        ]
-                    });
-                    setLoading(false);
-                }, 1000);
-            } catch (error) {
-                console.error(error);
+                setError(null);
+                console.log('[FinanceStats] Đang gọi API...');
+                const response: any = await feeApi.getStats();
+                console.log('[FinanceStats] Full response:', response);
+
+                // Axios wraps response in 'data' property
+                const res = response.data || response;
+                console.log('[FinanceStats] Actual data:', res);
+                console.log('[FinanceStats] res.success:', res?.success);
+                console.log('[FinanceStats] res.data:', res?.data);
+
+                if (res && res.success && res.data) {
+                    console.log('[FinanceStats] ✅ Dữ liệu hợp lệ, cập nhật state');
+                    setStats(res.data);
+                } else {
+                    console.log('[FinanceStats] ❌ Dữ liệu không hợp lệ:', res);
+                    setError('Không thể tải dữ liệu thống kê');
+                }
+            } catch (err: any) {
+                console.error('[FinanceStats] LỖI:', err);
+                console.error('[FinanceStats] err.response:', err?.response);
+                console.error('[FinanceStats] err.response.data:', err?.response?.data);
+                setError(err?.response?.data?.message || err.message || 'Lỗi kết nối đến server');
+            } finally {
                 setLoading(false);
             }
         };
@@ -48,6 +68,24 @@ export default function FinanceStats() {
     if (loading) {
         return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
     }
+
+    if (error) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Alert severity="error">{error}</Alert>
+            </Box>
+        );
+    }
+
+    // Tính tỷ lệ tiến độ thu
+    const progressPercent = stats && stats.totalRevenue > 0
+        ? Math.round((stats.collected / stats.totalRevenue) * 100)
+        : 0;
+
+    // Tính tỷ lệ quá hạn trong số còn phải thu
+    const overduePercent = stats && stats.pending > 0 && stats.paymentRate
+        ? stats.paymentRate.find(r => r.label === 'Quá hạn')?.value || 0
+        : 0;
 
     return (
         <Box sx={{ p: 3 }}>
@@ -63,8 +101,8 @@ export default function FinanceStats() {
                         <Typography variant="h4" sx={{ fontWeight: 'bold', my: 1 }}>
                             {stats?.totalRevenue.toLocaleString()} đ
                         </Typography>
-                        <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
-                            +12% so với tháng trước
+                        <Typography variant="body2" color={stats && stats.percentChange >= 0 ? "success.main" : "error.main"} sx={{ display: 'flex', alignItems: 'center' }}>
+                            {stats && stats.percentChange >= 0 ? '+' : ''}{stats?.percentChange || 0}% so với tháng trước
                         </Typography>
                     </Paper>
                 </Grid>
@@ -75,7 +113,7 @@ export default function FinanceStats() {
                             {stats?.collected.toLocaleString()} đ
                         </Typography>
                         <Typography variant="body2">
-                            Đạt 81.2% tiến độ
+                            Đạt {progressPercent}% tiến độ
                         </Typography>
                     </Paper>
                 </Grid>
@@ -86,7 +124,7 @@ export default function FinanceStats() {
                             {stats?.pending.toLocaleString()} đ
                         </Typography>
                         <Typography variant="body2">
-                            Bao gồm 5% nợ quá hạn
+                            Bao gồm {overduePercent}% nợ quá hạn
                         </Typography>
                     </Paper>
                 </Grid>
@@ -95,38 +133,59 @@ export default function FinanceStats() {
                 <Grid size={{ xs: 12, md: 6 }}>
                     <Paper sx={{ p: 3, borderRadius: 3 }}>
                         <Typography variant="h6" gutterBottom>Tỷ lệ thanh toán</Typography>
-                        <PieChart
-                            series={[
-                                {
-                                    data: stats?.paymentRate || [],
-                                    highlightScope: { fade: 'global', highlight: 'item' },
-                                    faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
-                                },
-                            ]}
-                            height={300}
-                        />
+                        {stats?.paymentRate && stats.paymentRate.length > 0 ? (
+                            <PieChart
+                                series={[
+                                    {
+                                        data: stats.paymentRate,
+                                        highlightScope: { fade: 'global', highlight: 'item' },
+                                        faded: { innerRadius: 30, additionalRadius: -30, color: 'gray' },
+                                    },
+                                ]}
+                                height={300}
+                            />
+                        ) : (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                                <Typography color="text.secondary">Chưa có dữ liệu hóa đơn</Typography>
+                            </Box>
+                        )}
                     </Paper>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                     <Paper sx={{ p: 3, borderRadius: 3 }}>
                         <Typography variant="h6" gutterBottom>Doanh thu 6 tháng gần nhất (Triệu VNĐ)</Typography>
-                        <BarChart
-                            xAxis={[{ scaleType: 'band', data: stats?.monthlyRevenue.map((i: any) => i.month) }]}
-                            series={[{ data: stats?.monthlyRevenue.map((i: any) => i.revenue) }]}
-                            height={300}
-                            barLabel="value"
-                        />
+                        {stats?.monthlyRevenue && stats.monthlyRevenue.length > 0 ? (
+                            <BarChart
+                                xAxis={[{ scaleType: 'band', data: stats.monthlyRevenue.map(i => i.month) }]}
+                                series={[{ data: stats.monthlyRevenue.map(i => i.revenue) }]}
+                                height={300}
+                                barLabel="value"
+                            />
+                        ) : (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                                <Typography color="text.secondary">Chưa có dữ liệu doanh thu</Typography>
+                            </Box>
+                        )}
                     </Paper>
                 </Grid>
 
                 {/* Cảnh báo */}
                 <Grid size={{ xs: 12 }}>
-                    <Alert severity="warning" sx={{ mb: 2 }}>
-                        Có <strong>15 căn hộ</strong> đã quá hạn thanh toán trên 3 tháng. Cần lưu ý xử lý.
-                    </Alert>
-                    <Alert severity="info">
-                        Kỳ thanh toán phí quản lý tháng 12/2025 sẽ kết thúc trong <strong>5 ngày</strong> tới.
-                    </Alert>
+                    {stats && stats.overdueApartments > 0 && (
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            Có <strong>{stats.overdueApartments} căn hộ</strong> đã quá hạn thanh toán trên 3 tháng. Cần lưu ý xử lý.
+                        </Alert>
+                    )}
+                    {stats && stats.daysRemaining > 0 && stats.daysRemaining <= 10 && (
+                        <Alert severity="info">
+                            Kỳ thanh toán phí quản lý tháng {stats.currentMonth} sẽ kết thúc trong <strong>{stats.daysRemaining} ngày</strong> tới.
+                        </Alert>
+                    )}
+                    {stats && stats.overdueApartments === 0 && (
+                        <Alert severity="success" sx={{ mb: 2 }}>
+                            Không có căn hộ nào quá hạn thanh toán trên 3 tháng. Tốt lắm!
+                        </Alert>
+                    )}
                 </Grid>
             </Grid>
         </Box>

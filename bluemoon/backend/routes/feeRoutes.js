@@ -45,6 +45,12 @@ router.get('/', feeController.getFees);
 
 // === CÁC ROUTE CỐ ĐỊNH PHẢI ĐẶT TRƯỚC /:id ===
 
+// [MỚI] Thống kê tài chính tổng hợp (Chỉ BOD)
+router.get('/stats',
+    checkRole(['bod']),
+    feeController.getFinanceStats
+);
+
 // [MỚI] Batch preview - Xem trước danh sách hóa đơn sẽ tạo
 router.get('/batch-preview',
     checkRole(['accountance', 'bod']),
@@ -58,14 +64,14 @@ router.post('/trigger-scan',
 );
 
 // [SỬA] Đổi tên thành import-utility để dùng cho cả Điện & Nước
-router.post('/import-utility', 
-    checkRole(['accountance', 'bod']), 
+router.post('/import-utility',
+    checkRole(['accountance', 'bod']),
     feeController.importUtilityReadings
 );
 
 // [MỚI] Tự động sinh phí gửi xe từ danh sách xe (Chỉ Kế toán & BOD)
-router.post('/generate/vehicles', 
-    checkRole(['accountance', 'bod']), 
+router.post('/generate/vehicles',
+    checkRole(['accountance', 'bod']),
     feeController.generateVehicleFees
 );
 

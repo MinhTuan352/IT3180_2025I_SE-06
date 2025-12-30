@@ -59,6 +59,10 @@ const notificationApi = {
     markAsRead: (id: string) => {
         return axiosClient.put<{ success: boolean; message: string }>(`/notifications/${id}/read`);
     },
+
+    markAllAsRead: () => {
+        return axiosClient.put<{ success: boolean; message: string }>('/notifications/read-all');
+    },
 };
 
 export default notificationApi;

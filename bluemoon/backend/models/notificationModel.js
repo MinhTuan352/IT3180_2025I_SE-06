@@ -3,7 +3,7 @@
 const db = require('../config/db');
 
 const Notification = {
-    
+
     // ===========================
     // 1. LẤY DANH SÁCH
     // ===========================
@@ -97,14 +97,14 @@ const Notification = {
                 INSERT INTO notifications (id, title, content, type_id, target, target_value, scheduled_at, is_sent, created_by)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `, [
-                id, 
-                title, 
-                content, 
-                type_id, 
-                target, 
+                id,
+                title,
+                content,
+                type_id,
+                target,
                 target_value || null,  // Nếu không có target_value thì truyền null
                 scheduled_at || null,  // Nếu không có scheduled_at thì truyền null
-                is_sent, 
+                is_sent,
                 created_by
             ]);
 
@@ -121,12 +121,12 @@ const Notification = {
             // 3. Tạo danh sách người nhận (Recipients)
             // Lấy ID cư dân phù hợp
             const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
-            
+
             if (recipientIds.length > 0) {
                 // Bulk Insert recipients
                 // Cú pháp: INSERT INTO ... VALUES (id, r1), (id, r2)...
                 const values = recipientIds.map(rid => [id, rid]);
-                
+
                 // MySQL2 helper `query` hỗ trợ bulk insert mảng 2 chiều tốt hơn execute
                 await connection.query(
                     `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES ?`,
@@ -160,6 +160,16 @@ const Notification = {
         }
     },
 
+    markAllAsRead: async (userId) => {
+        const [res] = await db.execute('SELECT id FROM residents WHERE user_id = ?', [userId]);
+        if (res.length > 0) {
+            await db.execute(`
+                UPDATE notification_recipients SET is_read = TRUE, read_at = NOW()
+                WHERE recipient_id = ? AND is_read = FALSE
+            `, [res[0].id]);
+        }
+    },
+
     // Helper: Lấy danh sách ID cư dân dựa trên tiêu chí
     getRecipientIdsByTarget: async (targetType, targetValue) => {
         try {
@@ -171,12 +181,12 @@ const Notification = {
                 // targetValue = 'A'
                 baseQuery += ` AND r.apartment_id IN (SELECT id FROM apartments WHERE building = ?)`;
                 params.push(targetValue);
-            } 
+            }
             else if (targetType === 'Theo căn hộ' && targetValue) {
                 // targetValue = 'A-101'
                 baseQuery += ` AND r.apartment_id IN (SELECT id FROM apartments WHERE apartment_code = ?)`;
                 params.push(targetValue);
-            } 
+            }
             else if (targetType === 'Cá nhân' && targetValue) {
                 return [targetValue];
             }

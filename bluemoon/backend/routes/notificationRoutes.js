@@ -17,13 +17,14 @@ router.get('/:id', notificationController.getNotificationDetail);
 
 // 3. Tạo thông báo mới (Chỉ BOD)
 // [FIX REQ 33] Hỗ trợ upload nhiều file (ảnh, pdf...)
-router.post('/', 
-    checkRole(['bod']), 
-    upload.array('attachments', 5), 
+router.post('/',
+    checkRole(['bod']),
+    upload.array('attachments', 5),
     notificationController.createNotification
 );
 
 // 4. Đánh dấu đã đọc
+router.put('/read-all', notificationController.markAllAsRead);
 router.put('/:id/read', notificationController.markAsRead);
 
 // 5. Xóa thông báo (Chỉ BOD)

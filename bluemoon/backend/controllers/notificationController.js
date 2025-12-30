@@ -67,7 +67,7 @@ const notificationController = {
             if (is_sent) {
                 // Lấy danh sách người nhận để gửi mail
                 const recipientIds = await Notification.getRecipientIdsByTarget(target, target_value);
-                
+
                 if (recipientIds.length > 0) {
                     const placeholders = recipientIds.map(() => '?').join(',');
                     const [residents] = await db.execute(
@@ -89,8 +89,8 @@ const notificationController = {
 
             res.status(201).json({
                 success: true,
-                message: is_sent 
-                    ? `Đã gửi thông báo thành công tới ${emailCount} cư dân.` 
+                message: is_sent
+                    ? `Đã gửi thông báo thành công tới ${emailCount} cư dân.`
                     : `Đã lên lịch gửi vào lúc ${new Date(scheduled_at).toLocaleString('vi-VN')}.`,
                 data: result
             });
@@ -105,6 +105,15 @@ const notificationController = {
         try {
             await Notification.markAsRead(req.params.id, req.user.id);
             res.json({ success: true, message: 'Đã đọc.' });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    },
+
+    markAllAsRead: async (req, res) => {
+        try {
+            await Notification.markAllAsRead(req.user.id);
+            res.json({ success: true, message: 'Đã đánh dấu tất cả là đã đọc.' });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }

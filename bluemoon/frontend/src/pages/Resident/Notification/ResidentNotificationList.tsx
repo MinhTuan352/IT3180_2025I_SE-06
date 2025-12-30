@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Chip, IconButton, Tooltip, CircularProgress, Al
 import { DataGrid, type GridColDef, type GridCellParams } from '@mui/x-data-grid';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { useEffect, useState } from 'react';
 import notificationApi, { type Notification } from '../../../api/notificationApi';
 
@@ -46,6 +47,18 @@ export default function ResidentNotificationList() {
     } catch (err: any) {
       console.error('Error marking notification as read:', err);
       alert('Không thể đánh dấu đã đọc. Vui lòng thử lại.');
+    }
+  };
+
+  // Mark all as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationApi.markAllAsRead();
+      // Update local state: set all is_read=true
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() })));
+    } catch (err: any) {
+      console.error('Error marking all as read:', err);
+      alert('Không thể đánh dấu tất cả đã đọc. Vui lòng thử lại.');
     }
   };
 
@@ -112,9 +125,19 @@ export default function ResidentNotificationList() {
 
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
-      <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
-        Hòm thư Thông báo
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+          Hòm thư Thông báo
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<DoneAllIcon />}
+          onClick={handleMarkAllAsRead}
+          disabled={notifications.every(n => n.is_read)}
+        >
+          Đánh dấu tất cả đã đọc
+        </Button>
+      </Box>
 
       {/* Loading State */}
       {isLoading && (

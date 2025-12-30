@@ -287,6 +287,7 @@ export default function AdminList() {
     const dataToExport = dataToProcess.map((admin: UserData) => ({
       'ID': admin.id,
       'Username': admin.username,
+      'Password': '', // Empty - import will auto-generate password if missing
       'Họ và Tên': admin.full_name || '',
       'Email': admin.email,
       'SĐT': admin.phone || '',
@@ -347,21 +348,37 @@ export default function AdminList() {
 
         for (const row of json) {
           try {
-            const payload = {
-              username: row['Username'] || row['username'],
-              password: row['Password'] || row['password'],
-              email: row['Email'] || row['email'],
-              full_name: row['Họ và Tên'] || row['full_name'],
-              phone: row['SĐT'] || row['phone'],
-              role_id: getRoleId(row['Vai trò'] || row['role'] || ''),
-              dob: parseDate(row['Ngày sinh'] || row['dob']),
-              gender: row['Giới tính'] || row['gender'],
-              cccd: row['CCCD'] || row['cccd'],
+            // Helper: Get value by case-insensitive key matching
+            const getVal = (keys: string[]) => {
+              for (const key of keys) {
+                // Check exact match first
+                if (row[key] !== undefined) return row[key];
+                // Check case-insensitive
+                const lowerKey = key.toLowerCase();
+                const foundKey = Object.keys(row).find(k => k.toLowerCase() === lowerKey);
+                if (foundKey) return row[foundKey];
+              }
+              return undefined;
             };
 
-            if (!payload.username || !payload.password || !payload.email) {
-              console.warn('Skip invalid row:', row);
+            const payload = {
+              username: getVal(['Username', 'username', 'Tên đăng nhập']),
+              // Auto-generate password if not provided: username + '@123'
+              password: getVal(['Password', 'password', 'Mật khẩu']) || (getVal(['Username', 'username', 'Tên đăng nhập']) + '@123'),
+              email: getVal(['Email', 'email']),
+              full_name: getVal(['Họ và Tên', 'full_name', 'Họ tên', 'Tên đầy đủ', 'họ và tên', 'họ tên']),
+              phone: getVal(['SĐT', 'phone', 'Số điện thoại', 'sđt', 'SDT', 'Phone']),
+              role_id: getRoleId(getVal(['Vai trò', 'role', 'Role', 'Chức vụ']) || ''),
+              dob: parseDate(getVal(['Ngày sinh', 'dob', 'DOB', 'ngày sinh'])),
+              gender: getVal(['Giới tính', 'gender', 'Gender', 'giới tính']),
+              cccd: getVal(['CCCD', 'cccd', 'Căn cước', 'Số CCCD']),
+            };
+
+            // Only require username and email (password auto-generated if missing)
+            if (!payload.username || !payload.email) {
+              console.warn('Skip invalid row (missing username/email):', row);
               failCount++;
+              errors.push(`Dòng thiếu username hoặc email`);
               continue;
             }
 
@@ -370,7 +387,7 @@ export default function AdminList() {
           } catch (err: any) {
             console.error('Import Error:', err);
             failCount++;
-            errors.push(`${row['Username'] || 'Unknown'}: ${err.response?.data?.message || err.message}`);
+            errors.push(`${row['Username'] || row['username'] || 'Unknown'}: ${err.response?.data?.message || err.message}`);
           }
         }
 

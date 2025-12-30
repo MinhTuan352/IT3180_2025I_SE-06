@@ -43,6 +43,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import PeopleIcon from '@mui/icons-material/People';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'; // For Finance
+import AssignmentIcon from '@mui/icons-material/Assignment'; // --- ADDED ---
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -93,6 +94,7 @@ const accountantMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/accountance/dashboard' },
   { text: 'Thông tin', icon: <ApartmentIcon />, path: '/building-info' },
   { text: 'Công nợ', icon: <ReceiptLongIcon />, path: '/accountance/fee/list' },
+  { text: 'Tiến độ công việc', icon: <AssignmentIcon />, path: '/accountance/task-progress' }, // --- ADDED ---
   { text: 'Thiết lập', icon: <SettingsIcon />, path: '/accountance/fee/setup' },
 ];
 

@@ -51,6 +51,7 @@ import AccountantPaymentSetupList from '../pages/Accountant/Setup/PaymentSetupLi
 import AccountantPaymentSetupCreate from '../pages/Accountant/Setup/PaymentSetupCreate.tsx';
 import AccountantPaymentSetupEdit from '../pages/Accountant/Setup/PaymentSetupEdit.tsx';
 import AccountantFeeBatchCreate from '../pages/Accountant/FeeManagement/AccountantFeeBatchCreate.tsx';
+import AccountantTaskProgress from '../pages/Accountant/FeeManagement/AccountantTaskProgress.tsx'; // --- ADDED ---
 import AccountantMeasureImport from '../pages/Accountant/Setup/AccountantMeasureImport.tsx'; // Import từ folder Setup
 import AccountantDashboard from '../pages/Accountant/Dashboard/AccountantDashboard';
 
@@ -178,6 +179,7 @@ export default function AppRoutes() {
             <Route path="accountance/dashboard" element={<AccountantDashboard />} />
             {/* Công nợ */}
             <Route path="accountance/fee/list" element={<AccountantFeeList />} />
+            <Route path="accountance/task-progress" element={<AccountantTaskProgress />} /> {/* --- ADDED --- */}
             <Route path="accountance/fee/list/invoice/:id" element={<AccountantFeeInvoice />} />
             <Route path="accountance/fee/list/invoice/create" element={<AccountantFeeInvoiceCreate />} />
             <Route path="accountance/fee/list/invoice/edit/:id" element={<AccountantFeeInvoiceEdit />} />

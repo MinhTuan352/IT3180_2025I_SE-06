@@ -24,6 +24,7 @@ import * as XLSX from 'xlsx';
 import {
   DataGrid,
   type GridColDef,
+  type GridRowSelectionModel,
 } from '@mui/x-data-grid';
 
 // Icons
@@ -33,6 +34,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import PaymentIcon from '@mui/icons-material/Payment';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
@@ -60,6 +62,11 @@ export default function AccountantFeeList() {
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [loading, setLoading] = useState(false);
   const [remindLoading, setRemindLoading] = useState(false);
+
+  // --- BULK SELECTION STATE ---
+  const [selectionModel, setSelectionModel] = useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
+  const selectedIds = Array.from(selectionModel.ids);
+  const [deleting, setDeleting] = useState(false);
 
   const dynamicPaperWidth = windowWidth
     - (isSidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_OPEN)
@@ -303,6 +310,75 @@ export default function AccountantFeeList() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'DanhSachCongNo');
     XLSX.writeFile(wb, 'DanhSachCongNo.xlsx');
+  };
+
+  // --- BULK ACTIONS ---
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.length} công nợ đã chọn?`)) return;
+
+    setDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const id of selectedIds) {
+      try {
+        await feeApi.delete(String(id));
+        successCount++;
+      } catch (err: any) {
+        failCount++;
+        const feeInfo = fees.find(f => f.id === id);
+        const feeName = feeInfo ? feeInfo.id : id;
+        console.error(`Failed to delete ${id}:`, err);
+        errors.push(`${feeName}: ${err.response?.data?.message || 'Lỗi không xác định'}`);
+      }
+    }
+
+    setDeleting(false);
+    setSelectionModel({ type: 'include', ids: new Set() });
+
+    if (failCount === 0) {
+      toast.success(`Đã xóa thành công ${successCount} công nợ.`);
+      fetchFees();
+    } else {
+      toast.error(`Đã xóa ${successCount}. Thất bại ${failCount}.`);
+      if (errors.length > 0) {
+        console.warn('Delete Errors:', errors);
+      }
+      fetchFees();
+    }
+  };
+
+  // Export chỉ những dòng đã chọn
+  const handleExportSelected = () => {
+    if (selectedIds.length === 0) {
+      toast.error('Vui lòng chọn ít nhất 1 công nợ để xuất.');
+      return;
+    }
+
+    const selectedFees = fees.filter(f => selectedIds.includes(f.id));
+    const dataToExport = selectedFees.map(fee => ({
+      'Mã HĐ': fee.id,
+      'Căn hộ': fee.apartment_code || fee.apartment_id,
+      'Người TT': fee.resident_name,
+      'Loại phí': fee.fee_name,
+      'Nội dung': fee.description,
+      'Kỳ TT': fee.billing_period,
+      'Hạn TT': fee.due_date,
+      'Tổng thu': fee.total_amount,
+      'Đã thu': fee.amount_paid,
+      'Dư nợ': fee.amount_remaining,
+      'Trạng thái': fee.status,
+      'Ngày TT': fee.payment_date,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'CongNo_DaChon');
+    XLSX.writeFile(wb, `CongNo_DaChon_${selectedIds.length}.xlsx`);
+    toast.success(`Đã xuất ${selectedIds.length} công nợ.`);
   };
 
   // --- HELPERS FOR IMPORT ---
@@ -567,6 +643,10 @@ export default function AccountantFeeList() {
               pageSizeOptions={[10, 25, 50]}
               checkboxSelection
               disableRowSelectionOnClick
+              rowSelectionModel={selectionModel}
+              onRowSelectionModelChange={(newSelection) => {
+                setSelectionModel(newSelection);
+              }}
               sx={{
                 height: '100%',
                 width: '100%', // ensure full width
@@ -671,6 +751,45 @@ export default function AccountantFeeList() {
           <Button onClick={handleSaveNewFee} variant="contained">Lưu</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Floating Bulk Action Bar - giống BOD */}
+      {selectedIds.length > 0 && (
+        <Box sx={{
+          position: 'fixed',
+          bottom: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          bgcolor: 'white',
+          boxShadow: 3,
+          borderRadius: 2,
+          p: 2,
+          zIndex: 1000,
+          display: 'flex',
+          gap: 2,
+          alignItems: 'center',
+          border: '1px solid #ddd'
+        }}>
+          <Typography variant="body1" fontWeight="bold">
+            Đang chọn: {selectedIds.length}
+          </Typography>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={handleBulkDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Đang xóa...' : 'Xóa đã chọn'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FileDownloadIcon />}
+            onClick={handleExportSelected}
+          >
+            Export đã chọn
+          </Button>
+        </Box>
+      )}
     </>
   );
 }

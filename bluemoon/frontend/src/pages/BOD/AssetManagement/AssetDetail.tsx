@@ -17,6 +17,21 @@ interface AssetDetail extends Asset {
   manufacturer?: string;
   install_date?: string;
   maintenance_cycle?: string;
+  maintenance_history?: MaintenanceSchedule[];
+}
+
+interface MaintenanceSchedule {
+  id: number;
+  asset_id: number;
+  title: string;
+  description?: string;
+  scheduled_date: string;
+  completed_date?: string;
+  technician_name?: string;
+  cost?: number;
+  status: 'Lên lịch' | 'Đang thực hiện' | 'Hoàn thành' | 'Đã hủy';
+  is_recurring?: boolean;
+  recurring_interval?: number;
 }
 
 interface MaintenanceHistory {
@@ -40,11 +55,8 @@ export default function AssetDetail() {
   const [maintenanceCycle, setMaintenanceCycle] = useState('');
   const [nextMaintenance, setNextMaintenance] = useState('');
 
-  // Mock history for now (can be replaced with API later)
-  const [history] = useState<MaintenanceHistory[]>([
-    { date: '2025-11-20', type: 'Bảo trì định kỳ', performer: 'Kỹ thuật viên A', note: 'Tra dầu, kiểm tra cáp', cost: 500000 },
-    { date: '2025-10-20', type: 'Sửa chữa', performer: 'Công ty Thang máy XYZ', note: 'Thay nút bấm tầng 5', cost: 2500000 },
-  ]);
+  // History derived from API data
+  const [history, setHistory] = useState<MaintenanceHistory[]>([]);
 
   useEffect(() => {
     const fetchAssetDetail = async () => {
@@ -64,6 +76,20 @@ export default function AssetDetail() {
         // Initialize form with fetched data
         setMaintenanceCycle(data.maintenance_cycle || '30 ngày');
         setNextMaintenance(data.next_maintenance ? data.next_maintenance.split('T')[0] : '');
+
+        // Map maintenance_history from API to display format
+        if (data.maintenance_history && Array.isArray(data.maintenance_history)) {
+          const mappedHistory: MaintenanceHistory[] = data.maintenance_history
+            .filter((item: MaintenanceSchedule) => item.status === 'Hoàn thành')
+            .map((item: MaintenanceSchedule) => ({
+              date: item.completed_date || item.scheduled_date,
+              type: item.title || 'Bảo trì',
+              performer: item.technician_name || 'Chưa rõ',
+              note: item.description || '',
+              cost: item.cost || 0
+            }));
+          setHistory(mappedHistory);
+        }
       } catch (err: any) {
         console.error('Error fetching asset:', err);
         setError(err.response?.data?.message || 'Không thể tải thông tin tài sản.');

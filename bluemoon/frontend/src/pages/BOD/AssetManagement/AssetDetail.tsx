@@ -173,7 +173,7 @@ export default function AssetDetail() {
 
       <Grid container spacing={3}>
         {/* Cột Trái: Thông tin chung */}
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 4, lg: 3 }}>
           <Card sx={{ borderRadius: 3, height: '100%' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom fontWeight="bold">{asset.name}</Typography>
@@ -212,7 +212,7 @@ export default function AssetDetail() {
         </Grid>
 
         {/* Cột Phải: Lịch trình & Lịch sử */}
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 8, lg: 9 }}>
           {/* 1. Lập lịch & Nhắc nhở */}
           <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

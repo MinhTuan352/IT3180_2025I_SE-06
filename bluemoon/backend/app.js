@@ -25,8 +25,27 @@ app.use((req, res, next) => {
 // 1. MIDDLEWARE
 // =======================
 
-// Cho phép Frontend gọi API (CORS)
-app.use(cors());
+// CORS Configuration - Cho phép Frontend gọi API
+const allowedOrigins = [
+    'http://localhost:5173',           // Local development
+    'http://localhost:3000',           // Backend local
+    'https://bluemoon-frontend-3xgx.onrender.com',  // Production frontend
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`⚠️ CORS blocked origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true  // Cho phép gửi cookies/credentials
+}));
 
 // Cho phép đọc dữ liệu JSON từ body request
 app.use(express.json({ limit: '50mb' }));

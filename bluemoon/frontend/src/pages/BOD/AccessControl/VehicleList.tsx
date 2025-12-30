@@ -40,7 +40,7 @@ const modalStyle = {
     overflow: 'auto'
 };
 
-export default function VehicleList() {
+export default function VehicleList({ readOnly = false }: { readOnly?: boolean }) {
     const navigate = useNavigate();
     const location = useLocation();
     const isCQCN = location.pathname.startsWith('/cqcn');
@@ -326,6 +326,9 @@ export default function VehicleList() {
         }
     ];
 
+    // Filter out actions column if readOnly
+    const visibleColumns = readOnly ? columns.filter(col => col.field !== 'actions') : columns;
+
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
@@ -346,47 +349,49 @@ export default function VehicleList() {
                         </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<FileUploadIcon />}
-                            onClick={handleImportClick}
-                        >
-                            Import
-                        </Button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            style={{ display: 'none' }}
-                            accept=".xlsx,.xls"
-                            onChange={handleFileChange}
-                        />
-                        <Button
-                            variant="outlined"
-                            startIcon={<FileDownloadIcon />}
-                            onClick={handleExport}
-                        >
-                            Export
-                        </Button>
-                        <Badge badgeContent={pendingCount} color="error">
+                    {!readOnly && (
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                             <Button
                                 variant="outlined"
-                                color="warning"
-                                startIcon={<PendingActionsIcon />}
-                                onClick={handleOpenPendingModal}
+                                startIcon={<FileUploadIcon />}
+                                onClick={handleImportClick}
                             >
-                                Yêu cầu đăng ký
+                                Import
                             </Button>
-                        </Badge>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            startIcon={<AddCircleOutlineIcon />}
-                            onClick={() => setAddModalOpen(true)}
-                        >
-                            Thêm xe
-                        </Button>
-                    </Box>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                accept=".xlsx,.xls"
+                                onChange={handleFileChange}
+                            />
+                            <Button
+                                variant="outlined"
+                                startIcon={<FileDownloadIcon />}
+                                onClick={handleExport}
+                            >
+                                Export
+                            </Button>
+                            <Badge badgeContent={pendingCount} color="error">
+                                <Button
+                                    variant="outlined"
+                                    color="warning"
+                                    startIcon={<PendingActionsIcon />}
+                                    onClick={handleOpenPendingModal}
+                                >
+                                    Yêu cầu đăng ký
+                                </Button>
+                            </Badge>
+                            <Button
+                                variant="contained"
+                                color="success"
+                                startIcon={<AddCircleOutlineIcon />}
+                                onClick={() => setAddModalOpen(true)}
+                            >
+                                Thêm xe
+                            </Button>
+                        </Box>
+                    )}
                 </Box>
             </Paper>
 
@@ -452,7 +457,7 @@ export default function VehicleList() {
                 <Paper sx={{ height: 600, borderRadius: 2 }}>
                     <DataGrid
                         rows={vehicles}
-                        columns={columns}
+                        columns={visibleColumns}
                         initialState={{
                             pagination: { paginationModel: { pageSize: 15 } }
                         }}

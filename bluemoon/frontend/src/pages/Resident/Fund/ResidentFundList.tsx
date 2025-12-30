@@ -1,16 +1,7 @@
 // src/pages/Resident/Fund/ResidentFundList.tsx
 import {
-    Box,
-    Typography,
-    Card,
-    CardMedia,
-    CardContent,
-    CardActions,
-    Grid,
-    Chip,
-    LinearProgress,
-    Button,
-    Alert,
+    Box, Typography, CircularProgress, Alert, Card, CardMedia,
+    CardContent, CardActions, Grid, Button, LinearProgress
 } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +10,11 @@ import donationApi, { type FundCampaign } from '../../../api/donationApi';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+};
+
+const getProgress = (current: number, target: number) => {
+    if (target === 0) return 0;
+    return Math.min((current / target) * 100, 100);
 };
 
 export default function ResidentFundList() {
@@ -34,82 +30,86 @@ export default function ResidentFundList() {
     const fetchCampaigns = async () => {
         try {
             setLoading(true);
+            setError(null);
             const response = await donationApi.getCampaigns();
-            // Only show Active campaigns for residents
+            // Filter for active campaigns only
             const activeCampaigns = response.data.data.filter(
                 (c: FundCampaign) => c.status === 'Active' && new Date(c.end_date) >= new Date()
             );
             setCampaigns(activeCampaigns);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Không thể tải danh sách quỹ');
+            console.error('Error fetching campaigns:', err);
+            setError('Không thể tải danh sách quỹ');
         } finally {
             setLoading(false);
         }
     };
 
-    const getProgress = (current: number, target: number) => {
-        if (!target || target === 0) return 0;
-        return Math.min((current / target) * 100, 100);
-    };
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (error) {
+        return <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>;
+    }
 
     return (
-        <Box>
-            {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h5" fontWeight="bold">
-                    🎗️ Quỹ Đóng góp
-                </Typography>
-                <Button
-                    variant="outlined"
-                    onClick={() => navigate('/resident/fund/history')}
-                >
-                    Lịch sử của tôi
-                </Button>
-            </Box>
+        <>
+            <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 3 }}>
+                Quỹ đóng góp
+            </Typography>
 
-            {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-            {loading ? (
-                <LinearProgress />
-            ) : campaigns.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <Typography color="text.secondary">Hiện tại chưa có quỹ đóng góp nào đang mở.</Typography>
-                </Box>
+            {campaigns.length === 0 ? (
+                <Alert severity="info">Hiện không có quỹ đóng góp nào đang hoạt động.</Alert>
             ) : (
                 <Grid container spacing={3}>
                     {campaigns.map((campaign) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={campaign.id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={campaign.id}>
                             <Card sx={{
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                transition: 'transform 0.2s',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 }
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: 4
+                                }
                             }}>
-                                <CardMedia
-                                    component="img"
-                                    height="160"
-                                    image={campaign.image_path ? `http://localhost:3000${campaign.image_path}` : 'https://via.placeholder.com/400x200?text=Qu%E1%BB%B9'}
-                                    alt={campaign.title}
-                                    sx={{ objectFit: 'cover' }}
-                                />
-                                <CardContent sx={{ flexGrow: 1 }}>
-                                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                                {campaign.image_path && (
+                                    <CardMedia
+                                        component="img"
+                                        height="160"
+                                        image={`http://localhost:3000${campaign.image_path}`}
+                                        alt={campaign.title}
+                                        sx={{ objectFit: 'cover' }}
+                                    />
+                                )}
+                                <CardContent sx={{ flexGrow: 1, p: 2 }}>
+                                    <Typography variant="h6" gutterBottom fontWeight="bold" noWrap>
                                         {campaign.title}
                                     </Typography>
-
-                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>
-                                        {campaign.description?.substring(0, 100) || 'Chưa có mô tả'}...
+                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        {campaign.description}
                                     </Typography>
 
-                                    {/* Progress */}
-                                    <Box sx={{ mb: 1 }}>
+                                    <Typography variant="caption" color="text.secondary" display="block">
+                                        Ngày bắt đầu: {new Date(campaign.start_date).toLocaleDateString('vi-VN')}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                                        Ngày kết thúc: {new Date(campaign.end_date).toLocaleDateString('vi-VN')}
+                                    </Typography>
+
+                                    <Box sx={{ mt: 2 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                            <Typography variant="body2" color="primary" fontWeight="bold">
+                                            <Typography variant="body2" fontWeight="bold">
                                                 {formatCurrency(campaign.current_amount)}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                                / {formatCurrency(campaign.target_amount)}
+                                                Mục tiêu: {formatCurrency(campaign.target_amount)}
                                             </Typography>
                                         </Box>
                                         <LinearProgress
@@ -118,25 +118,21 @@ export default function ResidentFundList() {
                                             sx={{ height: 8, borderRadius: 4 }}
                                         />
                                         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                            Đạt {getProgress(campaign.current_amount, campaign.target_amount).toFixed(1)}% mục tiêu
+                                            {getProgress(campaign.current_amount, campaign.target_amount).toFixed(1)}% hoàn thành
                                         </Typography>
                                     </Box>
-
-                                    {/* Dates */}
-                                    <Typography variant="caption" color="text.secondary">
-                                        📅 Đến {new Date(campaign.end_date).toLocaleDateString('vi-VN')}
-                                    </Typography>
                                 </CardContent>
 
                                 <CardActions sx={{ p: 2, pt: 0 }}>
                                     <Button
-                                        size="small"
-                                        variant="contained"
                                         fullWidth
+                                        variant="contained"
+                                        color="primary"
+                                        size="small"
                                         startIcon={<VisibilityIcon />}
                                         onClick={() => navigate(`/resident/fund/detail/${campaign.id}`)}
                                     >
-                                        Xem chi tiết & Đóng góp
+                                        Xem chi tiết
                                     </Button>
                                 </CardActions>
                             </Card>
@@ -144,6 +140,6 @@ export default function ResidentFundList() {
                     ))}
                 </Grid>
             )}
-        </Box>
+        </>
     );
 }

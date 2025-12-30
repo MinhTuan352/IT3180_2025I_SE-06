@@ -699,7 +699,7 @@ export default function AccountantDashboard() {
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {/* Greeting Banner with Smart Report */}
             <DashboardBanner
-                userName={user?.username || 'Người dùng'}
+                userName={user?.full_name || 'Người dùng'}
                 userRole={user?.role}
                 unpaidInvoices={stats.unpaidInvoices}
                 overdueCount={overdueInvoices.length}
@@ -747,10 +747,10 @@ export default function AccountantDashboard() {
 
             {/* Row 2: Prediction + Revenue Chart */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 4, lg: 3 }}>
                     <PredictionCard prediction={prediction} collectionRate={stats.collectionRate} />
                 </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid size={{ xs: 12, md: 8, lg: 9 }}>
                     <RevenueLineChart data={charts.monthlyRevenue} />
                 </Grid>
             </Grid>

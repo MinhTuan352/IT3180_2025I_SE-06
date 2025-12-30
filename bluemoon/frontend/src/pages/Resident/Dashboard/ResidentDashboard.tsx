@@ -510,7 +510,7 @@ export default function ResidentDashboard() {
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {/* Greeting Banner with Smart Report */}
             <DashboardBanner
-                userName={user?.username || 'Cư dân'}
+                userName={user?.full_name || 'Cư dân'}
                 userRole="resident"
                 apartmentCode={apartment?.apartment_code}
                 unpaidInvoices={stats.unpaidInvoices}
@@ -564,10 +564,10 @@ export default function ResidentDashboard() {
 
             {/* Row 2: Apartment Info + Pending Invoices */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 4, lg: 3 }}>
                     <ApartmentInfoCard apartment={apartment} />
                 </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid size={{ xs: 12, md: 8, lg: 9 }}>
                     <PendingInvoicesTable data={pendingInvoices} />
                 </Grid>
             </Grid>

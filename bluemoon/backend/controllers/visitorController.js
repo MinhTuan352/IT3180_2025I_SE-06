@@ -10,12 +10,18 @@ const visitorController = {
      */
     getAllVisitors: async (req, res) => {
         try {
+            // [PERMISSION CHECK] Allow BOD, Security, CQCN to view all visitors
+            const allowedRoles = ['bod', 'security', 'cqcn'];
+            if (!allowedRoles.includes(req.user.role) && req.user.role !== 'resident') {
+                return res.status(403).json({ message: 'Không có quyền truy cập.' });
+            }
+
             // Lấy tham số lọc từ URL
             const filters = {
                 status: req.query.status,       // 'active' (chưa về) hoặc 'history' (đã về)
                 keyword: req.query.keyword,     // Tên, CCCD, Biển số
                 apartment_id: req.query.apartment_id,
-                resident_id: req.user.role === 'resident' ? req.user.id : null // Chỉ lấy khách của chính mình
+                resident_id: req.user.role === 'resident' ? req.user.id : null // Cư dân chỉ lấy khách của mình
             };
 
             const visitors = await Visitor.getAll(filters);

@@ -9,7 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import toast from 'react-hot-toast';
 import visitorApi, { type Visitor } from '../../../api/visitorApi';
 
-export default function BODVisitorList() {
+export default function BODVisitorList({ readOnly = false }: { readOnly?: boolean }) {
     const [visitors, setVisitors] = useState<Visitor[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -130,22 +130,30 @@ export default function BODVisitorList() {
                                     )}
                                 </TableCell>
                                 <TableCell align="center">
-                                    {v.status === 'Đăng ký' && (
-                                        <Tooltip title="Check-in (Khách đến)">
-                                            <IconButton color="success" onClick={() => handleCheckIn(v.id)}>
-                                                <CheckCircleIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    )}
-                                    {v.status === 'Đã vào' && (
-                                        <Tooltip title="Check-out (Khách về)">
-                                            <IconButton color="warning" onClick={() => handleCheckOut(v.id)}>
-                                                <LogoutIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    )}
-                                    {(v.status === 'Đã ra' || v.status === 'Hủy') && (
-                                        <Typography variant="caption" color="text.secondary">Hoàn tất</Typography>
+                                    {readOnly ? (
+                                        <Typography variant="caption" color="text.secondary">
+                                            Chỉ xem
+                                        </Typography>
+                                    ) : (
+                                        <>
+                                            {v.status === 'Đăng ký' && (
+                                                <Tooltip title="Check-in (Khách đến)">
+                                                    <IconButton color="success" onClick={() => handleCheckIn(v.id)}>
+                                                        <CheckCircleIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {v.status === 'Đã vào' && (
+                                                <Tooltip title="Check-out (Khách về)">
+                                                    <IconButton color="warning" onClick={() => handleCheckOut(v.id)}>
+                                                        <LogoutIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {(v.status === 'Đã ra' || v.status === 'Hủy') && (
+                                                <Typography variant="caption" color="text.secondary">Hoàn tất</Typography>
+                                            )}
+                                        </>
                                     )}
                                 </TableCell>
                             </TableRow>

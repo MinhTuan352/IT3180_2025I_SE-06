@@ -567,7 +567,7 @@ export default function BODDashboard() {
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
             {/* Greeting Banner with Smart Report */}
             <DashboardBanner
-                userName={user?.username || 'Người dùng'}
+                userName={user?.full_name || 'Người dùng'}
                 userRole={user?.role}
                 pendingTasks={Number(stats.pendingServiceRequests) + Number(stats.pendingIncidents)}
                 insights={smartInsights}

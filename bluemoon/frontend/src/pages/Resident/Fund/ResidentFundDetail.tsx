@@ -218,7 +218,7 @@ export default function ResidentFundDetail() {
 
             {/* Info Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid size={{ xs: 12, lg: 9 }}>
                     <Card>
                         <CardContent>
                             {/* Image */}
@@ -227,7 +227,7 @@ export default function ResidentFundDetail() {
                                     component="img"
                                     src={`http://localhost:3000${campaign.image_path}`}
                                     alt={campaign.title}
-                                    sx={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 2, mb: 2 }}
+                                    sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 2, mb: 2 }}
                                 />
                             )}
 
@@ -245,7 +245,7 @@ export default function ResidentFundDetail() {
                     </Card>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, lg: 3 }}>
                     <Card sx={{ mb: 2 }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Tiến độ</Typography>

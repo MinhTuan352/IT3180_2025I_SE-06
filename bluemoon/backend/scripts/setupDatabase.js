@@ -19,7 +19,7 @@ const dbName = 'bluemoon_db';
  */
 async function runSqlFile(connection, filePath) {
     const fileName = path.basename(filePath);
-    
+
     if (!fs.existsSync(filePath)) {
         console.warn(`⚠️  CẢNH BÁO: Không tìm thấy file '${fileName}' tại đường dẫn:`);
         console.warn(`   ${filePath}`);
@@ -41,7 +41,7 @@ async function runSqlFile(connection, filePath) {
     for (let i = 0; i < statements.length; i++) {
         try {
             await connection.query(statements[i]);
-            
+
             // Log tiến độ mỗi 500 lệnh để người dùng biết không bị treo
             if ((i + 1) % 500 === 0) {
                 console.log(`   ⏳ Đã chạy ${i + 1}/${statements.length} lệnh...`);
@@ -84,6 +84,11 @@ async function setupDatabase() {
             console.log('💡 Gợi ý: Bạn chưa tạo file dữ liệu mẫu.');
             console.log('   Hãy chạy lệnh: node database/generate_seeding.js');
         }
+
+        // 4. Chạy create_accounting_tables.sql (Bảng Kế toán & Tiến độ)
+        const accountingPath = path.join(__dirname, 'create_accounting_tables.sql');
+        console.log('📊 BƯỚC 3: Tạo bảng Kế toán & Tiến độ (Accounting)...');
+        await runSqlFile(connection, accountingPath);
 
         console.log('🎉🎉🎉 CÀI ĐẶT DATABASE HOÀN TẤT! 🎉🎉🎉');
 

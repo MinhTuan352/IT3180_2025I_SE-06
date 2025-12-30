@@ -67,6 +67,7 @@ app.use('/api/donations', require('./routes/donationRoutes'));
 app.use('/api/visitors', require('./routes/visitorRoutes'));
 app.use('/api/import', require('./routes/importRoutes'));
 app.use('/api/profile-requests', require('./routes/profileEditRequestRoutes'));
+app.use('/api/accounting', require('./routes/accountingRoutes'));
 
 cronJob.start();
 // Route kiểm tra server sống hay chết

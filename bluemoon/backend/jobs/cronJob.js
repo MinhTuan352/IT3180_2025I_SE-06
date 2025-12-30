@@ -3,9 +3,10 @@
 const cron = require('node-cron');
 const db = require('../config/db');
 const emailService = require('../services/emailService');
+const recurringTaskJob = require('./recurringTaskJob');
 
 const CronJob = {
-    
+
     // =================================================================
     // 1. QUÉT HÓA ĐƠN ĐẾN HẠN (Chạy 08:00 mỗi ngày)
     // =================================================================
@@ -13,7 +14,8 @@ const CronJob = {
     isRunning: {
         invoices: false,
         maintenance: false,
-        notifications: false
+        notifications: false,
+        recurringTasks: false
     },
 
     scanOverdueInvoices: async () => {
@@ -24,7 +26,7 @@ const CronJob = {
         CronJob.isRunning.invoices = true;
         console.log('⏰ [CRON-INVOICE] Bắt đầu quét hóa đơn đến hạn...');
         const connection = await db.getConnection();
-        
+
         try {
             // Lấy hóa đơn chưa trả hết VÀ đến hạn hôm nay
             const [invoices] = await connection.execute(`
@@ -43,7 +45,7 @@ const CronJob = {
 
             for (const inv of invoices) {
                 const remaining = inv.total_amount - inv.amount_paid;
-                
+
                 // 1. Tạo thông báo In-App
                 const notiId = `AUTO-FEE-${Date.now()}-${inv.id}`;
                 const title = `🔔 Nhắc thanh toán: ${inv.billing_period}`;
@@ -54,7 +56,7 @@ const CronJob = {
                      VALUES (?, ?, ?, 3, 'Cá nhân', 'SYSTEM', TRUE)`,
                     [notiId, title, content]
                 );
-                
+
                 await connection.execute(
                     `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES (?, ?)`,
                     [notiId, inv.resident_id]
@@ -182,6 +184,26 @@ const CronJob = {
     },
 
     // =================================================================
+    // 4. TỰ ĐỘNG TẠO CÔNG VIỆC KẾ TOÁN TỪ LỊCH ĐỊNH KỲ (Chạy 00:05 mỗi ngày)
+    // =================================================================
+    generateRecurringTasks: async () => {
+        if (CronJob.isRunning.recurringTasks) {
+            console.log('⚠️ [CRON-RECURRING] Đang chạy, bỏ qua.');
+            return;
+        }
+
+        CronJob.isRunning.recurringTasks = true;
+
+        try {
+            await recurringTaskJob.run();
+        } catch (error) {
+            console.error('❌ [CRON-RECURRING] Lỗi:', error.message);
+        } finally {
+            CronJob.isRunning.recurringTasks = false;
+        }
+    },
+
+    // =================================================================
     // HÀM KHỞI ĐỘNG TẤT CẢ CRON
     // =================================================================
     start: () => {
@@ -193,8 +215,11 @@ const CronJob = {
         // 2. Quét Bảo trì: 07:00 Sáng hàng ngày
         cron.schedule('0 7 * * *', CronJob.scanMaintenanceSchedules, { timezone: "Asia/Ho_Chi_Minh" });
 
-        // 3. Quét Thông báo hẹn giờ: Mỗi phút 1 lần
+        // 3. Quét Thông báo hẹn giờ: Mỗi 5 phút 1 lần
         cron.schedule('*/5 * * * *', CronJob.scanScheduledNotifications, { timezone: "Asia/Ho_Chi_Minh" });
+
+        // 4. Tạo công việc kế toán định kỳ: 00:05 Sáng hàng ngày
+        cron.schedule('5 0 * * *', CronJob.generateRecurringTasks, { timezone: "Asia/Ho_Chi_Minh" });
     }
 };
 

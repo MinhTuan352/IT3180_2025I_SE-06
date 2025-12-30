@@ -4,7 +4,8 @@ require('dotenv').config();
 
 // Cấu hình SSL cho TiDB (Render)
 // Nếu đang chạy local (XAMPP) thì không cần SSL
-const sslConfig = process.env.DB_HOST === 'localhost'
+const isLocal = process.env.DB_HOST === 'localhost' || process.env.DB_HOST === '127.0.0.1';
+const sslConfig = isLocal
     ? null
     : {
         minVersion: 'TLSv1.2',

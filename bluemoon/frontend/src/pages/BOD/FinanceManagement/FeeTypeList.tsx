@@ -1,5 +1,6 @@
 
 import { Box, Typography, Grid, Card, CardContent, CardActions, Button, Divider } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -8,11 +9,10 @@ import feeApi from '../../../api/feeApi';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function FeeTypeList() {
+    const navigate = useNavigate();
     const [feeTypes, setFeeTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Simplified fetch to replicate Accountant's view
-    // NOTE: BQT has correct rights to add/edit as requested.
     const fetchFeeTypes = async () => {
         try {
             const response: any = await feeApi.getTypes();
@@ -44,15 +44,13 @@ export default function FeeTypeList() {
         }
     };
 
-    const handleEdit = () => {
-        // Vì không clone trang Edit/Create của Accountant, chúng ta tạm thời chỉ thông báo tính năng
-        // Hoặc nếu cần kíp thì phải import component từ Accountant
-        toast('Tính năng chỉnh sửa đang được phát triển cho BQT', { icon: '🚧' });
-    }
+    const handleEdit = (id: number) => {
+        navigate(`/bod/finance/fee-types/edit/${id}`);
+    };
 
     const handleAdd = () => {
-        toast('Tính năng thêm đang được phát triển cho BQT', { icon: '🚧' });
-    }
+        navigate('/bod/finance/fee-types/create');
+    };
 
     if (loading) {
         return <Typography sx={{ p: 3 }}>Đang tải dữ liệu...</Typography>;
@@ -109,7 +107,7 @@ export default function FeeTypeList() {
                                 <Button
                                     size="small"
                                     startIcon={<EditIcon />}
-                                    onClick={() => handleEdit()}
+                                    onClick={() => handleEdit(fee.id)}
                                 >
                                     Sửa
                                 </Button>

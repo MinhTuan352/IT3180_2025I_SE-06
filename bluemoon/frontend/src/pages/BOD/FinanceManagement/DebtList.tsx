@@ -134,18 +134,6 @@ export default function FeeList() {
     };
 
     // --- HANDLERS ---
-    const handleOpenAddModal = () => {
-        setFormData({
-            apartment_id: '',
-            fee_type_id: '',
-            description: '',
-            billing_period: '',
-            due_date: '',
-            total_amount: '',
-        });
-        setOpenAddModal(true);
-    };
-
     const handleCloseAddModal = () => {
         setOpenAddModal(false);
     };
@@ -209,10 +197,6 @@ export default function FeeList() {
         window.print();
     };
 
-    const handleSendReminder = async (fee: Fee) => {
-        setSnackbar({ open: true, message: `Đã gửi nhắc nhở cho căn hộ ${fee.apartment_code || fee.apartment_id}`, severity: 'success' });
-    };
-
     const handleExport = () => {
         const dataToExport = fees.map(fee => ({
             'Mã HĐ': fee.id,
@@ -257,10 +241,6 @@ export default function FeeList() {
             if (!isNaN(date.getTime())) return date.toISOString().split('T')[0];
         }
         return null;
-    };
-
-    const handleImportClick = () => {
-        fileInputRef.current?.click();
     };
 
     const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {

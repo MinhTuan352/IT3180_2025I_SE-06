@@ -20,6 +20,8 @@ import FinanceLanding from '../pages/BOD/FinanceManagement/FinanceLanding';
 import FinanceStats from '../pages/BOD/FinanceManagement/FinanceStats';
 import DebtList from '../pages/BOD/FinanceManagement/DebtList';
 import FeeTypeList from '../pages/BOD/FinanceManagement/FeeTypeList';
+import FeeTypeCreate from '../pages/BOD/FinanceManagement/FeeTypeCreate';
+import FeeTypeEdit from '../pages/BOD/FinanceManagement/FeeTypeEdit';
 import AccountantManagement from '../pages/BOD/FinanceManagement/AccountantManagement';
 import NotificationList from '../pages/BOD/NotificationManagement/NotificationList';
 import NotificationCreate from '../pages/BOD/NotificationManagement/NotificationCreate';
@@ -138,6 +140,8 @@ export default function AppRoutes() {
             <Route path="bod/finance/stats" element={<FinanceStats />} />
             <Route path="bod/finance/debt" element={<DebtList />} />
             <Route path="bod/finance/fee-types" element={<FeeTypeList />} />
+            <Route path="bod/finance/fee-types/create" element={<FeeTypeCreate />} />
+            <Route path="bod/finance/fee-types/edit/:id" element={<FeeTypeEdit />} />
             <Route path="bod/finance/accountant" element={<AccountantManagement />} />
 
             <Route path="bod/asset/list" element={<AssetList />} />

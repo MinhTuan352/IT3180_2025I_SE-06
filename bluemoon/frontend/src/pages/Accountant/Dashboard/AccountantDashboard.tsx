@@ -202,10 +202,19 @@ interface LineChartProps {
 function RevenueLineChart({ data }: LineChartProps) {
     const maxValue = Math.max(...data.map(d => Math.max(Number(d.collected) || 0, Number(d.remaining) || 0)), 1);
 
-    const monthNames: Record<string, string> = {
-        '01': 'T1', '02': 'T2', '03': 'T3', '04': 'T4',
-        '05': 'T5', '06': 'T6', '07': 'T7', '08': 'T8',
-        '09': 'T9', '10': 'T10', '11': 'T11', '12': 'T12'
+    // Helper function to extract month label from both formats: "YYYY-MM" or "Tx/YYYY"
+    const getMonthLabel = (monthStr: string): string => {
+        if (!monthStr) return '?';
+        // Format "Tx/YYYY" (e.g., "T7/2025")
+        if (monthStr.startsWith('T') && monthStr.includes('/')) {
+            return monthStr.split('/')[0]; // Returns "T7"
+        }
+        // Format "YYYY-MM" (e.g., "2025-07")
+        if (monthStr.includes('-')) {
+            const monthNum = monthStr.split('-')[1];
+            return 'T' + parseInt(monthNum, 10);
+        }
+        return monthStr;
     };
 
     return (
@@ -234,7 +243,7 @@ function RevenueLineChart({ data }: LineChartProps) {
                         {data.slice(-8).map((item, index) => {
                             const collectedHeight = (Number(item.collected) / maxValue) * 150;
                             const remainingHeight = (Number(item.remaining) / maxValue) * 150;
-                            const monthKey = item.month.split('-')[1];
+                            const monthLabel = getMonthLabel(item.month);
                             return (
                                 <Box key={index} sx={{ flex: 1, textAlign: 'center' }}>
                                     <Stack spacing={0.3} alignItems="center">
@@ -260,7 +269,7 @@ function RevenueLineChart({ data }: LineChartProps) {
                                             />
                                         </Stack>
                                         <Typography variant="caption" fontSize="0.65rem">
-                                            {monthNames[monthKey] || monthKey}
+                                            {monthLabel}
                                         </Typography>
                                     </Stack>
                                 </Box>

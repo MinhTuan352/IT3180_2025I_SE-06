@@ -192,21 +192,22 @@ const dashboardController = {
                 totalDebt = stats[0].total_debt || 0;
             } catch (e) { console.log('invoice stats error:', e.message); }
 
-            // 2. Thống kê theo tháng (12 tháng gần nhất)
+            // 2. Thống kê theo tháng (12 tháng gần nhất - dùng billing_period)
             let monthlyData = [];
             try {
                 const [data] = await db.execute(`
                     SELECT 
-                        DATE_FORMAT(created_at, '%Y-%m') as month,
+                        billing_period as month,
                         COUNT(*) as total_invoices,
                         SUM(CASE WHEN status = 'Đã thanh toán' THEN 1 ELSE 0 END) as paid_invoices,
                         COALESCE(SUM(total_amount), 0) as total_amount,
                         COALESCE(SUM(amount_paid), 0) as collected,
                         COALESCE(SUM(amount_remaining), 0) as remaining
                     FROM fees 
-                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-                    ORDER BY month ASC
+                    WHERE billing_period IS NOT NULL
+                    GROUP BY billing_period
+                    ORDER BY billing_period ASC
+                    LIMIT 12
                 `);
                 monthlyData = data;
             } catch (e) { console.log('monthly data error:', e.message); }

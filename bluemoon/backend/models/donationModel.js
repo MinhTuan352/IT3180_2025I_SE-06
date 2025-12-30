@@ -13,12 +13,13 @@ const Donation = {
     createCampaign: async (data) => {
         const query = `
             INSERT INTO fund_campaigns 
-            (title, description, start_date, end_date, target_amount, status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (title, description, image_path, start_date, end_date, target_amount, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const params = [
             data.title,
             data.description,
+            data.image_path || null,
             data.start_date,
             data.end_date,
             data.target_amount || 0,
@@ -112,7 +113,7 @@ const Donation = {
         } catch (error) {
             // Nếu lỗi -> Rollback (Hoàn tác toàn bộ)
             await connection.rollback();
-            throw error; 
+            throw error;
         } finally {
             connection.release(); // Trả lại connection cho pool
         }
@@ -148,6 +149,93 @@ const Donation = {
         `;
         const [rows] = await db.execute(query, [residentId]);
         return rows;
+    },
+
+    /**
+     * Cập nhật thông tin chiến dịch
+     */
+    updateCampaign: async (id, data) => {
+        const { title, description, start_date, end_date, target_amount, image_path } = data;
+        let query = `UPDATE fund_campaigns SET `;
+        const updates = [];
+        const params = [];
+
+        if (title !== undefined) { updates.push('title = ?'); params.push(title); }
+        if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+        if (start_date !== undefined) { updates.push('start_date = ?'); params.push(start_date); }
+        if (end_date !== undefined) { updates.push('end_date = ?'); params.push(end_date); }
+        if (target_amount !== undefined) { updates.push('target_amount = ?'); params.push(target_amount); }
+        if (image_path !== undefined) { updates.push('image_path = ?'); params.push(image_path); }
+
+        if (updates.length === 0) return false;
+
+        query += updates.join(', ') + ' WHERE id = ?';
+        params.push(id);
+
+        const [result] = await db.execute(query, params);
+        return result.affectedRows > 0;
+    },
+
+    /**
+     * Thống kê tổng hợp
+     */
+    getStatistics: async () => {
+        // 1. Tổng quan
+        const [overview] = await db.execute(`
+            SELECT 
+                COUNT(*) as total_campaigns,
+                SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active_campaigns,
+                SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed_campaigns,
+                COALESCE(SUM(current_amount), 0) as total_raised,
+                COALESCE(SUM(target_amount), 0) as total_target
+            FROM fund_campaigns
+        `);
+
+        // 2. Top 5 quỹ có nhiều đóng góp nhất
+        const [topCampaigns] = await db.execute(`
+            SELECT id, title, current_amount, target_amount, 
+                   ROUND((current_amount / NULLIF(target_amount, 0)) * 100, 1) as progress_percent
+            FROM fund_campaigns 
+            WHERE current_amount > 0
+            ORDER BY current_amount DESC 
+            LIMIT 5
+        `);
+
+        // 3. Top 10 người đóng góp nhiều nhất
+        const [topDonors] = await db.execute(`
+            SELECT 
+                d.resident_id,
+                r.full_name,
+                a.apartment_code,
+                SUM(d.amount) as total_donated,
+                COUNT(d.id) as donation_count
+            FROM donations d
+            JOIN residents r ON d.resident_id = r.id
+            LEFT JOIN apartments a ON r.apartment_id = a.id
+            WHERE d.is_anonymous = 0
+            GROUP BY d.resident_id, r.full_name, a.apartment_code
+            ORDER BY total_donated DESC
+            LIMIT 10
+        `);
+
+        // 4. Đóng góp theo tháng (12 tháng gần nhất)
+        const [monthlyStats] = await db.execute(`
+            SELECT 
+                DATE_FORMAT(transaction_date, '%Y-%m') as month,
+                SUM(amount) as total_amount,
+                COUNT(id) as donation_count
+            FROM donations
+            WHERE transaction_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(transaction_date, '%Y-%m')
+            ORDER BY month ASC
+        `);
+
+        return {
+            overview: overview[0],
+            topCampaigns,
+            topDonors,
+            monthlyStats
+        };
     }
 };
 

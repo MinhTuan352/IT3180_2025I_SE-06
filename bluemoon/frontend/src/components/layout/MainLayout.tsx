@@ -58,6 +58,7 @@ import SecurityIcon from '@mui/icons-material/Security';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import HomeIcon from '@mui/icons-material/Home';
+import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism'; // NEW: For Fund Management
 import ChatButton from '../Chatbot/ChatButton';
 import ChatWindow from '../Chatbot/ChatWindow';
 //import HistoryIcon from '@mui/icons-material/History';
@@ -81,6 +82,7 @@ const bodMenuItems = [
   { text: 'Quản lý Ra vào', icon: <SecurityIcon />, path: '/bod/access-control' },
 
   { text: 'Tài chính', icon: <AccountBalanceIcon />, path: '/bod/finance' }, // [cite: 45] Updated
+  { text: 'Quản lý Quỹ', icon: <VolunteerActivismIcon />, path: '/bod/fund/list' }, // NEW: Fund Management
   { text: 'Tài sản', icon: <InventoryIcon />, path: '/bod/asset/list' },
   { text: 'Dịch vụ', icon: <StorefrontIcon />, path: '/bod/service/list' },
   { text: 'Thông báo', icon: <NotificationsIcon />, path: '/bod/notification/list' }, // [cite: 47]

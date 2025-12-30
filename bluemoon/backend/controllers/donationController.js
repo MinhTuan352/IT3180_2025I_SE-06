@@ -18,7 +18,7 @@ const donationController = {
 
     /**
      * [POST] /api/donations/campaigns
-     * Tạo đợt quyên góp mới
+     * Tạo đợt quyên góp mới (có thể upload ảnh)
      */
     createCampaign: async (req, res) => {
         try {
@@ -28,13 +28,20 @@ const donationController = {
                 return res.status(400).json({ message: 'Thiếu thông tin bắt buộc (Tên quỹ, Ngày bắt đầu, Ngày kết thúc).' });
             }
 
+            // Handle image upload
+            let image_path = null;
+            if (req.file) {
+                image_path = `/uploads/funds/${req.file.filename}`;
+            }
+
             const newCampaign = await Donation.createCampaign({
                 title,
                 description,
+                image_path,
                 start_date,
                 end_date,
                 target_amount,
-                created_by: req.user.id // ID của Kế toán đang login
+                created_by: req.user.id
             });
 
             res.status(201).json({
@@ -219,6 +226,83 @@ const donationController = {
             });
 
         } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [GET] /api/donations/campaigns/:id
+     * Lấy chi tiết một quỹ
+     */
+    getCampaignDetail: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const campaign = await Donation.getCampaignById(id);
+
+            if (!campaign) {
+                return res.status(404).json({ message: 'Không tìm thấy quỹ.' });
+            }
+
+            res.json({ success: true, data: campaign });
+        } catch (error) {
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [PUT] /api/donations/campaigns/:id
+     * Cập nhật thông tin quỹ
+     */
+    updateCampaign: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { title, description, start_date, end_date, target_amount } = req.body;
+
+            // Check if campaign exists
+            const campaign = await Donation.getCampaignById(id);
+            if (!campaign) {
+                return res.status(404).json({ message: 'Không tìm thấy quỹ.' });
+            }
+
+            // Handle image upload if present
+            let image_path = undefined;
+            if (req.file) {
+                image_path = `/uploads/funds/${req.file.filename}`;
+                console.log('📸 Image uploaded:', image_path);
+            }
+
+            console.log('💾 Updating campaign with:', { title, description, start_date, end_date, target_amount, image_path });
+
+            const updated = await Donation.updateCampaign(id, {
+                title,
+                description,
+                start_date,
+                end_date,
+                target_amount,
+                image_path
+            });
+
+            if (updated) {
+                res.json({ success: true, message: 'Cập nhật quỹ thành công.' });
+            } else {
+                res.status(400).json({ message: 'Không có thay đổi nào được thực hiện.' });
+            }
+        } catch (error) {
+            console.error('Update Campaign Error:', error);
+            res.status(500).json({ message: 'Lỗi server.', error: error.message });
+        }
+    },
+
+    /**
+     * [GET] /api/donations/statistics
+     * Thống kê tổng hợp
+     */
+    getStatistics: async (req, res) => {
+        try {
+            const stats = await Donation.getStatistics();
+            res.json({ success: true, data: stats });
+        } catch (error) {
+            console.error('Statistics Error:', error);
             res.status(500).json({ message: 'Lỗi server.', error: error.message });
         }
     }

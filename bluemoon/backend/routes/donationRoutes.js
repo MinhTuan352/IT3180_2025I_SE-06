@@ -5,18 +5,20 @@ const router = express.Router();
 const donationController = require('../controllers/donationController');
 const checkAuth = require('../middleware/checkAuth');
 const checkRole = require('../middleware/checkRole');
+const upload = require('../middleware/uploadMiddleware');
 
 // ==========================================
 // 1. NHÓM QUẢN LÝ (KẾ TOÁN / BQT)
 // ==========================================
 
 /**
- * Tạo đợt quyên góp mới
+ * Tạo đợt quyên góp mới (có thể upload ảnh)
  * Chỉ Kế toán hoặc BQT được phép
  */
-router.post('/campaigns', 
-    checkAuth, 
-    checkRole(['accountance', 'bod']), 
+router.post('/campaigns',
+    checkAuth,
+    checkRole(['accountance', 'bod']),
+    upload.single('image'),
     donationController.createCampaign
 );
 
@@ -24,9 +26,9 @@ router.post('/campaigns',
  * Đóng quỹ thủ công
  * Chỉ Kế toán hoặc BQT được phép
  */
-router.put('/campaigns/:id/close', 
-    checkAuth, 
-    checkRole(['accountance', 'bod']), 
+router.put('/campaigns/:id/close',
+    checkAuth,
+    checkRole(['accountance', 'bod']),
     donationController.closeCampaign
 );
 
@@ -34,9 +36,9 @@ router.put('/campaigns/:id/close',
  * Nhập liệu hộ cư dân (Thu tiền mặt)
  * Chỉ Kế toán được phép (vì liên quan đến cầm tiền mặt)
  */
-router.post('/record-offline', 
-    checkAuth, 
-    checkRole(['accountance']), 
+router.post('/record-offline',
+    checkAuth,
+    checkRole(['accountance', 'bod']),
     donationController.recordOffline
 );
 
@@ -47,40 +49,65 @@ router.post('/record-offline',
 /**
  * Cư dân tự quyên góp qua App
  */
-router.post('/donate', 
-    checkAuth, 
-    checkRole(['resident']), 
+router.post('/donate',
+    checkAuth,
+    checkRole(['resident']),
     donationController.donate
 );
 
 /**
  * Xem lịch sử đóng góp của bản thân
  */
-router.get('/me/history', 
-    checkAuth, 
-    checkRole(['resident']), 
+router.get('/me/history',
+    checkAuth,
+    checkRole(['resident']),
     donationController.getMyHistory
 );
-
-// ==========================================
-// 3. NHÓM CÔNG KHAI (AI CŨNG XEM ĐƯỢC)
-// ==========================================
 
 /**
  * Xem danh sách các đợt quyên góp
  * (Để hiển thị ra trang chủ App)
  */
-router.get('/campaigns', 
-    checkAuth, 
+router.get('/campaigns',
+    checkAuth,
     donationController.getCampaigns
+);
+
+/**
+ * Thống kê tổng hợp
+ * Chỉ BOD/Kế toán xem được
+ */
+router.get('/statistics',
+    checkAuth,
+    checkRole(['bod', 'accountance']),
+    donationController.getStatistics
+);
+
+/**
+ * Lấy chi tiết một quỹ
+ */
+router.get('/campaigns/:id',
+    checkAuth,
+    donationController.getCampaignDetail
+);
+
+/**
+ * Cập nhật thông tin quỹ (có thể upload ảnh)
+ * Chỉ BOD/Kế toán được phép
+ */
+router.put('/campaigns/:id',
+    checkAuth,
+    checkRole(['bod', 'accountance']),
+    upload.single('image'),
+    donationController.updateCampaign
 );
 
 /**
  * Xem sao kê chi tiết (Statement)
  * Controller đã tự xử lý logic ẩn tên nếu là user thường
  */
-router.get('/campaigns/:id/statement', 
-    checkAuth, 
+router.get('/campaigns/:id/statement',
+    checkAuth,
     donationController.getCampaignStatement
 );
 

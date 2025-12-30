@@ -36,8 +36,9 @@ import AssetList from '../pages/BOD/AssetManagement/AssetList';
 import AssetDetail from '../pages/BOD/AssetManagement/AssetDetail';
 import ServiceList from '../pages/BOD/ServiceManagement/ServiceList';
 import BODDashboard from '../pages/BOD/Dashboard/BODDashboard';
-
-// --- Import các trang Kế toán ---
+import FundList from '../pages/BOD/FundManagement/FundList';
+import FundDetail from '../pages/BOD/FundManagement/FundDetail';
+import FundStats from '../pages/BOD/FundManagement/FundStats';
 import AccountantFeeList from '../pages/Accountant/FeeManagement/AccountantFeeList.tsx';
 import AccountantFeeInvoice from '../pages/Accountant/FeeManagement/AccountantFeeInvoice.tsx';
 import AccountantFeeInvoiceCreate from '../pages/Accountant/FeeManagement/AccountantFeeInvoiceCreate.tsx';
@@ -146,6 +147,11 @@ export default function AppRoutes() {
 
             <Route path="bod/asset/list" element={<AssetList />} />
             <Route path="bod/asset/detail/:id" element={<AssetDetail />} />
+
+            {/* === FUND MANAGEMENT === */}
+            <Route path="bod/fund/list" element={<FundList />} />
+            <Route path="bod/fund/detail/:id" element={<FundDetail />} />
+            <Route path="bod/fund/stats" element={<FundStats />} />
 
             <Route path="bod/service/list" element={<ServiceList />} />
 

@@ -503,6 +503,7 @@ CREATE TABLE fund_campaigns (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL COMMENT 'Tên quỹ: Quỹ Vaccine, Quỹ Vì người nghèo...',
     description TEXT,
+    image_path VARCHAR(500) COMMENT 'Ảnh đại diện quỹ',
     start_date DATETIME NOT NULL,
     end_date DATETIME NOT NULL,
     target_amount DECIMAL(15,2) DEFAULT 0 COMMENT 'Mục tiêu (0 = không giới hạn)',

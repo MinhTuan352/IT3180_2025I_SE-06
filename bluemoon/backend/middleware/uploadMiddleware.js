@@ -22,6 +22,8 @@ const storage = multer.diskStorage({
             uploadPath = 'public/uploads/avatars';
         } else if (baseUrl.includes('/notifications')) {
             uploadPath = 'public/uploads/notifications';
+        } else if (baseUrl.includes('/donations')) {
+            uploadPath = 'public/uploads/funds';
         }
 
         // Tạo thư mục nếu chưa tồn tại

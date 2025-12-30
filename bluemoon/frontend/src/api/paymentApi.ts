@@ -2,12 +2,12 @@ import axiosClient from './axiosClient';
 
 const paymentApi = {
     // Tạo QR Code
-    generateQR: (invoiceId: number) => {
+    generateQR: (invoiceId: string | number) => {
         return axiosClient.get(`/payment/generate-qr/${invoiceId}`);
     },
 
     // Kiểm tra trạng thái thanh toán
-    checkStatus: (invoiceId: number) => {
+    checkStatus: (invoiceId: string | number) => {
         return axiosClient.get(`/payment/status/${invoiceId}`);
     },
 

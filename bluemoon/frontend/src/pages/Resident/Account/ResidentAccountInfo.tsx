@@ -17,7 +17,7 @@ import { useForm, Controller } from 'react-hook-form'; // <-- Dùng React Hook F
 import { zodResolver } from '@hookform/resolvers/zod'; // <-- Dùng Zod
 import { z } from 'zod'; // <-- Dùng Zod
 import { useMutation } from '@tanstack/react-query'; // <-- Dùng React Query
-import axiosClient from '../../../api/axiosClient'; // <-- Import axiosClient trực tiếp (hoặc tạo hàm trong authApi)
+import { authApi } from '../../../api/authApi';
 import Visibility from '@mui/icons-material/Visibility'; // <-- Icon hiện MK
 import VisibilityOff from '@mui/icons-material/VisibilityOff'; // <-- Icon ẩn MK
 import toast, { Toaster } from 'react-hot-toast'; // <-- Thêm Toast
@@ -59,7 +59,7 @@ export default function ResidentAccountInfo() {
   const mutation = useMutation({
     mutationFn: (data: Omit<ChangePasswordFormInputs, 'confirmPassword'>) => {
       // Gọi API POST /api/auth/change-password
-      return axiosClient.post('/auth/change-password', data);
+      return authApi.changePassword(data);
     },
     onSuccess: () => {
       toast.success('Đổi mật khẩu thành công!');

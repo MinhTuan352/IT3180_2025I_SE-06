@@ -20,8 +20,9 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import toast, { Toaster } from 'react-hot-toast';
-import axiosClient from '../../../api/axiosClient';
+
 import feeApi, { type Fee } from '../../../api/feeApi';
+import paymentApi from '../../../api/paymentApi';
 
 // Polling interval (5 giây)
 const POLL_INTERVAL = 5000;
@@ -66,7 +67,7 @@ export default function ResidentFeePayment() {
       }
 
       // 2. Tạo QR code
-      const qrRes = await axiosClient.get(`/payment/generate-qr/${invoiceId}`);
+      const qrRes = await paymentApi.generateQR(invoiceId);
       if (qrRes.data?.success) {
         setQrData(qrRes.data.data);
         setIsPolling(true); // Bắt đầu polling
@@ -86,7 +87,7 @@ export default function ResidentFeePayment() {
 
     const pollStatus = async () => {
       try {
-        const res = await axiosClient.get(`/payment/status/${invoiceId}`);
+        const res = await paymentApi.checkStatus(invoiceId);
         if (res.data?.data?.isPaid) {
           setIsPaid(true);
           setIsPolling(false);

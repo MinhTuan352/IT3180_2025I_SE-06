@@ -16,7 +16,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HistoryIcon from '@mui/icons-material/History';
 
-import axiosClient from '../../../api/axiosClient';
+import serviceApi from '../../../api/serviceApi';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
 
@@ -95,7 +95,7 @@ export default function ServiceList() {
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const response = await axiosClient.get('/services');
+      const response = await serviceApi.getAll();
       if (response.data && response.data.success) {
         setServices(response.data.data);
       }
@@ -109,7 +109,7 @@ export default function ServiceList() {
 
   const fetchBookings = async () => {
     try {
-      const response = await axiosClient.get('/services/bookings');
+      const response = await serviceApi.getAllBookings();
       if (response.data && response.data.success) {
         setBookings(response.data.data);
       }
@@ -189,7 +189,7 @@ export default function ServiceList() {
   const handleDelete = async (id: number) => {
     if (window.confirm("Bạn có chắc muốn xóa dịch vụ này?")) {
       try {
-        await axiosClient.delete(`/services/${id}`);
+        await serviceApi.delete(id);
         toast.success("Đã xóa dịch vụ!");
         fetchServices();
       } catch (err: any) {
@@ -209,10 +209,15 @@ export default function ServiceList() {
 
     try {
       if (isNew) {
-        await axiosClient.post('/services', editingService);
+        // Convert to FormData for serviceApi.create
+        const formData = new FormData();
+        Object.keys(editingService).forEach(key => {
+          formData.append(key, editingService[key]);
+        });
+        await serviceApi.create(formData);
         toast.success("Thêm dịch vụ thành công!");
       } else {
-        await axiosClient.put(`/services/${editingService.id}`, editingService);
+        await serviceApi.update(editingService.id, editingService);
         toast.success("Cập nhật dịch vụ thành công!");
       }
       setOpenEdit(false);
@@ -237,7 +242,7 @@ export default function ServiceList() {
   // --- Booking Status Handlers ---
   const handleApproveBooking = async (id: string) => {
     try {
-      await axiosClient.put(`/services/bookings/${id}`, { status: 'Đã duyệt' });
+      await serviceApi.updateBookingStatus(Number(id), 'Đã duyệt');
       toast.success('Đã duyệt đơn đặt dịch vụ!');
       fetchBookings();
     } catch (err: any) {
@@ -248,7 +253,7 @@ export default function ServiceList() {
   const handleRejectBooking = async (id: string) => {
     if (window.confirm('Bạn có chắc muốn từ chối đơn này?')) {
       try {
-        await axiosClient.put(`/services/bookings/${id}`, { status: 'Đã hủy' });
+        await serviceApi.updateBookingStatus(Number(id), 'Đã hủy');
         toast.success('Đã từ chối đơn đặt dịch vụ!');
         fetchBookings();
       } catch (err: any) {

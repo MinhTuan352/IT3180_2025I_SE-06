@@ -18,7 +18,7 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import axiosClient from '../../../api/axiosClient';
+import { adminApi } from '../../../api/adminApi';
 
 interface FormData {
   full_name: string;
@@ -70,9 +70,9 @@ export default function AdminCreate() {
         password: formData.password || '12345678', // Default password if empty
       };
 
-      const response = await axiosClient.post('/users/create-admin', payload);
+      const result = await adminApi.create(payload);
 
-      if (response.data.success) {
+      if (result) {
         toast.success('Tạo tài khoản quản trị viên thành công!');
         navigate('/bod/admin/list');
       }

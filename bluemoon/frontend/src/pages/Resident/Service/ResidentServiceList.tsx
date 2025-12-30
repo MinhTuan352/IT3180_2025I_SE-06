@@ -10,7 +10,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import axiosClient from '../../../api/axiosClient';
+import serviceApi from '../../../api/serviceApi';
 
 interface ServiceType {
   id: number;
@@ -49,7 +49,7 @@ export default function ResidentServiceList() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await axiosClient.get('/services/public');
+        const response = await serviceApi.getActive();
         if (response.data && response.data.success) {
           setServices(response.data.data);
         }

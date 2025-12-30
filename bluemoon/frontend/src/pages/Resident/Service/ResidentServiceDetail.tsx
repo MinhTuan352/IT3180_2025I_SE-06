@@ -13,7 +13,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import toast, { Toaster } from 'react-hot-toast';
-import axiosClient from '../../../api/axiosClient';
+import serviceApi from '../../../api/serviceApi';
 
 interface ServiceType {
   id: number;
@@ -56,7 +56,7 @@ export default function ResidentServiceDetail() {
   useEffect(() => {
     const fetchService = async () => {
       try {
-        const response = await axiosClient.get(`/services/detail/${id}`);
+        const response = await serviceApi.getById(Number(id));
         if (response.data && response.data.success) {
           setService(response.data.data);
         }
@@ -75,7 +75,7 @@ export default function ResidentServiceDetail() {
 
     setSubmitting(true);
     try {
-      const response = await axiosClient.post('/services/bookings', {
+      const response = await serviceApi.createBooking({
         service_type_id: service.id,
         booking_date: bookingData.booking_date || new Date().toISOString(),
         quantity: bookingData.quantity,

@@ -12,25 +12,13 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   CircularProgress,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
 } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import PrintIcon from '@mui/icons-material/Print';
 import SaveAltIcon from '@mui/icons-material/SaveAlt';
-import SendIcon from '@mui/icons-material/Send';
-import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import PaymentIcon from '@mui/icons-material/Payment';
 
 import { useReactToPrint } from 'react-to-print';
 import jsPDF from 'jspdf';
@@ -46,11 +34,7 @@ export default function AccountantFeeInvoice() {
   //const [openSend, setOpenSend] = useState(false);
   const [isSavingPdf, setIsSavingPdf] = useState(false);
 
-  // Payment state
-  const [openPay, setOpenPay] = useState(false);
-  const [payAmount, setPayAmount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState('Tiền mặt');
-  const [paying, setPaying] = useState(false);
+
 
   const invoiceRef = useRef<HTMLDivElement>(null);
 
@@ -71,8 +55,7 @@ export default function AccountantFeeInvoice() {
 
       if (finalData) {
         setInvoice(finalData);
-        // Default pay amount to remaining if not set
-        setPayAmount(finalData.amount_remaining || 0);
+
       }
     } catch (err) {
       console.error(err);
@@ -109,24 +92,7 @@ export default function AccountantFeeInvoice() {
     }
   };
 
-  const handleConfirmPay = async () => {
-    if (!invoice || !id) return;
-    try {
-      setPaying(true);
-      await feeApi.pay(id, {
-        amount_paid: Number(payAmount),
-        payment_method: paymentMethod
-      });
-      alert("Thanh toán thành công!");
-      setOpenPay(false);
-      fetchDetail(id); // Reload
-    } catch (err) {
-      console.error(err);
-      alert("Lỗi khi thanh toán");
-    } finally {
-      setPaying(false);
-    }
-  };
+
 
   const numberToWords = (num: number) => {
     // Basic placeholder for "Read number". Real impl needs library like `n2vi`
@@ -283,54 +249,10 @@ export default function AccountantFeeInvoice() {
           {isSavingPdf ? 'Đang lưu...' : 'Lưu PDF'}
         </Button>
         <Button variant="contained" color="secondary" startIcon={<PrintIcon />} onClick={handlePrint}>In hóa đơn</Button>
-        <Button variant="contained" startIcon={<SendIcon />} onClick={() => alert("Chức năng gửi thông báo đang phát triển")}>Gửi thông báo</Button>
-        <Button variant="contained" startIcon={<EditIcon />} onClick={() => alert("Chức năng chỉnh sửa đang phát triển")}>Chỉnh sửa</Button>
 
-        {invoice.amount_remaining > 0 && (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<PaymentIcon />}
-            onClick={() => setOpenPay(true)}
-          >
-            Xác nhận Thanh toán
-          </Button>
-        )}
       </Box>
 
-      {/* Modal Payment */}
-      <Dialog open={openPay} onClose={() => setOpenPay(false)}>
-        <DialogTitle>Xác nhận thanh toán</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Số tiền thanh toán"
-            type="number"
-            fullWidth
-            sx={{ mt: 2 }}
-            inputProps={{ min: 0 }}
-            value={payAmount}
-            onChange={(e) => setPayAmount(Math.max(0, Number(e.target.value)))}
-          />
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Phương thức</InputLabel>
-            <Select
-              value={paymentMethod}
-              label="Phương thức"
-              onChange={(e) => setPaymentMethod(e.target.value)}
-            >
-              <MenuItem value="Tiền mặt">Tiền mặt</MenuItem>
-              <MenuItem value="Chuyển khoản">Chuyển khoản</MenuItem>
-              <MenuItem value="Thẻ">Thẻ</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPay(false)}>Hủy</Button>
-          <Button onClick={handleConfirmPay} variant="contained" color="success" disabled={paying}>
-            {paying ? 'Đang xử lý...' : 'Xác nhận'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+
 
     </>
   );

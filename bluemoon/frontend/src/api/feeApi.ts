@@ -121,6 +121,11 @@ const feeApi = {
     // [MỚI] Lấy thống kê tài chính tổng hợp (Chỉ BOD)
     getStats: () => {
         return axiosClient.get('/fees/stats');
+    },
+
+    // Import water/electric readings (alias cho importUtility)
+    importWater: (data: { fee_code: string, billingPeriod: string, readings: any[] }) => {
+        return axiosClient.post('/fees/import-utility', data);
     }
 };
 

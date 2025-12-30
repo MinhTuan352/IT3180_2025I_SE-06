@@ -175,16 +175,24 @@ export default function AccountantMeasureImport() {
       }));
 
       const response: any = await feeApi.importWater({
+        fee_code: 'PN', // Phí nước - backend cần parameter này
         billingPeriod: 'T12/2025',
         readings
       });
 
+      // Backend trả về: { success, message, errors }
       if (response.data && response.data.success) {
-        toast.success(`Đã tạo ${response.data.data.created} hóa đơn nước thành công!`);
-        if (response.data.data.failed > 0) {
-          toast.error(`Có ${response.data.data.failed} căn hộ lỗi. Kiểm tra Console để biết chi tiết.`);
-          console.log('Import errors:', response.data.data.errors);
+        const totalProcessed = importedData.length;
+        const failedCount = response.data.errors?.length || 0;
+        const successCount = totalProcessed - failedCount;
+
+        toast.success(`Đã tạo ${successCount} hóa đơn nước thành công!`);
+
+        if (failedCount > 0) {
+          toast.error(`Có ${failedCount} căn hộ lỗi. Kiểm tra Console để biết chi tiết.`);
+          console.log('Import errors:', response.data.errors);
         }
+
         navigate('/accountance/fee/list'); // Quay về danh sách
       } else {
         toast.error(response.data?.message || 'Lỗi khi import dữ liệu');

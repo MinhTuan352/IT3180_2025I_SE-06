@@ -3,14 +3,19 @@ import axiosClient from './axiosClient';
 
 // 1. Định nghĩa kiểu dữ liệu trả về từ API (Dựa trên cấu trúc DB join tables)
 export interface AdminData {
-  id: string;           // Từ bảng admins
-  user_id: string;      // Từ bảng admins
+  id: string;           // Từ bảng admins hoặc users
+  user_id?: string;      // Từ bảng admins
   full_name: string;    // Từ bảng admins
   email: string;        // Từ bảng admins/users
   phone: string;        // Từ bảng admins/users
   username: string;     // Từ bảng users
-  role_code: 'bod' | 'accountance' | 'cqcn'; // Từ bảng roles (để map màu sắc)
+  role_code: string; // Từ bảng roles
+  role_name?: string;
+  role_id: number;
   is_active: boolean;   // Từ bảng users
+  dob?: string;
+  gender?: string;
+  cccd?: string;
 }
 
 // 2. Định nghĩa response chuẩn (nếu backend trả về dạng { success: true, data: [...] })

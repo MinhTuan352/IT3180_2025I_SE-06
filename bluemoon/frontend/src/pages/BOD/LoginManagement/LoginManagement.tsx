@@ -21,7 +21,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FileDownloadIcon from '@mui/icons-material/FileDownload'; // Import Icon
-import axiosClient from '../../../api/axiosClient';
+import { authApi } from '../../../api/authApi';
 import { useWindowWidth } from '../../../hooks/useWindowWidth';
 import { useLayout } from '../../../contexts/LayoutContext';
 
@@ -76,7 +76,7 @@ export default function LoginManagement() {
       setLoading(true);
       setError(null);
       try {
-        const response = await axiosClient.get('/auth/all-history');
+        const response = await authApi.getAllLoginHistory();
         if (response.data && response.data.success) {
           const logs = response.data.data.map((log: any) => ({
             ...log,

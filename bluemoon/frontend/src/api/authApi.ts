@@ -30,6 +30,11 @@ export const authApi = {
     return axiosClient.get('/auth/history');
   },
 
+  // [MỚI] Lấy toàn bộ lịch sử đăng nhập (Cho Admin/BOD)
+  getAllLoginHistory: async () => {
+    return axiosClient.get('/auth/all-history');
+  },
+
   // [MỚI] Đổi mật khẩu
   changePassword: async (data: { oldPassword: string; newPassword: string }): Promise<{ success: boolean; message: string }> => {
     const response = await axiosClient.post('/auth/change-password', data);

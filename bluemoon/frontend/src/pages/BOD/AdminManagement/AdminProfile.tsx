@@ -20,27 +20,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import axiosClient from '../../../api/axiosClient';
+import { adminApi, type AdminData } from '../../../api/adminApi';
 
-interface AdminProfileData {
-  id: string;
-  username: string;
-  email: string;
-  phone: string;
-  is_active: boolean;
-  role_id: number;
-  role_code: string;
-  role_name: string;
-  full_name: string;
-  dob: string;
-  gender: string;
-  cccd: string;
-}
+// Local interface removed, using AdminData from API
 
 export default function AdminProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [userData, setUserData] = useState<AdminProfileData | null>(null);
+  const [userData, setUserData] = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +55,7 @@ export default function AdminProfile() {
       try {
         setLoading(true);
         setError(null);
-        const response = await axiosClient.get(`/users/${id}`);
-        const data = response.data.data || response.data;
+        const data = await adminApi.getById(id);
         setUserData(data);
 
         // Initialize form with fetched data
@@ -104,7 +90,7 @@ export default function AdminProfile() {
     setSaving(true);
     try {
       // 1. Cập nhật thông tin cá nhân
-      await axiosClient.put(`/users/${id}`, {
+      await adminApi.update(id, {
         email: formData.email,
         phone: formData.phone,
         role_id: formData.role_id,
@@ -116,9 +102,7 @@ export default function AdminProfile() {
 
       // 2. Cập nhật mật khẩu nếu có
       if (formData.newPassword) {
-        await axiosClient.post(`/users/${id}/reset-password`, {
-          newPassword: formData.newPassword,
-        });
+        await adminApi.resetPassword(id, formData.newPassword);
         toast.success('Đã cập nhật mật khẩu thành công!');
       }
 
@@ -149,7 +133,7 @@ export default function AdminProfile() {
 
     try {
       const newStatus = !userData.is_active;
-      await axiosClient.put(`/users/${id}/status`, { is_active: newStatus });
+      await adminApi.toggleStatus(id, newStatus);
       setUserData({ ...userData, is_active: newStatus });
       toast.success(newStatus ? 'Đã mở khóa tài khoản!' : 'Đã khóa tài khoản!');
     } catch (err: any) {

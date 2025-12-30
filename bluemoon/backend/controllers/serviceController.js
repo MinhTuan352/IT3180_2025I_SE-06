@@ -61,8 +61,23 @@ const serviceController = {
     // 4. Thêm dịch vụ mới (BOD)
     createService: async (req, res) => {
         try {
-            const { name, base_price, unit, description } = req.body;
+            const { name, base_price, unit, description, location, contact_phone } = req.body;
+
+            // Validation
             if (!name) return res.status(400).json({ message: 'Tên dịch vụ là bắt buộc.' });
+            if (!location) return res.status(400).json({ message: 'Vị trí dịch vụ là bắt buộc.' });
+            if (base_price !== undefined && base_price < 0) {
+                return res.status(400).json({ message: 'Đơn giá không được là số âm.' });
+            }
+
+            // Validate phone format if provided
+            if (contact_phone) {
+                const cleanPhone = contact_phone.replace(/[\s.-]/g, '');
+                const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+                if (!phoneRegex.test(cleanPhone)) {
+                    return res.status(400).json({ message: 'Số điện thoại không hợp lệ.' });
+                }
+            }
 
             const newService = await Service.create(req.body);
 
@@ -88,8 +103,24 @@ const serviceController = {
     updateService: async (req, res) => {
         try {
             const { id } = req.params;
+            const { base_price, contact_phone } = req.body;
+
             const oldService = await Service.findById(id);
             if (!oldService) return res.status(404).json({ message: 'Dịch vụ không tồn tại.' });
+
+            // Validation
+            if (base_price !== undefined && base_price < 0) {
+                return res.status(400).json({ message: 'Đơn giá không được là số âm.' });
+            }
+
+            // Validate phone format if provided
+            if (contact_phone) {
+                const cleanPhone = contact_phone.replace(/[\s.-]/g, '');
+                const phoneRegex = /^(0|\+84)[0-9]{9,10}$/;
+                if (!phoneRegex.test(cleanPhone)) {
+                    return res.status(400).json({ message: 'Số điện thoại không hợp lệ.' });
+                }
+            }
 
             const updatedService = await Service.update(id, req.body);
 
@@ -237,10 +268,10 @@ const serviceController = {
                 // type_id = 4 (Dịch vụ)
                 await db.execute(
                     `INSERT INTO notifications (id, title, content, type_id, target, created_by, is_sent) 
-                     VALUES (?, ?, ?, 4, 'Cá nhân', ?, TRUE)`, 
+                     VALUES (?, ?, ?, 4, 'Cá nhân', ?, TRUE)`,
                     [notiId, title, content, req.user.id]
                 );
-                
+
                 // Insert Recipient
                 await db.execute(
                     `INSERT INTO notification_recipients (notification_id, recipient_id) VALUES (?, ?)`,

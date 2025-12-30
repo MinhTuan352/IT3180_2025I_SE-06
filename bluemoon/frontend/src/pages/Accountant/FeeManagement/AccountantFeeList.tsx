@@ -276,17 +276,71 @@ export default function AccountantFeeList() {
 
   const handleSaveNewFee = async () => {
     try {
+      // Validate input
+      if (!newFee.apartment_code || !newFee.total_amount || newFee.total_amount <= 0) {
+        toast.error('Vui lòng nhập đầy đủ thông tin hợp lệ');
+        return;
+      }
+
+      // Resolve apartment_code to apartment_id
+      const apartments = await apartmentApi.getAll();
+      const apartment = apartments.find((apt: any) =>
+        apt.apartment_code === newFee.apartment_code ||
+        apt.apartment_code === newFee.apartment_code.toUpperCase()
+      );
+
+      if (!apartment) {
+        toast.error(`Không tìm thấy căn hộ ${newFee.apartment_code}`);
+        return;
+      }
+
+      // Find owner (resident) of this apartment
+      const residents = await residentApi.getAll();
+      const owner = residents.find((r: any) =>
+        r.apartment_id === apartment.id && (r.role === 'owner' || r.role === 'chủ hộ')
+      );
+      const resident = owner || residents.find((r: any) => r.apartment_id === apartment.id);
+
+      if (!resident) {
+        toast.error(`Căn hộ ${newFee.apartment_code} chưa có cư dân`);
+        return;
+      }
+
+      // Find fee_name from feeTypes for display
+      const feeTypeName = feeTypes.find(ft => ft.id === newFee.fee_type_id)?.fee_name || 'Phí khác';
+
+      // Format data for backend API (matches createInvoice expectations)
       await feeApi.create({
-        ...newFee,
-        // Ensure backend can handle apartment_code resolution
-        amount: newFee.total_amount
+        apartment_id: apartment.id,
+        resident_id: resident.id,
+        fee_type_id: newFee.fee_type_id,
+        description: newFee.description || `${feeTypeName} - ${newFee.billing_period}`,
+        billing_period: newFee.billing_period,
+        due_date: newFee.due_date,
+        items: [{
+          item_name: newFee.description || feeTypeName,
+          unit: 'lần',
+          quantity: 1,
+          unit_price: newFee.total_amount,
+          amount: newFee.total_amount
+        }]
       });
-      alert('Tạo hóa đơn thành công');
+
+      toast.success('Tạo hóa đơn thành công!');
       setOpenAddModal(false);
+      // Reset form
+      setNewFee({
+        apartment_code: '',
+        fee_type_id: 1,
+        description: '',
+        billing_period: `${new Date().getMonth() + 1}/${new Date().getFullYear()}`,
+        due_date: new Date().toISOString().split('T')[0],
+        total_amount: 0,
+      });
       fetchFees();
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('Lỗi tạo hóa đơn');
+      toast.error(error.response?.data?.message || 'Lỗi tạo hóa đơn');
     }
   };
 

@@ -48,8 +48,7 @@ export default function ReportList() {
     title: '',
     description: '',
     location: '',
-    priority: 'Trung bình',
-    images: [] as File[]
+    priority: 'Trung bình'
   });
   const [activeError, setActiveError] = useState<string | null>(null);
 
@@ -100,20 +99,13 @@ export default function ReportList() {
       title: '',
       description: '',
       location: '',
-      priority: 'Trung bình',
-      images: []
+      priority: 'Trung bình'
     });
     setOpenDialog(true);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewIncident({ ...newIncident, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setNewIncident({ ...newIncident, images: Array.from(e.target.files) });
-    }
   };
 
   const handleCreate = async () => {
@@ -123,19 +115,12 @@ export default function ReportList() {
     }
 
     try {
-      const formData = new FormData();
-      formData.append('title', newIncident.title);
-      formData.append('description', newIncident.description);
-      formData.append('location', newIncident.location);
-      formData.append('priority', newIncident.priority);
-
-      if (newIncident.images) {
-        newIncident.images.forEach((file) => {
-          formData.append('images', file);
-        });
-      }
-
-      await incidentApi.create(formData);
+      await incidentApi.create({
+        title: newIncident.title,
+        description: newIncident.description,
+        location: newIncident.location,
+        priority: newIncident.priority
+      });
       toast.success("Tạo sự cố thành công!");
       setOpenDialog(false);
       fetchReports();
@@ -309,27 +294,7 @@ export default function ReportList() {
                 onChange={handleChange}
               />
             </Grid>
-            <Grid size={{ xs: 12 }}>
-              <Button
-                variant="outlined"
-                component="label"
-                fullWidth
-              >
-                Tải ảnh lên (Tối đa 3)
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileChange}
-                />
-              </Button>
-              {newIncident.images.length > 0 && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Đã chọn {newIncident.images.length} file
-                </Typography>
-              )}
-            </Grid>
+
           </Grid>
         </DialogContent>
         <DialogActions>

@@ -34,13 +34,16 @@ const incidentApi = {
         return axiosClient.get(`/incidents/${id}`);
     },
 
-    create: (data: FormData) => {
-        // data contains title, description, location, images
-        return axiosClient.post('/incidents', data, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            }
-        });
+    create: (data: FormData | { title: string; description: string; location: string; priority: string }) => {
+        // Support both FormData (with images) and plain object (without images)
+        if (data instanceof FormData) {
+            return axiosClient.post('/incidents', data, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                }
+            });
+        }
+        return axiosClient.post('/incidents', data);
     },
 
     // Update for BOD/Admin (status, response, assign)

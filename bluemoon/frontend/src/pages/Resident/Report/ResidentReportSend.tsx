@@ -12,24 +12,11 @@ export default function ResidentReportSend() {
     const [description, setDescription] = useState('');
     const [location, setLocation] = useState('');
     const [priority, setPriority] = useState('Trung bình');
-    const [images, setImages] = useState<File[]>([]);
 
     // UI state
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const fileArray = Array.from(e.target.files);
-            // Limit to 3 images
-            setImages(prev => [...prev, ...fileArray].slice(0, 3));
-        }
-    };
-
-    const removeImage = (index: number) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
-    };
 
     const handleSubmitReport = async () => {
         // Validate
@@ -50,19 +37,13 @@ export default function ResidentReportSend() {
             setIsSubmitting(true);
             setError(null);
 
-            // Create FormData for multipart/form-data
-            const formData = new FormData();
-            formData.append('title', title.trim());
-            formData.append('description', description.trim());
-            formData.append('location', location.trim());
-            formData.append('priority', priority);
-
-            // Append images
-            images.forEach(image => {
-                formData.append('images', image);
+            // Send as JSON instead of FormData (no images)
+            await incidentApi.create({
+                title: title.trim(),
+                description: description.trim(),
+                location: location.trim(),
+                priority
             });
-
-            await incidentApi.create(formData);
 
             setSuccess(true);
             // Navigate to list after a short delay
@@ -147,42 +128,6 @@ export default function ResidentReportSend() {
                         helperText="Vui lòng mô tả rõ ràng vấn đề bạn gặp phải."
                         disabled={isSubmitting || success}
                     />
-                </Grid>
-
-                {/* File attachment */}
-                <Grid size={12}>
-                    <Button variant="outlined" component="label" disabled={isSubmitting || success || images.length >= 3}>
-                        Đính kèm ảnh (tối đa 3 ảnh)
-                        <input
-                            type="file"
-                            hidden
-                            accept="image/jpeg,image/png,image/jpg"
-                            multiple
-                            onChange={handleFileChange}
-                        />
-                    </Button>
-
-                    {images.length > 0 && (
-                        <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {images.map((file, index) => (
-                                <Box key={index} sx={{ position: 'relative' }}>
-                                    <img
-                                        src={URL.createObjectURL(file)}
-                                        alt={`Preview ${index + 1}`}
-                                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8 }}
-                                    />
-                                    <Button
-                                        size="small"
-                                        color="error"
-                                        onClick={() => removeImage(index)}
-                                        sx={{ position: 'absolute', top: -8, right: -8, minWidth: 24, p: 0.5 }}
-                                    >
-                                        ✕
-                                    </Button>
-                                </Box>
-                            ))}
-                        </Box>
-                    )}
                 </Grid>
             </Grid>
 

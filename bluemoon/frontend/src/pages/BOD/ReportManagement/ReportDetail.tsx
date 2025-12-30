@@ -166,24 +166,7 @@ export default function ReportDetail() {
         </Typography>
       </Box>
 
-      {report.images && report.images.length > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Hình ảnh đính kèm:</Typography>
-          <Grid container spacing={1}>
-            {report.images.map((img, idx) => (
-              <Grid key={idx}>
-                {/* Assuming backend images are paths relative to root or similar, need full URL if external */}
-                {/* Backend implementation: path: `/uploads/incidents/${file.filename}` */}
-                <img
-                  src={`http://localhost:3000${typeof img === 'string' ? img : (img as any).path}`}
-                  alt="evidence"
-                  style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, border: '1px solid #ddd' }}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      )}
+
 
       <Divider sx={{ mb: 3 }} />
 

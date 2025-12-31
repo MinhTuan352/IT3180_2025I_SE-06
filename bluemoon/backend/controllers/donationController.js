@@ -197,6 +197,21 @@ const donationController = {
             const tempId = `QG${Date.now()}`;
             const transferContent = `${tempId}`; // Nội dung CK
 
+            // Ensure table exists (Lazy migration for deployment fix)
+            const createTableSql = `
+                CREATE TABLE IF NOT EXISTS pending_donations (
+                    temp_id VARCHAR(50) PRIMARY KEY,
+                    campaign_id INT NOT NULL,
+                    resident_id VARCHAR(20) NOT NULL,
+                    amount DECIMAL(15,2) NOT NULL,
+                    note TEXT,
+                    is_anonymous BOOLEAN DEFAULT FALSE,
+                    status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+            `;
+            await db.query(createTableSql);
+
             // Lưu vào DB pending_donations
             const sqlInsert = `
                 INSERT INTO pending_donations 

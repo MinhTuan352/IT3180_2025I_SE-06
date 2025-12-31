@@ -2,6 +2,18 @@
 
 const db = require('../config/db');
 
+// Helper để parse JSON an toàn, tránh crash khi dữ liệu không hợp lệ
+const safeJsonParse = (val) => {
+    if (!val) return {};
+    if (typeof val === 'object') return val; // Đã là object
+    try {
+        return JSON.parse(val);
+    } catch (e) {
+        console.warn('[ProfileEditRequest] Failed to parse JSON:', e.message);
+        return {};
+    }
+};
+
 const ProfileEditRequest = {
     /**
      * Tạo yêu cầu chỉnh sửa mới
@@ -36,9 +48,7 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query, [residentId]);
         return rows.map(row => ({
             ...row,
-            requested_changes: row.requested_changes
-                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
-                : {}
+            requested_changes: safeJsonParse(row.requested_changes)
         }));
     },
 
@@ -60,9 +70,7 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query, [residentId]);
         return rows.map(row => ({
             ...row,
-            requested_changes: row.requested_changes
-                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
-                : {}
+            requested_changes: safeJsonParse(row.requested_changes)
         }));
     },
 
@@ -83,9 +91,7 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query);
         return rows.map(row => ({
             ...row,
-            requested_changes: row.requested_changes
-                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
-                : {}
+            requested_changes: safeJsonParse(row.requested_changes)
         }));
     },
 
@@ -146,9 +152,7 @@ const ProfileEditRequest = {
         const row = rows[0];
         return {
             ...row,
-            requested_changes: row.requested_changes
-                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
-                : {}
+            requested_changes: safeJsonParse(row.requested_changes)
         };
     }
 };

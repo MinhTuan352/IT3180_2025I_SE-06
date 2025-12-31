@@ -107,14 +107,21 @@ const AuditLog = {
 
             // Parse ngược lại chuỗi JSON thành Object để Frontend dễ dùng
             // Kiểm tra nếu đã là object thì không cần parse, tránh lỗi "[object Object]" is not valid JSON
+            const safeJsonParse = (val) => {
+                if (!val) return null;
+                if (typeof val === 'object') return val; // Đã là object
+                try {
+                    return JSON.parse(val);
+                } catch (e) {
+                    console.warn('Failed to parse JSON:', val, e.message);
+                    return null; // Trả về null nếu parse thất bại
+                }
+            };
+
             const parsedRows = rows.map(row => ({
                 ...row,
-                old_values: row.old_values
-                    ? (typeof row.old_values === 'string' ? JSON.parse(row.old_values) : row.old_values)
-                    : null,
-                new_values: row.new_values
-                    ? (typeof row.new_values === 'string' ? JSON.parse(row.new_values) : row.new_values)
-                    : null
+                old_values: safeJsonParse(row.old_values),
+                new_values: safeJsonParse(row.new_values)
             }));
 
             return parsedRows;

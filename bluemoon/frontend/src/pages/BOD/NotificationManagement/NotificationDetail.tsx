@@ -169,7 +169,7 @@ export default function NotificationDetail() {
           {notification.attachments.map((file, index) => (
             <Button
               key={index}
-              href={`http://localhost:3000${file.file_path}`} // Assuming backend url
+              href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${file.file_path}`} // Assuming backend url
               target="_blank"
               variant="outlined"
               sx={{ mr: 1, mb: 1 }}

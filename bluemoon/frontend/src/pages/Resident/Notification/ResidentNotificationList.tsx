@@ -225,7 +225,7 @@ export default function ResidentNotificationList() {
                 {selectedNotification.attachments.map((file, idx) => (
                   <Button
                     key={idx}
-                    href={`http://localhost:3000${file.file_path}`}
+                    href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${file.file_path}`}
                     target="_blank"
                     variant="outlined"
                     size="small"

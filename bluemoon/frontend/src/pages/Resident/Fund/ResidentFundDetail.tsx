@@ -225,7 +225,7 @@ export default function ResidentFundDetail() {
                             {campaign.image_path && (
                                 <Box
                                     component="img"
-                                    src={`http://localhost:3000${campaign.image_path}`}
+                                    src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}`}
                                     alt={campaign.title}
                                     sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 2, mb: 2 }}
                                 />

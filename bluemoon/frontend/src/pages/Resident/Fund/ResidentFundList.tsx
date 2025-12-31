@@ -83,7 +83,7 @@ export default function ResidentFundList() {
                                     <CardMedia
                                         component="img"
                                         height="160"
-                                        image={`http://localhost:3000${campaign.image_path}`}
+                                        image={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}`}
                                         alt={campaign.title}
                                         sx={{ objectFit: 'cover' }}
                                     />

@@ -3,16 +3,19 @@ import axios from 'axios';
 
 
 // Logic tự động xác định URL Backend
-// Ưu tiên 1: Biến môi trường VITE_API_BASE_URL
-// Ưu tiên 2: Nếu đang chạy trên web thật (không phải localhost) -> Dùng link Production cứng
+// Ưu tiên 1: Nếu đang chạy trên web thật (deploy) -> Dùng link Production cứng (để tránh trường hợp build dính biến môi trường localhost)
+// Ưu tiên 2: Biến môi trường VITE_API_BASE_URL
 // Ưu tiên 3: Localhost
 let baseUrl = 'http://localhost:3000';
 
-if (import.meta.env.VITE_API_BASE_URL) {
-  baseUrl = import.meta.env.VITE_API_BASE_URL;
-} else if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+if (typeof window !== 'undefined' && (window.location.hostname === 'bluemoon-frontend-3xgx.onrender.com' || window.location.hostname.includes('onrender.com'))) {
+  console.log('Detected Production Environment: Using Cloud Backend');
   baseUrl = 'https://it3180-2025i-se-06.onrender.com';
+} else if (import.meta.env.VITE_API_BASE_URL) {
+  baseUrl = import.meta.env.VITE_API_BASE_URL;
 }
+
+console.log('Current API_BASE_URL:', baseUrl);
 
 export const API_BASE_URL = baseUrl;
 

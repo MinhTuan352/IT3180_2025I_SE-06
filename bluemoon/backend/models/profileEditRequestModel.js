@@ -36,9 +36,9 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query, [residentId]);
         return rows.map(row => ({
             ...row,
-            requested_changes: typeof row.requested_changes === 'string'
-                ? JSON.parse(row.requested_changes)
-                : row.requested_changes
+            requested_changes: row.requested_changes
+                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
+                : {}
         }));
     },
 
@@ -60,9 +60,9 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query, [residentId]);
         return rows.map(row => ({
             ...row,
-            requested_changes: typeof row.requested_changes === 'string'
-                ? JSON.parse(row.requested_changes)
-                : row.requested_changes
+            requested_changes: row.requested_changes
+                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
+                : {}
         }));
     },
 
@@ -83,9 +83,9 @@ const ProfileEditRequest = {
         const [rows] = await db.execute(query);
         return rows.map(row => ({
             ...row,
-            requested_changes: typeof row.requested_changes === 'string'
-                ? JSON.parse(row.requested_changes)
-                : row.requested_changes
+            requested_changes: row.requested_changes
+                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
+                : {}
         }));
     },
 
@@ -146,9 +146,9 @@ const ProfileEditRequest = {
         const row = rows[0];
         return {
             ...row,
-            requested_changes: typeof row.requested_changes === 'string'
-                ? JSON.parse(row.requested_changes)
-                : row.requested_changes
+            requested_changes: row.requested_changes
+                ? (typeof row.requested_changes === 'string' ? JSON.parse(row.requested_changes) : row.requested_changes)
+                : {}
         };
     }
 };

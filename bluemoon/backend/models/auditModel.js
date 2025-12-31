@@ -3,7 +3,7 @@
 const db = require('../config/db');
 
 const AuditLog = {
-    
+
     /**
      * Ghi lại hành động của người dùng vào hệ thống
      * Hàm này được gọi từ các Controller khi có thao tác quan trọng (Thêm/Sửa/Xóa)
@@ -19,9 +19,9 @@ const AuditLog = {
      */
     create: async (logData) => {
         try {
-            const { 
-                user_id, action_type, entity_name, entity_id, 
-                old_values, new_values, ip_address, user_agent 
+            const {
+                user_id, action_type, entity_name, entity_id,
+                old_values, new_values, ip_address, user_agent
             } = logData;
 
             const query = `
@@ -37,12 +37,12 @@ const AuditLog = {
 
             await db.execute(query, [
                 user_id || null, // Nếu hệ thống tự chạy cronjob thì user_id có thể null
-                action_type, 
-                entity_name, 
+                action_type,
+                entity_name,
                 String(entity_id), // Ép kiểu về string cho an toàn
-                old_values ? JSON.stringify(old_values) : null, 
+                old_values ? JSON.stringify(old_values) : null,
                 new_values ? JSON.stringify(new_values) : null,
-                ip_address || null, 
+                ip_address || null,
                 user_agent || null
             ]);
 
@@ -104,12 +104,17 @@ const AuditLog = {
             query += ` ORDER BY a.created_at DESC LIMIT 100`;
 
             const [rows] = await db.execute(query, params);
-            
+
             // Parse ngược lại chuỗi JSON thành Object để Frontend dễ dùng
+            // Kiểm tra nếu đã là object thì không cần parse, tránh lỗi "[object Object]" is not valid JSON
             const parsedRows = rows.map(row => ({
                 ...row,
-                old_values: row.old_values ? JSON.parse(row.old_values) : null,
-                new_values: row.new_values ? JSON.parse(row.new_values) : null
+                old_values: row.old_values
+                    ? (typeof row.old_values === 'string' ? JSON.parse(row.old_values) : row.old_values)
+                    : null,
+                new_values: row.new_values
+                    ? (typeof row.new_values === 'string' ? JSON.parse(row.new_values) : row.new_values)
+                    : null
             }));
 
             return parsedRows;

@@ -36,6 +36,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import donationApi, { type FundCampaign, type Donation } from '../../../api/donationApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 import toast, { Toaster } from 'react-hot-toast';
 
 const formatCurrency = (value: number) => {
@@ -225,7 +226,7 @@ export default function ResidentFundDetail() {
                             {campaign.image_path && (
                                 <Box
                                     component="img"
-                                    src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}`}
+                                    src={`${API_BASE_URL}${campaign.image_path}`}
                                     alt={campaign.title}
                                     sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 2, mb: 2 }}
                                 />

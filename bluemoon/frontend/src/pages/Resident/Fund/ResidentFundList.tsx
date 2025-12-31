@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import donationApi, { type FundCampaign } from '../../../api/donationApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -83,7 +84,7 @@ export default function ResidentFundList() {
                                     <CardMedia
                                         component="img"
                                         height="160"
-                                        image={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}`}
+                                        image={`${API_BASE_URL}${campaign.image_path}`}
                                         alt={campaign.title}
                                         sx={{ objectFit: 'cover' }}
                                     />

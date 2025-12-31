@@ -2,11 +2,22 @@
 import axios from 'axios';
 
 
+// Logic tự động xác định URL Backend
+// Ưu tiên 1: Biến môi trường VITE_API_BASE_URL
+// Ưu tiên 2: Nếu đang chạy trên web thật (không phải localhost) -> Dùng link Production cứng
+// Ưu tiên 3: Localhost
+let baseUrl = 'http://localhost:3000';
+
+if (import.meta.env.VITE_API_BASE_URL) {
+  baseUrl = import.meta.env.VITE_API_BASE_URL;
+} else if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+  baseUrl = 'https://it3180-2025i-se-06.onrender.com';
+}
+
+export const API_BASE_URL = baseUrl;
+
 const axiosClient = axios.create({
-  // Sử dụng environment variable cho API URL
-  // Development: http://localhost:3000/api
-  // Production: https://it3180-2025i-se-06.onrender.com/api
-  baseURL: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/api`,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },

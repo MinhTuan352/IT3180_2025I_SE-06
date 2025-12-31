@@ -12,6 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import notificationApi, { type Notification } from '../../../api/notificationApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 
 export default function NotificationDetail() {
   const navigate = useNavigate();
@@ -169,7 +170,7 @@ export default function NotificationDetail() {
           {notification.attachments.map((file, index) => (
             <Button
               key={index}
-              href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${file.file_path}`} // Assuming backend url
+              href={`${API_BASE_URL}${file.file_path}`} // Assuming backend url
               target="_blank"
               variant="outlined"
               sx={{ mr: 1, mb: 1 }}

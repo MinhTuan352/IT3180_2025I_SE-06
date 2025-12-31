@@ -6,6 +6,7 @@ import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { useEffect, useState } from 'react';
 import notificationApi, { type Notification } from '../../../api/notificationApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 
 export default function ResidentNotificationList() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -225,7 +226,7 @@ export default function ResidentNotificationList() {
                 {selectedNotification.attachments.map((file, idx) => (
                   <Button
                     key={idx}
-                    href={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${file.file_path}`}
+                    href={`${API_BASE_URL}${file.file_path}`}
                     target="_blank"
                     variant="outlined"
                     size="small"

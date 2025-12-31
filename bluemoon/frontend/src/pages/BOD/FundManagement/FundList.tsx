@@ -26,6 +26,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import donationApi, { type FundCampaign } from '../../../api/donationApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -167,7 +168,7 @@ export default function FundList() {
                                 <CardMedia
                                     component="img"
                                     height="160"
-                                    image={campaign.image_path ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}` : 'https://via.placeholder.com/400x200?text=Qu%E1%BB%B9+%C4%90%C3%B3ng+G%C3%B3p'}
+                                    image={campaign.image_path ? `${API_BASE_URL}${campaign.image_path}` : 'https://via.placeholder.com/400x200?text=Qu%E1%BB%B9+%C4%90%C3%B3ng+G%C3%B3p'}
                                     alt={campaign.title}
                                     sx={{ objectFit: 'cover' }}
                                 />

@@ -32,6 +32,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import donationApi, { type FundCampaign, type Donation } from '../../../api/donationApi';
 import { residentApi, type Resident } from '../../../api/residentApi';
+import { API_BASE_URL } from '../../../api/axiosClient';
 import * as XLSX from 'xlsx';
 
 const formatCurrency = (value: number) => {
@@ -100,7 +101,7 @@ export default function FundDetail() {
             });
             // Reset image state
             setEditImageFile(null);
-            setEditImagePreview(c.image_path ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${c.image_path}` : null);
+            setEditImagePreview(c.image_path ? `${API_BASE_URL}${c.image_path}` : null);
         } catch (err: any) {
             setError(err.response?.data?.message || 'Không thể tải thông tin quỹ');
         } finally {
@@ -252,7 +253,7 @@ export default function FundDetail() {
                             {campaign.image_path && (
                                 <Box
                                     component="img"
-                                    src={`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${campaign.image_path}`}
+                                    src={`${API_BASE_URL}${campaign.image_path}`}
                                     alt={campaign.title}
                                     sx={{ width: '100%', maxHeight: 400, objectFit: 'cover', borderRadius: 2, mb: 2 }}
                                 />

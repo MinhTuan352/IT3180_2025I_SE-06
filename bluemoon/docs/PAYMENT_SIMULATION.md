@@ -117,6 +117,15 @@ Khi đưa hệ thống lên mạng (Deploy/Production), quy trình sẽ hoạt �
     *   Dev: Dùng `/api/donations/simulate` (để giả lập).
     *   Prod: Dùng `/api/payment/webhook` (để nhận tin báo tiền về thật từ ngân hàng).
 
+**Link Backend Production (Sử dụng lệnh này nếu muốn giả lập trên bản Deploy):**
+```bash
+curl -X POST "https://it3180-2025i-se-06.onrender.com/api/donations/simulate/MA_GIAO_DICH"
+```
+*Ví dụ:*
+```bash
+curl -X POST "https://it3180-2025i-se-06.onrender.com/api/donations/simulate/QG1767142858518"
+```
+
 **Tóm lại:** Lệnh `curl` chỉ là "đóng vai" ngân hàng để test lúc code thôi nhé!
 
 ---
